@@ -12,34 +12,35 @@
  *
  * Or
  *
- *      LockedData<std::vector> vector_locked;
- *      vector_locked.execute_atomic([&](auto& vector) {
- *          // do something special with the vector
- *      });
+ *  LockedData<std::vector> vector_locked;
+ *  vector_locked.execute_atomic([&](auto& vector) {
+ *      // do something special with the vector
+ *  });
  *
  * Or similar to the std::weak_ptr interface
  *
- *      LockedData<std::vector> vector_locked;
- *      {
- *          auto handle = vector_locked.lock();
- *          handle->interface_one();
- *          handle->interface_two();
- *          handle->interface_three();
- *      }
+ *  LockedData<std::vector> vector_locked;
+ *  {
+ *      auto handle = vector_locked.lock();
+ *      handle->interface_one();
+ *      handle->interface_two();
+ *      handle->interface_three();
+ *  }
  *
  * This of course should be extended to existing incorporate existing patterns
  * like monitors.  So something like the following should be supported
  *
- *      {
- *          auto handle = vector_locked.lock();
- *          while(some_condition()) {
- *              cv.wait(vector_locked.get_unique_lock());
- *          }
+ *  {
+ *      auto handle = vector_locked.lock();
+ *      while(some_condition()) {
+ *          cv.wait(vector_locked.get_unique_lock());
  *      }
+ *  }
  */
 
 #pragma once
 
+#include <tuple>
 #include <utility>
 #include <type_traits>
 #include <mutex>
@@ -86,23 +87,23 @@ public:
      * function are enforced by SFINAE
      *
      * @param func A function that accepts an argument of type Type&, this
-     *  object of type Type& will be the unwrapped element and not the
-     *  LockedData element.
-     * @return decltype(func(this->data)) returns an element of the same
-     *  return type as the functor that is supplied.
+     *             object of type Type& will be the unwrapped element and not
+     *             the LockedData element.
+     * @return returns the exact object that is returned by the function when
+     *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_atomic(Func func) -> decltype(func(this->data));
+    decltype(auto) atomic(Func func) -> decltype(func(this->data));
 
     /**
      * Same as execute_atomic but without acquiring the internal lock
      *
      * @param func a function that is used to access the internal object
      * @return returns the exact object that is returned by the function when
-     *  executed on the internal object
+     *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_unatomic(Func func) -> decltype(func(this->data));
+    decltype(auto) unatomic(Func func) -> decltype(func(this->data));
 
     /**
      * Forward declarations of lightweight proxy types that are used to
@@ -117,18 +118,31 @@ public:
      *
      * This should be updated to also return a proxy object that behaves as a
      * reference when the operator.() becomes standard.
+     *
+     * Note that this method has been overloaded on the basis of whether the
+     * object is const or not.  When the LockedData object is const in context
+     * then this function is called and when the object is mutable in context
+     * then the version above is called
      */
     UniqueLockedProxy lock();
 
     /**
      * A const version of the same lock above.  This helps to automate the
      * process of acquiring a read lock when the lock type provided is a
-     * readers-writer lock or some form of shared lock
+     * readers-writer lock or some form of shared lock.
+     *
+     * Note that this method has been overloaded on the basis of whether the
+     * object is const or not.  When the LockedData object is const in context
+     * then this function is called and when the object is mutable in context
+     * then the version above is called
      */
     ConstUniqueLockedProxy lock() const;
 
     /**
      * The usual constructors for the class
+     *
+     * Note that the internal mutex is not held here and therefore the
+     * constructors have the option of being noexcept
      */
     LockedData()
         noexcept(std::is_nothrow_default_constructible<Type>::value) = default;
@@ -145,8 +159,17 @@ public:
      * To use this form of construction, select dispatch with a
      * std::piecewise_construct_t object.  For example
      *
-     *      LockedData<Class> locked {
-     *          std::piecewise_construct, one, two, three};
+     *  LockedData<Class> locked {
+     *      std::piecewise_construct, one, two, three};
+     *
+     * Note that the internal mutex is not held here and therefore the
+     * constructors have the option of being noexcept
+     *
+     * @param piecewise_construct_t a tag that is used to clarify that the
+     * arguments are going to be forwarded to the constructor of the
+     * underlying object
+     * @param args... arguments to forward to the constructor of the stored
+     * object
      */
     template <typename... Args>
     explicit LockedData(std::piecewise_construct_t, Args&&... args)
@@ -154,10 +177,12 @@ public:
 
     /**
      * Copy assignment and move assignment operators
+     *
+     * Note that they are not declared noexcept because the locks have to be
+     * held when assigning a locked object.
      */
-    LockedData& operator=(LockedData& other)
-        noexcept(LockedData{std::declval<LockedData>{}});
-    LockedData& operator=(LockedData&& other);
+    LockedData& operator=(LockedData& other) /* noexcept */;
+    LockedData& operator=(LockedData&& other) /* noexcept */;
 };
 
 } // namespace sharp
