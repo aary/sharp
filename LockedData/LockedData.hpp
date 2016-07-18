@@ -50,37 +50,6 @@
 
 namespace sharp {
 
-/**
- * Defining some of the common template things that are needed
- */
-namespace detail {
-
-    /**
-     * @class Unqualified
-     *
-     * A template utility that removes all reference, const and volatile
-     * qualifiers from a type
-     */
-    template <typename Type>
-    class Unqualified {
-    public:
-        using type = typename std::remove_cv<
-            typename std::remove_reference<Type>::type>::type;
-    };
-
-    /**
-     * @alias Unqualified_t
-     *
-     * A templated typedef that returns an expression equivalent to the
-     * following
-     *
-     *      typename Unqualified<Type>::type;
-     */
-    template <typename Type>
-    using Unqualified_t = typename Unqualified<Type>::type;
-
-} // namespace detail
-
 template <typename Type, typename Mutex = std::mutex>
 class LockedData {
 public:
@@ -97,7 +66,7 @@ public:
      */
     template <typename Func>
     decltype(auto) execute_atomic(Func func)
-        -> decltype(func(std::declval<Type>()));
+        /* -> decltype(func(std::declval<Type>())) */;
 
     /**
      * Same as execute_atomic but without acquiring the internal lock.  Use
@@ -109,7 +78,7 @@ public:
      */
     template <typename Func>
     decltype(auto) execute_unatomic(Func func)
-        -> decltype(func(std::declval<Type>()));
+        /* -> decltype(func(std::declval<Type>())) */;
 
     /**
      * Forward declarations of lightweight proxy types that are used to
@@ -179,7 +148,7 @@ public:
      */
     template <typename... Args>
     explicit LockedData(std::piecewise_construct_t, Args&&... args)
-        noexcept(Type(std::forward<Args>(args...)));
+        noexcept(Type(std::forward<Args>(args)...));
 
     /**
      * Copy assignment and move assignment operators
@@ -200,7 +169,9 @@ private:
     /**
      * The internal mutex
      */
-    Mutex mtx;
+    mutable Mutex mtx;
 };
 
 } // namespace sharp
+
+#include "LockedData.ipp"
