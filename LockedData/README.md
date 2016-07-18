@@ -2,7 +2,7 @@
 ------------
 
 `LockedData` contains an abstraction that I implemented in my OS class that I
-find useful in multi threaded programming.  Essentially this library helps you
+find useful in concurrent programming.  Essentially this library helps you
 write concurrent code without having the need to maintain a separate mutex for
 every data object that is shared across multiple threads.  For example the
 following code could get complicated very fast
@@ -24,8 +24,9 @@ Instead you could have something like the following
     LockedData<std::unordered_map<int, int> information_map;
 ```
 
-With minimal to no loss of efficiency.  Of course this should be set to fit
-different concurrency patterns.  For example, it should be designed to be fit
-to use with monitors.
+With minimal to no loss of efficiency.  Of course this should be designed to
+fit different concurrency patterns.  For example, it should be designed to be
+usable when using monitors so the internal mutex is made available in those
+cases
 
 ### The interface
