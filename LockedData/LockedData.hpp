@@ -36,11 +36,14 @@
  *          cv.wait(vector_locked.get_unique_lock());
  *      }
  *  }
+ *
+ * This class gets maximal performance when the program is const correct.
+ * i.e. when the object is not meant to be written to then the implementation
+ * appropriately selects the right locking methodology.
  */
 
 #pragma once
 
-#include <tuple>
 #include <utility>
 #include <type_traits>
 #include <mutex>
@@ -97,7 +100,8 @@ public:
         -> decltype(func(std::declval<Type>()));
 
     /**
-     * Same as execute_atomic but without acquiring the internal lock
+     * Same as execute_atomic but without acquiring the internal lock.  Use
+     * with caution.
      *
      * @param func a function that is used to access the internal object
      * @return returns the exact object that is returned by the function when
@@ -185,6 +189,18 @@ public:
      */
     LockedData& operator=(LockedData& other) /* noexcept */;
     LockedData& operator=(LockedData&& other) /* noexcept */;
+
+private:
+
+    /**
+     * The data object that is to be locked
+     */
+    Type datum;
+
+    /**
+     * The internal mutex
+     */
+    Mutex mtx;
 };
 
 } // namespace sharp
