@@ -93,7 +93,8 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) atomic(Func func) -> decltype(func(this->data));
+    decltype(auto) execute_atomic(Func func)
+        -> decltype(func(std::declval<Type>()));
 
     /**
      * Same as execute_atomic but without acquiring the internal lock
@@ -103,7 +104,8 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) unatomic(Func func) -> decltype(func(this->data));
+    decltype(auto) execute_unatomic(Func func)
+        -> decltype(func(std::declval<Type>()));
 
     /**
      * Forward declarations of lightweight proxy types that are used to
