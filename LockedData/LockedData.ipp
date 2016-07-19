@@ -14,29 +14,6 @@ namespace sharp {
 namespace detail {
 
 /**
- * @class Unqualified
- *
- * A template utility that removes all reference, const and volatile
- * qualifiers from a type
- */
-template <typename Type>
-struct Unqualified {
-    using type = typename std::remove_cv<
-        typename std::remove_reference<Type>::type>::type;
-};
-
-/**
- * @alias Unqualified_t
- *
- * A templated typedef that returns an expression equivalent to the
- * following
- *
- *      typename Unqualified<Type>::type;
- */
-template <typename Type>
-using Unqualified_t = typename Unqualified<Type>::type;
-
-/**
  * Tags to determine which locking policy is considered.
  *
  * ReadLockTag inherits from WriteLockTag because if the implementation gets a
@@ -68,13 +45,17 @@ struct ReadLockTag : public WriteLockTag {};
  *
  * Note that the function is not called lock() on purpose to disambiguate it
  * from the C++ standard library lock()
+ *
+ * Also note that this function has a SFINAE disabler which will help in
+ * selecting the right dispatch when a mutex that does not support
+ * lock_shared() is used
  */
 template <typename Mutex,
           typename = std::enable_if_t<std::is_same<
             decltype(std::declval<Mutex>().lock_shared()), void>::value>>
-void lock_mutex(typename std::add_lvalue_reference<Mutex>::type,
+void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
                 const ReadLockTag& = ReadLockTag{}) {
-    std::cout << "read locking the mutex" << std::endl;
+    mtx.lock_shared();
 }
 
 /*
@@ -84,15 +65,11 @@ void lock_mutex(typename std::add_lvalue_reference<Mutex>::type,
  *
  * Note that the function is not called lock on purpose to disambiguate it
  * from the c++ standard library lock()
- *
- * Also note that this function has a SFINAE disabler which will help in
- * selecting the right dispatch when a mutex that does not support
- * lock_shared() is used
  */
 template <typename Mutex>
-void lock_mutex(typename std::add_lvalue_reference<Mutex>::type,
+void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
                 const WriteLockTag& = WriteLockTag{}) {
-    std::cout << "write locking the mutex" << std::endl;
+    mtx.lock();
 }
 
 /**
@@ -101,7 +78,9 @@ void lock_mutex(typename std::add_lvalue_reference<Mutex>::type,
  * exclusive locking are supported.
  */
 template <typename Mutex>
-void unlock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx);
+void unlock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx) {
+    mtx.unlock();
+}
 
 } // namespace detail
 
@@ -123,7 +102,49 @@ void unlock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx);
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::UniqueLockedProxy {};
+class LockedData<Type, Mutex>::UniqueLockedProxy {
+public:
+
+    /**
+     * locks the inner mutex by passing in a WriteLockTag
+     */
+    explicit UniqueLockedProxy(Type& object, Mutex& mtx_in) :
+        mtx{mtx_in}, handle{object} {
+        lock_mutex(this->mtx, detail::WriteLockTag{});
+    }
+
+    /**
+     * Unlocks the inner mutex
+     */
+    ~UniqueLockedProxy() {
+        unlock_mutex(this->mtx);
+    }
+
+    /**
+     * returns a pointer to the type of the object stored under the hood
+     */
+    Type* operator->() {
+        return &this->datum;
+    }
+
+    /**
+     * returns a reference to the inner object
+     */
+    Type& operator*() {
+        return *this->handle;
+    }
+
+private:
+    /**
+     * The handle to the type stored in the LockedData object
+     */
+    Type& handle;
+
+    /**
+     * the inner mutex that locks the data
+     */
+    Mutex& mtx;
+};
 
 /**
  * @class ConstUniqueLockedProxy A proxy class for LockedData that automates
@@ -144,6 +165,50 @@ class LockedData<Type, Mutex>::UniqueLockedProxy {};
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::ConstUniqueLockedProxy {};
+class LockedData<Type, Mutex>::ConstUniqueLockedProxy {
+public:
+
+    /**
+     * locks the inner mutex by passing in a ReadLockTag, read the
+     * documentation for what happens when the mutex does not support
+     * lock_shared()
+     */
+    explicit ConstUniqueLockedProxy(Type& object, Mutex& mtx_in) :
+        mtx{mtx_in}, handle{object} {
+        lock_mutex(this->mtx, detail::ReadLockTag{});
+    }
+
+    /**
+     * Unlocks the inner mutex
+     */
+    ~ConstUniqueLockedProxy() {
+        unlock_mutex(this->mtx);
+    }
+
+    /**
+     * returns a pointer to the type of the object stored under the hood
+     */
+    Type* operator->() {
+        return &this->datum;
+    }
+
+    /**
+     * returns a reference to the inner object
+     */
+    Type& operator*() {
+        return *this->handle;
+    }
+
+private:
+    /**
+     * The handle to the type stored in the LockedData object
+     */
+    Type& handle;
+
+    /**
+     * the inner mutex that locks the data
+     */
+    Mutex& mtx;
+};
 
 } // namespace sharp
