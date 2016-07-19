@@ -179,10 +179,19 @@ public:
     }
 
     /**
-     * Unlocks the inner mutex
+     * Unlocks the inner mutex on destruction, not declared noexcept because
+     * the internal mutex does not have any throw specifications.
+     *
+     * If the unlock function for the mutex does throw then it should be
+     * caught here and `std::terminate` or `assert(("message", true)) should
+     * be called to ungracefully exit the program.
      */
     ~ConstUniqueLockedProxy() {
-        unlock_mutex(this->mtx);
+        try {
+            unlock_mutex(this->mtx);
+        } catch (...) {
+            std::terminate();
+        }
     }
 
     /**
