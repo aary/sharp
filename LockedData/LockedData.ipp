@@ -2,6 +2,7 @@
 
 #include "LockedData.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
@@ -53,7 +54,7 @@ struct ReadLockTag : public WriteLockTag {};
 template <typename Mutex,
           typename = std::enable_if_t<std::is_same<
             decltype(std::declval<Mutex>().lock_shared()), void>::value>>
-void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
+void lock_mutex(Mutex& mtx,
                 const ReadLockTag& = ReadLockTag{}) {
     mtx.lock_shared();
 }
@@ -67,7 +68,7 @@ void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
  * from the c++ standard library lock()
  */
 template <typename Mutex>
-void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
+void lock_mutex(Mutex& mtx,
                 const WriteLockTag& = WriteLockTag{}) {
     mtx.lock();
 }
@@ -78,12 +79,82 @@ void lock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx,
  * exclusive locking are supported.
  */
 template <typename Mutex>
-void unlock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx) {
+void unlock_mutex(Mutex& mtx) {
     mtx.unlock();
 }
 
 } // namespace detail
 
+
+/**
+ * @class UniqueLockedProxyBase A base class for the proxy classes that are
+ *                              used to access the underlying object in
+ *                              LockedData
+ *
+ * The type LockTag should correspond to the different tags defined above that
+ * are used to enable and disable different locking policies.
+ *
+ * The common methods shared by the two classes will be the destructor, the
+ * data elements, the operator-> and operator* so there will be no extra
+ * overhead because of virtual dispatch.  All methods will be made non
+ * virtual.
+ */
+template <typename Type, typename Mutex, typename LockTag>
+class UniqueLockedProxyBase {
+public:
+
+    /**
+     * locks the inner mutex by passing in a ReadLockTag, read the
+     * documentation for what happens when the mutex does not support
+     * lock_shared()
+     */
+    explicit UniqueLockedProxyBase(Type& object, Mutex& mtx_in) :
+            mtx{mtx_in}, handle{object} {
+        detail::lock_mutex(this->mtx, LockTag{});
+    }
+
+    /**
+     * Unlocks the inner mutex, this function is written to handle the case
+     * when the unlock function throws (which it really shouldn't in correct
+     * code.  But in that case an assert in the below code fails.  If asserts
+     * are not available on the given machine or are disabled because of some
+     * build configeration (like they are in MSVS *I think*)
+     */
+    ~UniqueLockedProxyBase() {
+        try {
+            detail::unlock_mutex(this->mtx);
+        } catch (...) {
+            std::terminate();
+        }
+    }
+
+    /**
+     * returns a pointer to the type of the object stored under the hood, this
+     * handle should be protected and it's implementation should not be
+     * exposed at all
+     */
+    Type* operator->() {
+        return &this->handle;
+    }
+
+    /**
+     * returns a reference to the internal handle that this proxy is
+     * responsible for locking
+     */
+    Type& operator*() {
+        return this->handle;
+    }
+
+    /**
+     * The handle to the type stored in the LockedData object and the mutex
+     * that is used to lock the handle.
+     *
+     * Note that the type of handle (i.e. Type) might be const qualified in
+     * the case of ConstUniqueLockedProxy
+     */
+    Mutex& mtx;
+    Type& handle;
+};
 
 /**
  * @class UniqueLockedProxy A proxy class for the internal representation of
@@ -102,48 +173,17 @@ void unlock_mutex(typename std::add_lvalue_reference<Mutex>::type mtx) {
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::UniqueLockedProxy {
+class LockedData<Type, Mutex>::UniqueLockedProxy :
+    public UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
 public:
 
     /**
-     * locks the inner mutex by passing in a WriteLockTag
+     * The default construct does nothing else other than call the base class
+     * constructor
      */
-    explicit UniqueLockedProxy(Type& object, Mutex& mtx_in) :
-        mtx{mtx_in}, handle{object} {
-        lock_mutex(this->mtx, detail::WriteLockTag{});
-    }
-
-    /**
-     * Unlocks the inner mutex
-     */
-    ~UniqueLockedProxy() {
-        unlock_mutex(this->mtx);
-    }
-
-    /**
-     * returns a pointer to the type of the object stored under the hood
-     */
-    Type* operator->() {
-        return &this->datum;
-    }
-
-    /**
-     * returns a reference to the inner object
-     */
-    Type& operator*() {
-        return *this->handle;
-    }
-
-private:
-    /**
-     * The handle to the type stored in the LockedData object
-     */
-    Type& handle;
-
-    /**
-     * the inner mutex that locks the data
-     */
-    Mutex& mtx;
+    UniqueLockedProxy(Type& object, Mutex& mtx)
+        : UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>(
+                object, mtx) {}
 };
 
 /**
@@ -165,59 +205,18 @@ private:
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::ConstUniqueLockedProxy {
+class LockedData<Type, Mutex>::ConstUniqueLockedProxy :
+    public UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag> {
 public:
 
     /**
-     * locks the inner mutex by passing in a ReadLockTag, read the
-     * documentation for what happens when the mutex does not support
-     * lock_shared()
+     * The default construct does nothing else other than call the base class
+     * constructor
      */
-    explicit ConstUniqueLockedProxy(Type& object, Mutex& mtx_in) :
-        mtx{mtx_in}, handle{object} {
-        lock_mutex(this->mtx, detail::ReadLockTag{});
-    }
-
-    /**
-     * Unlocks the inner mutex on destruction, not declared noexcept because
-     * the internal mutex does not have any throw specifications.
-     *
-     * If the unlock function for the mutex does throw then it should be
-     * caught here and `std::terminate` or `assert(("message", true)) should
-     * be called to ungracefully exit the program.
-     */
-    ~ConstUniqueLockedProxy() {
-        try {
-            unlock_mutex(this->mtx);
-        } catch (...) {
-            std::terminate();
-        }
-    }
-
-    /**
-     * returns a pointer to the type of the object stored under the hood
-     */
-    Type* operator->() {
-        return &this->datum;
-    }
-
-    /**
-     * returns a reference to the inner object
-     */
-    Type& operator*() {
-        return *this->handle;
-    }
-
-private:
-    /**
-     * The handle to the type stored in the LockedData object
-     */
-    Type& handle;
-
-    /**
-     * the inner mutex that locks the data
-     */
-    Mutex& mtx;
+    ConstUniqueLockedProxy(const Type& object, Mutex& mtx)
+        : UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>(
+                object, mtx) {}
 };
+
 
 } // namespace sharp

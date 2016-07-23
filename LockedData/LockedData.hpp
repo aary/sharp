@@ -4,7 +4,7 @@
  *
  * This module contains a simple abstraction that halps in maintaining data that
  * is meant to be shared across different threads in a more elegant way than
- * maintaining an object along with its mutex
+ * maintaining an object along with its mutex.
  *
  *  * Originally written for EECS 482 @ The University of Michigan *
  *
@@ -119,8 +119,7 @@ public:
      * Note that the internal mutex is not held here and therefore the
      * constructors have the option of being noexcept
      */
-    LockedData()
-        noexcept(std::is_nothrow_default_constructible<Type>::value) = default;
+    LockedData() = default;
     LockedData(const LockedData& other)
         noexcept(std::is_nothrow_copy_constructible<Type>::value);
     LockedData(LockedData&& other)
