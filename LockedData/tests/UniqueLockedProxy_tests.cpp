@@ -25,7 +25,7 @@ int main() {
     __attribute__((unused)) auto object = 1;
     assert(fake_mutex.locked_state == FakeMutex::LockedState::UNLOCKED);
     {
-        LockedData<int, FakeMutex>::UniqueLockedProxy proxy{object,
+        auto proxy = LockedData<int, FakeMutex>::UniqueLockedProxy{object,
             fake_mutex};
         assert(fake_mutex.locked_state == FakeMutex::LockedState::LOCKED);
         assert(proxy.operator->() == &object);
@@ -33,4 +33,18 @@ int main() {
         assert(&(*proxy) == &object);
     }
     assert(fake_mutex.locked_state == FakeMutex::LockedState::UNLOCKED);
+
+    // const unique locked proxy shuold read lock the lock
+    assert(fake_mutex.locked_state == FakeMutex::LockedState::UNLOCKED);
+    {
+        auto proxy = LockedData<int, FakeMutex>::ConstUniqueLockedProxy{object,
+            fake_mutex};
+        assert(fake_mutex.locked_state == FakeMutex::LockedState::SHARED);
+        assert(proxy.operator->() == &object);
+        assert(*proxy == 1);
+        assert(&(*proxy) == &object);
+    }
+    assert(fake_mutex.locked_state == FakeMutex::LockedState::UNLOCKED);
+
+    return 0;
 }
