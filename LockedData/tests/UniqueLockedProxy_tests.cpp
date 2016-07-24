@@ -1,24 +1,7 @@
 #include "LockedData.hpp"
+#include "FakeMutex.hpp"
 using namespace std;
 using namespace sharp;
-
-class FakeMutex {
-public:
-    enum class LockedState : int {LOCKED, SHARED, UNLOCKED};
-    FakeMutex() : locked_state{LockedState::UNLOCKED} {}
-
-    void lock() {
-        this->locked_state = LockedState::LOCKED;
-    }
-    void unlock() {
-        this->locked_state = LockedState::UNLOCKED;
-    }
-    void lock_shared() {
-        this->locked_state = LockedState::SHARED;
-    }
-
-    LockedState locked_state;
-};
 
 int main() {
     auto fake_mutex = FakeMutex{};
