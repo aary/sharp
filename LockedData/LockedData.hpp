@@ -68,16 +68,16 @@ public:
     decltype(auto) execute_atomic(Func func)
         /* -> decltype(func(std::declval<Type>())) */;
 
-    /**
-     * Same as execute_atomic but without acquiring the internal lock.  Use
-     * with caution.
+    /* Const version of the same function that locks the object via acquiring
+     * a read lock if the type of mutex passed in supports shared locking
      *
-     * @param func a function that is used to access the internal object
+     * @param func A function that accepts a reference to an object of type
+     *             Type
      * @return returns the exact object that is returned by the function when
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_unatomic(Func func)
+    decltype(auto) execute_atomic(Func func) const
         /* -> decltype(func(std::declval<Type>())) */;
 
     /**

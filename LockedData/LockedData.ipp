@@ -83,9 +83,6 @@ void unlock_mutex(Mutex& mtx) {
     mtx.unlock();
 }
 
-} // namespace detail
-
-
 /**
  * @class UniqueLockedProxyBase A base class for the proxy classes that are
  *                              used to access the underlying object in
@@ -109,12 +106,12 @@ public:
      * lock_shared()
      */
     explicit UniqueLockedProxyBase(Type& object, Mutex& mtx_in) :
-            mtx{mtx_in}, handle{object} {
+            datum{object}, mtx{mtx_in} {
         detail::lock_mutex(this->mtx, LockTag{});
     }
 
     /**
-     * Unlocks the inner mutex, this function is written to handle the case
+     * Unlocks the inner mutex, this function is written to datum the case
      * when the unlock function throws (which it really shouldn't in correct
      * code.  But in that case an assert in the below code fails.  If asserts
      * are not available on the given machine or are disabled because of some
@@ -122,7 +119,7 @@ public:
      */
     ~UniqueLockedProxyBase() {
         try {
-            detail::unlock_mutex(this->mtx);
+            unlock_mutex(this->mtx);
         } catch (...) {
             std::terminate();
         }
@@ -130,31 +127,34 @@ public:
 
     /**
      * returns a pointer to the type of the object stored under the hood, this
-     * handle should be protected and it's implementation should not be
+     * datum should be protected and it's implementation should not be
      * exposed at all
      */
     Type* operator->() {
-        return &this->handle;
+        return &this->datum;
     }
 
     /**
-     * returns a reference to the internal handle that this proxy is
+     * returns a reference to the internal datum that this proxy is
      * responsible for locking
      */
     Type& operator*() {
-        return this->handle;
+        return this->datum;
     }
 
     /**
-     * The handle to the type stored in the LockedData object and the mutex
-     * that is used to lock the handle.
+     * The datum to the type stored in the LockedData object and the mutex
+     * that is used to lock the datum.
      *
-     * Note that the type of handle (i.e. Type) might be const qualified in
+     * Note that the type of datum (i.e. Type) might be const qualified in
      * the case of ConstUniqueLockedProxy
      */
+    Type& datum;
     Mutex& mtx;
-    Type& handle;
 };
+
+} // namespace detail
+
 
 /**
  * @class UniqueLockedProxy A proxy class for the internal representation of
@@ -174,7 +174,7 @@ public:
  */
 template <typename Type, typename Mutex>
 class LockedData<Type, Mutex>::UniqueLockedProxy :
-    public UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
+    public detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
 public:
 
     /**
@@ -182,7 +182,7 @@ public:
      * constructor
      */
     UniqueLockedProxy(Type& object, Mutex& mtx)
-        : UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>(
+        : detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>(
                 object, mtx) {}
 };
 
@@ -206,7 +206,8 @@ public:
  */
 template <typename Type, typename Mutex>
 class LockedData<Type, Mutex>::ConstUniqueLockedProxy :
-    public UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag> {
+    public detail::UniqueLockedProxyBase<const Type, Mutex,
+        detail::ReadLockTag> {
 public:
 
     /**
@@ -214,9 +215,42 @@ public:
      * constructor
      */
     ConstUniqueLockedProxy(const Type& object, Mutex& mtx)
-        : UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>(
+        : detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>(
                 object, mtx) {}
 };
 
+template <typename Type, typename Mutex>
+template <typename Func>
+decltype(auto) LockedData::execute_atomic(Func func) {
+
+    // acquire the locked exclusively by constructing an object of type
+    // UniqueLockedProxy
+    auto locker = UniqueLockedProxy{this->datum, this->mtx};
+
+    // execute the function on the object and return the result, the lock gets
+    // released after the return statement.  Note that in the case of absense
+    // of mandatory copy elision the result will still be well formed when
+    // used with patterns like read, copy, update.  Since the result if a
+    // value will be copied into well.  i.e. the return function will finish
+    // and then the lock will be released.
+    return func(this->datum);
+}
+
+template <typename Type, typename Mutex>
+template <typename Func>
+decltype(auto) LockedData::execute_atomic(Func func) const {
+
+    // acquire the locked exclusively by constructing an object of type
+    // UniqueLockedProxy
+    auto locker = ConstUniqueLockedProxy{this->datum, this->mtx};
+
+    // execute the function on the object and return the result, the lock gets
+    // released after the return statement.  Note that in the case of absense
+    // of mandatory copy elision the result will still be well formed when
+    // used with patterns like read, copy, update.  Since the result if a
+    // value will be copied into well.  i.e. the return function will finish
+    // and then the lock will be released.
+    return func(this->datum);
+}
 
 } // namespace sharp
