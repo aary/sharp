@@ -169,6 +169,9 @@ private:
      * The internal mutex
      */
     mutable Mutex mtx;
+
+    /* Friend for testing */
+    friend class LockedDataTests;
 };
 
 } // namespace sharp

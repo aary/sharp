@@ -215,13 +215,13 @@ public:
      * constructor
      */
     ConstUniqueLockedProxy(const Type& object, Mutex& mtx)
-        : detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>(
-                object, mtx) {}
+        : detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>
+            (object, mtx) {}
 };
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData::execute_atomic(Func func) {
+decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -238,7 +238,7 @@ decltype(auto) LockedData::execute_atomic(Func func) {
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData::execute_atomic(Func func) const {
+decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) const {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
