@@ -77,4 +77,18 @@ const initializer_list_contruct_t initializer_list_contruct;
 class variadic_construct_t {};
 const variadic_construct_t variadic_construct;
 
+/**
+ * @class delegate_constructor_t
+ *
+ * A tag used for RAII based constructor decoration.  This technique can be
+ * described as executing code before and after initialization of a class's
+ * contained members.  Since the only methods and functions that are allowed
+ * to be called before element initialization in a constructor are other
+ * constructors this tag can be used to explicitly show that another
+ * constructor is being used just to show that code is executing before
+ * initialization
+ */
+class delegate_constructor_t {};
+const delegate_constructor_t delegate_constructor;
+
 } // namespace sharp
