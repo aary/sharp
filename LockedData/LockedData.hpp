@@ -27,9 +27,7 @@ namespace sharp {
  * Or
  *
  *  LockedData<std::vector> vector_locked;
- *  vector_locked.execute_atomic([&](auto& vector) {
- *      // do something special with the vector
- *  });
+ *  auto& ele = vector_locked.execute_atomic([&](auto& v) { return v[0]; });
  *
  * Or similar to the std::weak_ptr interface
  *
@@ -51,9 +49,9 @@ namespace sharp {
  *      }
  *  }
  *
- * This class gets maximal performance when the program is const correct.
- * i.e. when the object is not meant to be written to then the implementation
- * appropriately selects the right locking methodology.
+ * This class provides for maximal performance when the program is const
+ * correct.  i.e.  when the object is not meant to be written to then the
+ * implementation appropriately selects the right locking methodology.
  */
 template <typename Type, typename Mutex = std::mutex>
 class LockedData {
