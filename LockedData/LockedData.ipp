@@ -105,10 +105,38 @@ public:
      * documentation for what happens when the mutex does not support
      * lock_shared()
      */
-    explicit UniqueLockedProxyBase(Type& object, Mutex& mtx_in) :
-            datum{object}, mtx{mtx_in} {
+    explicit UniqueLockedProxyBase(Type& object, Mutex& mtx_in)
+            : datum{object}, mtx{mtx_in}, owns_mutex{true} {
         detail::lock_mutex(this->mtx, LockTag{});
     }
+
+    /**
+     * Move constructs a locked proxy object from another.  The main reason
+     * for this is such that the following construct can exist in C++11 and
+     * C++14 programs
+     *
+     *  auto proxy = locked_object.lock();
+     *
+     * Although this is not a move in most compiled code the elision will not
+     * happen since without this move constructor the code will not compile
+     *
+     * In C++17 this problem is slightly mitigated because there will be
+     * mandatory elision here.
+     */
+    UniqueLockedProxyBase(UniqueLockedProxyBase&& other)
+            : datum{other.datum}, mtx{other.mtx}, owns_mutex{true} {
+        other.owns_mutex = false;
+    }
+
+    /**
+     * Disable the copy constructor and assignment operators because it does
+     * not really make much sense to have it enabled here.  The proxy objects
+     * are just meant to be handles and are not supposed to have the full
+     * functionality of regular objects.
+     */
+    UniqueLockedProxyBase(const UniqueLockedProxyBase&) = delete;
+    UniqueLockedProxyBase& operator=(const UniqueLockedProxyBase&) = delete;
+    UniqueLockedProxyBase& operator=(UniqueLockedProxyBase&&) = delete;
 
     /**
      * Unlocks the inner mutex, this function is written to datum the case
@@ -119,7 +147,9 @@ public:
      */
     ~UniqueLockedProxyBase() {
         try {
-            unlock_mutex(this->mtx);
+            if (this->owns_mutex) {
+                unlock_mutex(this->mtx);
+            }
         } catch (...) {
             std::terminate();
         }
@@ -151,6 +181,13 @@ public:
      */
     Type& datum;
     Mutex& mtx;
+
+    /**
+     * Whether the object owns the mutex or not.  In the case where the object
+     * is going to be moved into another then only the object that has been
+     * move constructed is going to release the mutex.
+     */
+    bool owns_mutex;
 };
 
 } // namespace detail
@@ -252,5 +289,23 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) const {
     // and then the lock will be released.
     return func(this->datum);
 }
+
+template <typename Type, typename Mutex>
+typename LockedData<Type, Mutex>::UniqueLockedProxy
+LockedData<Type, Mutex>::lock() {
+    return LockedData<Type, Mutex>::UniqueLockedProxy {this->datum, this->mtx};
+}
+
+template <typename Type, typename Mutex>
+typename LockedData<Type, Mutex>::ConstUniqueLockedProxy
+LockedData<Type, Mutex>::lock() const {
+    return LockedData<Type, Mutex>::ConstUniqueLockedProxy{this->datum,
+        this->mtx};
+}
+
+// TODO implement
+// template <typename Type, typename Mutex>
+// LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other) {
+// }
 
 } // namespace sharp

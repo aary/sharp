@@ -2,11 +2,25 @@
  * @file LockedData.hpp
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
- * This module contains a simple abstraction that halps in maintaining data that
- * is meant to be shared across different threads in a more elegant way than
- * maintaining an object along with its mutex.
+ * This module contains a simple abstraction that halps in maintaining data
+ * that is meant to be shared across different threads in a more elegant way
+ * than maintaining an object along with its mutex.
  *
  *  * Originally written for EECS 482 @ The University of Michigan *
+ *
+ * See the class description documentation for simple use case examples.
+ */
+
+#pragma once
+
+#include <utility>
+#include <type_traits>
+#include <mutex>
+
+namespace sharp {
+
+/**
+ * @class LockedData
  *
  * Simple critical sections
  *
@@ -41,22 +55,20 @@
  * i.e. when the object is not meant to be written to then the implementation
  * appropriately selects the right locking methodology.
  */
-
-#pragma once
-
-#include <utility>
-#include <type_traits>
-#include <mutex>
-
-namespace sharp {
-
 template <typename Type, typename Mutex = std::mutex>
 class LockedData {
 public:
 
     /**
      * Synchronized function that accepts a function.  The requirements for a
-     * function are enforced by SFINAE
+     * function are enforced by SFINAE.
+     *
+     * The return value is perfectly forwarded to the called by means of the
+     * decltype(auto) return type.
+     *
+     * Note that the single rare case where this does not happen in the case
+     * of `decltype((x))` where the `(x)` neccesitates decltype to return a
+     * reference type has been avoided here in the implementation.
      *
      * @param func A function that accepts an argument of type Type&, this
      *             object of type Type& will be the unwrapped element and not
@@ -159,6 +171,22 @@ public:
     LockedData& operator=(LockedData&& other) /* noexcept */;
 
 private:
+
+    /**
+     * Used in constructors to perform some action before and after the
+     * construction of the datum.  In this case this is used in constructors
+     * to directly initialize the datum while holding the lock before and
+     * releasing it after the construction is done
+     *
+     * The delegate constructor tag is used for clarity
+     *
+     * Action represents a struct that performs some action on construction
+     * and releases it on destruction
+     *
+     * TODO implement
+     */
+    // template <typename Action, typename... Args>
+    // explicit LockedData(delegate_constructor_t, Action, Args&&...);
 
     /**
      * The data object that is to be locked
