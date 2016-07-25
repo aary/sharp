@@ -19,7 +19,7 @@ needed.  Only 2 things need to be kept in mind while compiling
   fully qualified path relative from inside the `sharp/` directory.  So for
   example
 
-    `#include "Tags/Tags.hpp"
+    `#include "Tags/Tags.hpp"`
 
   And any compilation command should include the root `sharp` directory in the
   included directories to be searched for headers with the `-I` compiler flag
