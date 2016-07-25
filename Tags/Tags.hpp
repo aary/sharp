@@ -91,4 +91,18 @@ const variadic_construct_t variadic_construct;
 class delegate_constructor_t {};
 const delegate_constructor_t delegate_constructor;
 
+/**
+ * @class implementation_t
+ *
+ * A tag used to seperate the handle from the actual underlying
+ * implementation.  This is more versatile than actually disambiguating
+ * between handle and implementation by virtue of different but related names
+ * primarily because it allows usage in more situations, for example template
+ * specialization and constructor delegation.  For usage with constructors
+ * this can be considered a part of the idiom described with
+ * delegate_constructor_t
+ */
+class implementation_t {};
+const implementation_t implementation;
+
 } // namespace sharp
