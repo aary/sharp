@@ -6,18 +6,18 @@
 
 class FakeMutex {
 public:
-    enum class LockedState : int {LOCKED, SHARED, UNLOCKED};
-    FakeMutex() : locked_state{LockedState::UNLOCKED} {}
+    enum class LockState : int {LOCKED, SHARED, UNLOCKED};
+    FakeMutex() : lock_state{LockState::UNLOCKED} {}
 
     void lock() {
-        this->locked_state = LockedState::LOCKED;
+        this->lock_state = LockState::LOCKED;
     }
     void unlock() {
-        this->locked_state = LockedState::UNLOCKED;
+        this->lock_state = LockState::UNLOCKED;
     }
     void lock_shared() {
-        this->locked_state = LockedState::SHARED;
+        this->lock_state = LockState::SHARED;
     }
 
-    LockedState locked_state;
+    LockState lock_state;
 };
