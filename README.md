@@ -18,14 +18,14 @@ needed.  Only 2 things need to be kept in mind while compiling
 * Any library within the `sharp` library should be included by providing its
   fully qualified path relative from inside the `sharp/` directory.  So for
   example
-  ```Cpp
-  #include "Tags/Tags.hpp"
-  ```
+
+    `#include "Tags/Tags.hpp"
+
   And any compilation command should include the root `sharp` directory in the
   included directories to be searched for headers with the `-I` compiler flag
   like so
-  ```
-  g++ -std=c++14 -I ../sharp
-  ```
+
+    `g++ -std=c++14 -I ../sharp`
+
   Assuming that the `sharp` folder is in the directory one level up from the
   current working directory.
