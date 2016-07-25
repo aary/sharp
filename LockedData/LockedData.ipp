@@ -1,6 +1,7 @@
 #pragma once
 
-#include "LockedData.hpp"
+#include "LockedData/LockedData.hpp"
+#include "LockedData/tests/FakeMutex.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -303,9 +304,26 @@ LockedData<Type, Mutex>::lock() const {
         this->mtx};
 }
 
-// TODO implement
-// template <typename Type, typename Mutex>
-// LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other) {
-// }
+/**
+ * RAII based constructor decoration, the constructor, its delegate and the
+ * implementation, the three get chained every time the first is called.
+ */
+template <typename Type, typename Mutex>
+LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
+        : LockedData<Type, Mutex>{delegate_constructor, other.lock(), other} {}
+
+template <typename Type, typename Mutex>
+template <typename Action, typename... Args>
+LockedData<Type, Mutex>::LockedData(delegate_constructor_t, Action,
+        Args&&... args) : LockedData<Type, Mutex>{implementation,
+    std::forward<Args>(args)...} {}
+
+template <typename Type, typename Mutex>
+LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
+        : datum{other.datum}, mtx{other.mtx} {
+#if defined(TEST)
+    assert(other.mtx.lock_state == FakeMutex::LockState::SHARED);
+#endif
+}
 
 } // namespace sharp

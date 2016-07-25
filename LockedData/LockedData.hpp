@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "Tags/Tags.hpp"
+
 #include <utility>
 #include <type_traits>
 #include <mutex>
@@ -130,8 +132,7 @@ public:
      * constructors have the option of being noexcept
      */
     LockedData() = default;
-    LockedData(const LockedData& other)
-        noexcept(std::is_nothrow_copy_constructible<Type>::value);
+    LockedData(const LockedData& other);
     LockedData(LockedData&& other)
         noexcept(std::is_nothrow_move_constructible<Type>::value);
 
@@ -180,11 +181,10 @@ private:
      *
      * Action represents a struct that performs some action on construction
      * and releases it on destruction
-     *
-     * TODO implement
      */
-    // template <typename Action, typename... Args>
-    // explicit LockedData(delegate_constructor_t, Action, Args&&...);
+    template <typename Action, typename... Args>
+    explicit LockedData(sharp::delegate_constructor_t, Action, Args&&...);
+    explicit LockedData(sharp::implementation_t, const LockedData&);
 
     /**
      * The data object that is to be locked
