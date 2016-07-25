@@ -29,3 +29,5 @@ needed.  Only 2 things need to be kept in mind while compiling
 
   Assuming that the `sharp` folder is in the directory one level up from the
   current working directory.
+
+If any issues are found please open an issue on Github.
