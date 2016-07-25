@@ -52,8 +52,8 @@ namespace sharp {
  * Note that const objects have internal linkage so they do not introduce
  * linker errors when multiple cpp files include this header file.
  */
-class initializer_list_contruct_t {};
-const initializer_list_contruct_t initializer_list_contruct;
+struct initializer_list_contruct_t {};
+constexpr initializer_list_contruct_t initializer_list_contruct{};
 
 /**
  * @class variadic_construct_t
@@ -74,8 +74,8 @@ const initializer_list_contruct_t initializer_list_contruct;
  * straight to the inner element stored in the other class, in this case
  * SimulatedAggregate
  */
-class variadic_construct_t {};
-const variadic_construct_t variadic_construct;
+struct variadic_construct_t {};
+constexpr variadic_construct_t variadic_construct{};
 
 /**
  * @class delegate_constructor_t
@@ -88,8 +88,8 @@ const variadic_construct_t variadic_construct;
  * constructor is being used just to show that code is executing before
  * initialization
  */
-class delegate_constructor_t {};
-const delegate_constructor_t delegate_constructor;
+struct delegate_constructor_t {};
+constexpr delegate_constructor_t delegate_constructor{};
 
 /**
  * @class implementation_t
@@ -102,7 +102,7 @@ const delegate_constructor_t delegate_constructor;
  * this can be considered a part of the idiom described with
  * delegate_constructor_t
  */
-class implementation_t {};
-const implementation_t implementation;
+struct implementation_t {};
+constexpr implementation_t implementation{};
 
 } // namespace sharp
