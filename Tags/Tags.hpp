@@ -55,4 +55,26 @@ namespace sharp {
 class initializer_list_contruct_t {};
 const initializer_list_contruct_t initializer_list_contruct;
 
+/**
+ * @class variadic_construct_t
+ *
+ * Tag used to disambiguate construction with variadic arguments.  This is
+ * especially useful in simple wrappers which simulate functionality of
+ * aggregates.
+ *
+ * For example
+ *
+ *  template <typename Type>
+ *  class SimulatedAggregate { ... };
+ *
+ *  SimulatedAggregate<Complex> object{variadic_construct,
+ *      std::forward<Args>(args)...};
+ *
+ * This can be used to show that the arguments are going to be forwarded
+ * straight to the inner element stored in the other class, in this case
+ * SimulatedAggregate
+ */
+class variadic_construct_t {};
+const variadic_construct_t variadic_construct;
+
 } // namespace sharp
