@@ -8,7 +8,7 @@ implemented in my free time.
 
 All the components included in this library will work right out of the box
 with no external dependencies like boost.  Only the C++ standard library is
-needed.  Only 2 things need to be kept in mind while compiling
+needed.  However the following should be followed when compiling code
 
 * Compilation with C++14 or above is a strict requirement.
 
