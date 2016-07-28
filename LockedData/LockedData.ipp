@@ -10,7 +10,6 @@
 #include <utility>
 #include <type_traits>
 
-
 namespace sharp {
 
 namespace detail {
@@ -259,7 +258,7 @@ public:
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) {
+decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -276,7 +275,7 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) {
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func func) const {
+decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) const {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -354,5 +353,37 @@ LockedData<Type, Mutex>::LockedData(sharp::variadic_construct_t,
         Args&&... args) noexcept(Type(std::forward<Args>(args)...))
     : datum(std::forward<Args>(args)...)
 {}
+
+/**
+ * Implementation for the copy assignment operator.
+ *
+ * The algorithm used to lock the mutexes is simple.  Lock the one that comes
+ * earlier in memory first and then lock the other.
+ */
+template <typename Type, typename Mutex>
+LockedData<Type, Mutex>& LockedData<Type, Mutex>::operator=(
+        const LockedData& other) {
+
+    // check which one comes first in memory
+    if (reinterpret_cast<uintptr_t>(&other.mtx) <
+            reinterpret_cast<uintptr_t>(&this->mtx)) {
+
+        // lock the two RAII style
+        auto other_locked_proxy = other.lock();
+        auto this_locked_proxy = this->lock();
+
+        // now do the assignment
+        this->datum = other.datum;
+
+    } else /* if this mutex comes first */ {
+
+        // lock in reverse order
+        auto this_locked_proxy = this->lock();
+        auto other_locked_proxy = other.lock();
+
+        // do the assignment
+        this->datum = other.datum;
+    }
+}
 
 } // namespace sharp

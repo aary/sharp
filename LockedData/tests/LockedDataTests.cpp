@@ -81,12 +81,12 @@ public:
 
     static void test_lock_const() {
         const LockedData<int, FakeMutex> locked{};
-        auto pointer_to_object = reinterpret_cast<intptr_t>(&locked.datum);
+        auto pointer_to_object = reinterpret_cast<uintptr_t>(&locked.datum);
         assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = locked.lock();
             assert(locked.mtx.lock_state == FakeMutex::LockState::SHARED);
-            assert(reinterpret_cast<intptr_t>(&proxy.datum)
+            assert(reinterpret_cast<uintptr_t>(&proxy.datum)
                     == pointer_to_object);
         }
         assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);

@@ -54,6 +54,10 @@ namespace sharp {
  * This class provides for maximal performance when the program is const
  * correct.  i.e.  when the object is not meant to be written to then the
  * implementation appropriately selects the right locking methodology.
+ *
+ * Note that this class is not moveable.  If you want move semantics, because
+ * for example you are including objects of this class in a map, then just put
+ * it in a unique_ptr and put that pointer in the map.
  */
 template <typename Type, typename Mutex = std::mutex>
 class LockedData {
@@ -77,8 +81,8 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_atomic(Func func)
-        /* -> decltype(func(std::declval<Type>())) */;
+    decltype(auto) execute_atomic(Func&&)
+        /* -> decltype(std::declval<Func>(std::declval<Type>())) */;
 
     /* Const version of the same function that locks the object via acquiring
      * a read lock if the type of mutex passed in supports shared locking
@@ -89,8 +93,8 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_atomic(Func func) const
-        /* -> decltype(func(std::declval<Type>())) */;
+    decltype(auto) execute_atomic(Func&&) const
+        /* -> decltype(std::declval<Func>()(std::declval<Type>())) */;
 
     /**
      * Forward declarations of lightweight proxy types that are used to
@@ -142,7 +146,7 @@ public:
      *
      * @param other the other locked data object that is to be copied
      */
-    LockedData(const LockedData& other);
+    LockedData(const LockedData&);
 
 
     /**
@@ -150,7 +154,7 @@ public:
      * used.  The inner mutex is not going to be moved.  Wrapping it in a
      * unique_ptr would cause loss of performance and is unacceptable here
      */
-    LockedData(LockedData&& other) = delete;
+    LockedData(LockedData&&) = delete;
 
     /**
      * This constructor is present to allow simulation of an aggregate type by
@@ -173,17 +177,22 @@ public:
      * object
      */
     template <typename... Args>
-    explicit LockedData(sharp::variadic_construct_t, Args&&... args)
+    explicit LockedData(sharp::variadic_construct_t, Args&&...args)
         noexcept(noexcept(Type(std::forward<Args>(args)...)));
 
     /**
-     * Copy assignment and move assignment operators
+     * Copy assignment operator
      *
-     * Note that they are not declared noexcept because the locks have to be
+     * Note that this is not declared noexcept because the locks have to be
      * held when assigning a locked object.
      */
-    LockedData& operator=(LockedData& other) /* noexcept */;
-    LockedData& operator=(LockedData&& other) /* noexcept */;
+    LockedData& operator=(const LockedData&) /* noexcept */;
+
+    /**
+     * Deleted the move assignment operator becauase I saw no reason to
+     * include it.  This should not be moved across threads?
+     */
+    LockedData& operator=(LockedData&& other) = delete;
 
 private:
 
