@@ -1,9 +1,22 @@
 #include "LockedData.hpp"
 #include "FakeMutex.hpp"
+#include "sharp/Tags/Tags.hpp"
 #include <cassert>
 using namespace sharp;
 
 namespace sharp {
+
+// declare a class that counts the number of times it has been
+// instantiated
+class InPlace {
+public:
+    static int instance_counter;
+    explicit InPlace(int) {
+        ++InPlace::instance_counter;
+    }
+};
+int InPlace::instance_counter = 0;
+
 class LockedDataTests {
 public:
     static void test_unique_locked_proxy() {
@@ -83,6 +96,16 @@ public:
         LockedData<int, FakeMutex> object{};
         LockedData<int, FakeMutex> copy{object};
     }
+
+    static void test_in_place_construction() {
+
+        // construct a lockeddata object in place
+        __attribute__((unused)) LockedData<InPlace> locked_data{
+            sharp::variadic_construct, static_cast<int>(1)};
+
+        // assert that only one instance was created
+        assert(InPlace::instance_counter == 1);
+    }
 };
 }
 
@@ -93,5 +116,6 @@ int main() {
     LockedDataTests::test_lock();
     LockedDataTests::test_lock_const();
     LockedDataTests::test_copy_constructor();
+    LockedDataTests::test_in_place_construction();
     return 0;
 }
