@@ -305,6 +305,22 @@ LockedData<Type, Mutex>::lock() const {
 }
 
 /**
+ * RAII based constructor decoration implementation.
+ *
+ * This function accepts an action that is used to perform some action before
+ * the constructor implementation is ran and clean up afterwards.  The before
+ * and cleanup are done through construction and destruction of the Action
+ * object.
+ */
+template <typename Type, typename Mutex>
+template <typename Action, typename... Args>
+LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor_t, Action,
+        Args&&... args) : LockedData<Type, Mutex>{implementation,
+    std::forward<Args>(args)...} {}
+
+/**
+ * Copy constructor and its implementation
+ *
  * RAII based constructor decoration, the constructor, its delegate and the
  * implementation, the three get chained every time the first is called.
  */
@@ -313,17 +329,16 @@ LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
         : LockedData<Type, Mutex>{delegate_constructor, other.lock(), other} {}
 
 template <typename Type, typename Mutex>
-template <typename Action, typename... Args>
-LockedData<Type, Mutex>::LockedData(delegate_constructor_t, Action,
-        Args&&... args) : LockedData<Type, Mutex>{implementation,
-    std::forward<Args>(args)...} {}
-
-template <typename Type, typename Mutex>
 LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
-        : datum{other.datum}, mtx{other.mtx} {
+        : datum{other.datum} /* do not copy mutex */ {
 #if defined(TEST)
     assert(other.mtx.lock_state == FakeMutex::LockState::SHARED);
 #endif
 }
+
+
+/**
+ * Move constructor
+ */
 
 } // namespace sharp

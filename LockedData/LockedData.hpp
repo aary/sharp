@@ -126,15 +126,24 @@ public:
     ConstUniqueLockedProxy lock() const;
 
     /**
-     * The usual constructors for the class
-     *
-     * Note that the internal mutex is not held here and therefore the
-     * constructors have the option of being noexcept
+     * The usual constructors for the class.  This is set to the default
+     * constructor for the class.
      */
     LockedData() = default;
+
+    /**
+     * Copy constructor.
+     *
+     * Note that the internal mutex is held here and therefore the
+     * constructors dont have the option of being noexcept.
+     *
+     * Also note that this *does not* do any copying from the mutex.  The
+     * mutex is left in its default constructed state.
+     *
+     * @param other the other locked data object that is to be copied
+     */
     LockedData(const LockedData& other);
-    LockedData(LockedData&& other)
-        noexcept(std::is_nothrow_move_constructible<Type>::value);
+    LockedData(LockedData&& other);
 
     /**
      * This constructor is present to allow simulation of an aggregate type by
@@ -184,6 +193,10 @@ private:
      */
     template <typename Action, typename... Args>
     explicit LockedData(sharp::delegate_constructor_t, Action, Args&&...);
+
+    /**
+     * Implementation of the copy constructor for the class
+     */
     explicit LockedData(sharp::implementation_t, const LockedData&);
 
     /**
