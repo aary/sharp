@@ -5,7 +5,7 @@ CXXFLAGS = -std=c++14 -Wall -Werror -Wextra -pedantic -Wvla -O3
 # Test flags
 CXXTESTFLAGS = -DTEST
 # Link to libraries
-LIBRARIES = -I ../
+LIBRARIES = -I ../../
 
 # run tests
 tests:
