@@ -143,7 +143,14 @@ public:
      * @param other the other locked data object that is to be copied
      */
     LockedData(const LockedData& other);
-    LockedData(LockedData&& other);
+
+
+    /**
+     * Move constructor has been deleted because it probably should not be
+     * used.  The inner mutex is not going to be moved.  Wrapping it in a
+     * unique_ptr would cause loss of performance and is unacceptable here
+     */
+    LockedData(LockedData&& other) = delete;
 
     /**
      * This constructor is present to allow simulation of an aggregate type by
