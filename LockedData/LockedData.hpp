@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "Tags/Tags.hpp"
+#include "sharp/Tags/Tags.hpp"
 
 #include <utility>
 #include <type_traits>
@@ -174,7 +174,7 @@ public:
      */
     template <typename... Args>
     explicit LockedData(sharp::variadic_construct_t, Args&&... args)
-        noexcept(Type(std::forward<Args>(args)...));
+        noexcept(noexcept(Type(std::forward<Args>(args)...)));
 
     /**
      * Copy assignment and move assignment operators
