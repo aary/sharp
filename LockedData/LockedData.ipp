@@ -384,6 +384,8 @@ LockedData<Type, Mutex>& LockedData<Type, Mutex>::operator=(
         // do the assignment
         this->datum = other.datum;
     }
+
+    return *this;
 }
 
 } // namespace sharp
