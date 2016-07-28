@@ -9,13 +9,13 @@ public:
     enum class LockState : int {LOCKED, SHARED, UNLOCKED};
     FakeMutex() : lock_state{LockState::UNLOCKED} {}
 
-    void lock() {
+    virtual void lock() {
         this->lock_state = LockState::LOCKED;
     }
-    void unlock() {
+    virtual void unlock() {
         this->lock_state = LockState::UNLOCKED;
     }
-    void lock_shared() {
+    virtual void lock_shared() {
         this->lock_state = LockState::SHARED;
     }
 

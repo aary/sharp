@@ -1,5 +1,5 @@
-#include "LockedData.hpp"
-#include "FakeMutex.hpp"
+#include "sharp/LockedData/LockedData.hpp"
+#include "sharp/LockedData/tests/FakeMutex.hpp"
 #include "sharp/Tags/Tags.hpp"
 #include <cassert>
 using namespace sharp;
@@ -16,6 +16,42 @@ public:
     }
 };
 int InPlace::instance_counter = 0;
+
+
+/**
+ * This mutex class ensures that the mutex that was initialized first (another
+ * invariant being that the one initialized first is also before in memory)
+ * gets locked first when the assignment operator is called
+ *
+ * This is used by test LockedDataTests::test_assignment_operator
+ */
+static int current_track{0};
+class FakeMutexTrack : public FakeMutex {
+public:
+    FakeMutexTrack() : FakeMutex{} {
+        this->a = current_track++;
+    }
+
+    virtual void lock() override {
+        this->FakeMutex::lock();
+        assert(current_track == this->a);
+        ++current_track;
+    }
+
+    virtual void unlock() override {
+        this->FakeMutex::unlock();
+        assert(current_track == (this->a + 1));
+        --current_track;
+    }
+
+    virtual void lock_shared() override {
+        this->FakeMutex::lock_shared();
+        assert(current_track == this->a);
+        ++current_track;
+    }
+
+    int a;
+};
 
 class LockedDataTests {
 public:
@@ -106,6 +142,34 @@ public:
         // assert that only one instance was created
         assert(InPlace::instance_counter == 1);
     }
+
+    static void test_assignment_operator() {
+
+        LockedData<int, FakeMutexTrack> l1;
+        LockedData<int, FakeMutexTrack> l2;
+
+        if (reinterpret_cast<uintptr_t>(&l1)
+                < reinterpret_cast<uintptr_t>(&l2)) {
+            l1 = l2;
+            l2 = l1;
+        }
+        else {
+
+            // this is platform dependent so in the case where declaring two
+            // variables one after the other makes the first one get
+            // initialized to later in memory this code will declare
+            // initialize them in the reverse order.  If they were constructed
+            // with l2 going first in memory then reconstruct them to get the
+            // counter initialized right
+            current_track = 0;
+            new (&l2) decltype(l2)();
+            new (&l1) decltype(l2)();
+
+            current_track = 0;
+            l1 = l2;
+            l2 = l1;
+        }
+    }
 };
 }
 
@@ -117,5 +181,6 @@ int main() {
     LockedDataTests::test_lock_const();
     LockedDataTests::test_copy_constructor();
     LockedDataTests::test_in_place_construction();
+    LockedDataTests::test_assignment_operator();
     return 0;
 }
