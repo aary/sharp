@@ -50,6 +50,12 @@ public:
         ++current_track;
     }
 
+    virtual void unlock_shared() override {
+        this->FakeMutex::unlock_shared();
+        assert(current_track == (this->a + 1));
+        --current_track;
+    }
+
     int a;
 };
 
