@@ -74,12 +74,38 @@ void lock_mutex(Mutex& mtx,
 }
 
 /**
- * Non member unlock function that accepts a mutex by reference and locks it
- * based on its locking functions.  Currently only shared locking and
- * exclusive locking are supported.
+ * Non member function that accepts a mutex by reference and unlocks it based
+ * on whether it has an unlock_shared member function.  If the LockedData
+ * class wants to unlock a shared lock then it passes in a read lock tag that
+ * notifies this function that the mutex was locked in read mode.  If the
+ * mutex type does not have an unlock_shared method then the following
+ * function is disabled via SFINAE.
+ *
+ * The strategy followed by the LockedData class is that it passes in a read
+ * lock tag to the lock and/or unlock methods when it wants to lock and/or
+ * unlock the mutex from a shared state.  If the mutex supports those when
+ * well and good.  The read lock tag used by the LockedData class will bind
+ * here first since its a stronger fit than the other with a write lock tag.
+ * If however the mutex does not support shared locking and unlocking the
+ * following is going to be disabled via SFINAE.
+ */
+template <typename Mutex,
+          typename = std::enable_if_t<std::is_same<
+            decltype(std::declval<Mutex>().unlock_shared()), void>::value>>
+void unlock_mutex(Mutex& mtx,
+                  const ReadLockTag& = ReadLockTag{}) {
+    mtx.unlock_shared();
+}
+
+/**
+ * Non member unlock function that accepts a mutex by reference.  Accepts the
+ * mutex by reference and unlocks it based on the tag it got.  This function
+ * should be called when a write lock tag is passed in indicating that the
+ * unlock must be from an exclusive state.
  */
 template <typename Mutex>
-void unlock_mutex(Mutex& mtx) {
+void unlock_mutex(Mutex& mtx,
+                  const WriteLockTag& = WriteLockTag{}) {
     mtx.unlock();
 }
 
@@ -148,7 +174,7 @@ public:
     ~UniqueLockedProxyBase() {
         try {
             if (this->owns_mutex) {
-                unlock_mutex(this->mtx);
+                unlock_mutex(this->mtx, LockTag{});
             }
         } catch (...) {
             std::terminate();
