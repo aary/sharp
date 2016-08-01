@@ -28,26 +28,50 @@ namespace sharp {
 /**
  * @class initializer_list_contruct_t
  *
- * Tag used to disambiguate the ambiguity introduced by std::initializer_list
- * and the uniform initialization syntax.  One can think they are one and the
- * same.  Now that the syntax has been standardized and has been included in
- * three consecutive standard changes (C++11, C++14 and C++17) it seems
- * unlikely that this ambiguity is going to be fixed.  So this is a simple
- * construct that helps in disambiguating the use of std::initializer_list in
- * constructors.  This can be helpful in template code where it is not clear
- * what sequence of elements comprise of a valid constructor call for the
- * container object.
+ * The original version of the tag to disambiguate inistializer list
+ * construction that also made it to Facebook's open source C++ library folly.
  *
- * For example
+ * This tag deals with the ambiguity introduced by std::initializer_list and
+ * the uniform initialization syntax.  Now that the syntax has been
+ * standardized and has been included in three consecutive standard changes
+ * (C++11, C++14 and C++17) it seems unlikely that this ambiguity is going to
+ * be fixed.  So this is a simple construct that helps in disambiguating the
+ * use of std::initializer_list in constructors.  This can also be helpful in
+ * template code where it is not clear what sequence of elements comprise of a
+ * valid constructor call for the container object.
  *
- *  Example example{initializer_list_contruct, {1, 2, 3, 4, 5}};
+ * The following is a good example and makes a strong case for why this tag
+ * should be enforced
  *
- * Here the Example class can be defined like follows
- *
- *  class Example {
+ *  class Something {
  *  public:
- *      Example(initializer_list_contruct_t, std::initializer_list<int>)
+ *    explicit Something(int);
+ *    Something(std::intiializer_list<int>);
+ *
+ *    operator int();
  *  };
+ *
+ *  ...
+ *  Something something{1}; // SURPRISE!!
+ *
+ * The last call to instantiate the Something object will go to the
+ * initializer_list overload.  Which may be surprising to users.
+ *
+ * If however this tag was used to disambiguate such construction it would be
+ * easy for users to see which construction overload their code was referring
+ * to.  For example
+ *
+ *  class Something {
+ *  public:
+ *    explicit Something(int);
+ *    Something(folly::initlist_construct_t, std::initializer_list<int>);
+ *
+ *    operator int();
+ *  };
+ *
+ *  ...
+ *  Something something_one{1}; // not the initializer_list overload
+ *  Something something_two{folly::initlist_construct, {1}}; // correct
  *
  * Note that const objects have internal linkage so they do not introduce
  * linker errors when multiple cpp files include this header file.
