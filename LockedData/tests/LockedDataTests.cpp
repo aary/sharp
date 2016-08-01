@@ -100,14 +100,11 @@ public:
     static void test_execute_atomic_const() {
         LockedData<double, FakeMutex> locked;
         [](const auto& locked) {
-            assert(locked.mtx.lock_state ==
-                    FakeMutex::LockState::UNLOCKED);
+            assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
             locked.execute_atomic([&](auto&) {
-                assert(locked.mtx.lock_state ==
-                    FakeMutex::LockState::SHARED);
+                assert(locked.mtx.lock_state == FakeMutex::LockState::SHARED);
             });
-            assert(locked.mtx.lock_state ==
-                    FakeMutex::LockState::UNLOCKED);
+            assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
         }(locked);
     }
 
