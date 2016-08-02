@@ -31,6 +31,9 @@ namespace sharp {
  * The original version of the tag to disambiguate inistializer list
  * construction that also made it to Facebook's open source C++ library folly.
  *
+ * See here
+ * https://github.com/facebook/folly/commit/912d191d9848c1918480614dc602003a842b8bb1
+ *
  * This tag deals with the ambiguity introduced by std::initializer_list and
  * the uniform initialization syntax.  Now that the syntax has been
  * standardized and has been included in three consecutive standard changes
