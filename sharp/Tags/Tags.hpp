@@ -12,7 +12,7 @@
  *
  *  class Example {
  *  public:
- *      Example(initializer_construct_t, std::initializer_list<int>)
+ *      Example(initializer_list_construct_t, std::initializer_list<int>)
  *  };
  *
  * So it is clear that the initializer list constructor is being called.  This
@@ -26,7 +26,7 @@
 namespace sharp {
 
 /**
- * @class initializer_construct_t
+ * @class initializer_list_construct_t
  *
  * The original version of the tag to disambiguate inistializer list
  * construction that also made it to Facebook's open source C++ library folly.
@@ -79,8 +79,8 @@ namespace sharp {
  * Note that const objects have internal linkage so they do not introduce
  * linker errors when multiple cpp files include this header file.
  */
-struct initializer_construct_t {};
-constexpr initializer_construct_t initializer_list_contruct{};
+struct initializer_list_construct_t {};
+constexpr initializer_list_construct_t initializer_list_contruct{};
 
 /**
  * @class variadic_construct_t
