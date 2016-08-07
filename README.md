@@ -6,7 +6,7 @@ implemented in my free time.
 
 ### Building
 
-The libraries in this project support building with Buck.  To install buck run
+The libraries in this project support building with [Buck](https://buckbuild.com).  To install buck run
 the following
 
 ```
