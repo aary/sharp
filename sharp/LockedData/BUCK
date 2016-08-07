@@ -12,13 +12,3 @@ cxx_library(
         "PUBLIC",
     ],
 )
-
-cxx_binary(
-    name = "test",
-    srcs = [
-        "test.cpp",
-    ],
-    deps = [
-        ":LockedData",
-    ],
-)
