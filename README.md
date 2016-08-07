@@ -6,38 +6,27 @@ implemented in my free time.
 
 ### Building
 
-All the components included in this library will work right out of the box
-with no external dependencies like boost.  Only the C++ standard library is
-needed.  However the following should be followed when compiling code
+The libraries in this project support building with Buck.  To install buck run
+the following
 
-* Compilation with C++14 or above is a strict requirement.
+```
+brew update
+brew tap facebook/fb
+brew install buck
+```
 
-* There are some header only files in this library.  To work with them
-  simply include the `.hpp` file in your code.  For others there may be `.cpp`
-  as a part of the library.  These may have to be compiled into `.a` files
-  that should be linked with the rest of your code.  To do so, go into the
-  root `sharp` folder and type in the following to build all the components of
-  the library
+This repository is arranged in the form of a buck project for ease of
+demonstration.  To compile and run an example project run the following
 
-    `make all`
+```
+buck run example
+```
 
-  This will place a `.a` file in the root `sharp` directory that should then
-  be linked with your code like so
+This should compile and run the example `.cpp` file included in the `example/`
+folder.
 
-    `g++ -std=c++14 yourmain.cpp sharp/sharplib.a`
-
-* Any library within the `sharp` library should be included by providing its
-  fully qualified path relative from the folder that contains `sharp/`
-  directory.  So for example
-
-    `#include "sharp/Tags/Tags.hpp"`
-
-  And any compilation command should include the folder that contains the
-  `sharp` directory in the included directories to be searched for headers
-  with the `-I` compiler flag like so
-
-    `g++ -std=c++14 -I ./`
-
-  Assuming that the `sharp` folder is in the current working directory.
+To use this library in another buck project just move the `sharp` folder into
+the root of the other project write a `BUCK` file similar to that in the
+`example` folder and build with `buck build`
 
 If any issues are found please open an issue on Github.
