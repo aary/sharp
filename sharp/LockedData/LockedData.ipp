@@ -1,7 +1,6 @@
 #pragma once
 
 #include "sharp/LockedData/LockedData.hpp"
-#include "sharp/LockedData/tests/FakeMutex.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -358,9 +357,6 @@ LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
 template <typename Type, typename Mutex>
 LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
         : datum{other.datum} /* do not copy mutex */ {
-#if defined(TEST)
-    assert(other.mtx.lock_state == FakeMutex::LockState::SHARED);
-#endif
 }
 
 

@@ -1,10 +1,36 @@
 #include "sharp/LockedData/LockedData.hpp"
-#include "sharp/LockedData/tests/FakeMutex.hpp"
 #include "sharp/Tags/Tags.hpp"
 #include <cassert>
+#include <gtest/gtest.h>
 using namespace sharp;
 
 namespace sharp {
+
+class FakeMutex {
+public:
+    enum class LockState : int {LOCKED, SHARED, UNLOCKED};
+    FakeMutex() : lock_state{LockState::UNLOCKED} {}
+
+    virtual void lock() {
+        assert(this->lock_state == LockState::UNLOCKED);
+        this->lock_state = LockState::LOCKED;
+    }
+    virtual void unlock() {
+        assert(this->lock_state == LockState::LOCKED);
+        this->lock_state = LockState::UNLOCKED;
+    }
+    virtual void lock_shared() {
+        assert(this->lock_state == LockState::UNLOCKED);
+        this->lock_state = LockState::SHARED;
+    }
+    virtual void unlock_shared() {
+        assert(this->lock_state == LockState::SHARED);
+        this->lock_state = LockState::UNLOCKED;
+    }
+
+    LockState lock_state;
+};
+
 
 // declare a class that counts the number of times it has been
 // instantiated
@@ -174,16 +200,38 @@ public:
         }
     }
 };
+
+} // namespace sharp
+
+TEST(LockedData, test_unique_locked_proxy) {
+    LockedDataTests::test_unique_locked_proxy();
 }
 
-int main() {
-    LockedDataTests::test_unique_locked_proxy();
+TEST(LockedData, test_execute_atomic_non_const) {
     LockedDataTests::test_execute_atomic_non_const();
-    LockedDataTests::test_execute_atomic_const();
-    LockedDataTests::test_lock();
-    LockedDataTests::test_lock_const();
-    LockedDataTests::test_copy_constructor();
-    LockedDataTests::test_in_place_construction();
-    LockedDataTests::test_assignment_operator();
-    return 0;
 }
+
+TEST(LockedData, test_execute_atomic_const) {
+    LockedDataTests::test_execute_atomic_const();
+}
+
+TEST(LockedData, test_lock) {
+    LockedDataTests::test_lock();
+}
+
+TEST(LockedData, test_lock_const) {
+    LockedDataTests::test_lock_const();
+}
+
+TEST(LockedData, test_copy_constructor) {
+    LockedDataTests::test_copy_constructor();
+}
+
+TEST(LockedData, test_in_place_construction) {
+    LockedDataTests::test_in_place_construction();
+}
+
+TEST(LockedData, test_assignment_operator) {
+    LockedDataTests::test_assignment_operator();
+}
+
