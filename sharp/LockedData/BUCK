@@ -1,0 +1,13 @@
+cxx_library(
+    name = "LockedData",
+    headers = [
+        "LockedData.ipp",
+    ],
+    exported_headers = [
+        "LockedData.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
