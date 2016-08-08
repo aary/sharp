@@ -148,7 +148,6 @@ public:
      */
     LockedData(const LockedData&);
 
-
     /**
      * Move constructor has been deleted because it probably should not be
      * used.  The inner mutex is not going to be moved.  Wrapping it in a

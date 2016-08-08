@@ -1,10 +1,11 @@
 `sharp`
 -------
 
-This repository contains code for some of the libraries that I have
-implemented in my free time.
+This repository contains code for some C++ libraries that I have implemented
+in my free time.
 
 ### Building
+
 The libraries in this project support building with
 [Buck](https://buckbuild.com).  To install buck run the following
 
@@ -15,14 +16,14 @@ brew install buck
 ```
 
 This repository is arranged in the form of a buck project for ease of
-demonstration.  To compile and run an example project run the following
+demonstration.  The `example/` directory includes a simple `.cpp` file that
+uses this library.  To see the output run the following
 
 ```
 buck run example
 ```
 
-This should compile and run the example `.cpp` file included in the `example/`
-folder.
+This should compile and run the `.cpp` file in the `example/` folder.
 
 To use this library in another buck project just move the `sharp` folder into
 the root of the other project write a `BUCK` file similar to that in the
@@ -31,15 +32,16 @@ the root of the other project write a `BUCK` file similar to that in the
 If any issues are found please open an issue on Github.
 
 ### Running unit tests
+
 [Google test](https://github.com/google/googletest) needs to be present in the
 sharp folder to run the unit tests.  It has been included as a git submodule
-in this repository.  So run the following to install it
+in this repository.  Run the following to install gtest within this project
 ```
 git submodule update --init --recursive
 ```
 
-The unit tests for each submodule are in the `test` folder in the each
-submodule like so
+The unit tests for each module are in the `test` folder in the each submodule
+like so
 
 ```
 ├── LockedData
