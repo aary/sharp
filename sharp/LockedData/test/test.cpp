@@ -166,7 +166,7 @@ public:
 
         // construct a lockeddata object in place
         __attribute__((unused)) LockedData<InPlace> locked_data{
-            sharp::variadic_construct, static_cast<int>(1)};
+            sharp::emplace_construct, static_cast<int>(1)};
 
         // assert that only one instance was created
         assert(InPlace::instance_counter == 1);

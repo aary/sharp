@@ -161,22 +161,22 @@ public:
      * of the data object.
      *
      * To use this form of construction, select dispatch with a
-     * sharp::variadic_construct_t object.  For example
+     * sharp::emplace_construct_t object.  For example
      *
      *  LockedData<Class> locked {
-     *      std::variadic_construct_t, one, two, three};
+     *      std::emplace_construct_t, one, two, three};
      *
      * Note that the internal mutex is not held here and therefore the
      * constructors have the option of being noexcept
      *
-     * @param variadic_construct_t a tag that is used to clarify that the
+     * @param emplace_construct_t a tag that is used to clarify that the
      * arguments are going to be forwarded to the constructor of the
      * underlying object
      * @param args... arguments to forward to the constructor of the stored
      * object
      */
     template <typename... Args>
-    explicit LockedData(sharp::variadic_construct_t, Args&&...args)
+    explicit LockedData(sharp::emplace_construct_t, Args&&...args)
         noexcept(noexcept(Type(std::forward<Args>(args)...)));
 
     /**

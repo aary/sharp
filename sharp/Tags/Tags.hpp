@@ -83,7 +83,7 @@ struct initializer_list_construct_t {};
 constexpr initializer_list_construct_t initializer_list_contruct{};
 
 /**
- * @class variadic_construct_t
+ * @class emplace_construct_t
  *
  * Tag used to disambiguate construction with variadic arguments.  This is
  * especially useful in simple wrappers which simulate functionality of
@@ -94,15 +94,15 @@ constexpr initializer_list_construct_t initializer_list_contruct{};
  *  template <typename Type>
  *  class SimulatedAggregate { ... };
  *
- *  SimulatedAggregate<Complex> object{variadic_construct,
+ *  SimulatedAggregate<Complex> object{emplace_construct,
  *      std::forward<Args>(args)...};
  *
  * This can be used to show that the arguments are going to be forwarded
  * straight to the inner element stored in the other class, in this case
  * SimulatedAggregate
  */
-struct variadic_construct_t {};
-constexpr variadic_construct_t variadic_construct{};
+struct emplace_construct_t {};
+constexpr emplace_construct_t emplace_construct{};
 
 /**
  * @class delegate_constructor_t

@@ -367,11 +367,11 @@ LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
  * have called the constructor for the datum via the usual construction syntax
  * to avoid initializer list crap with the uniform initialization syntax.
  * Although this module itself is completely free from all that via the
- * variadic_construct_t tag.  Also see sharp/Tags.
+ * emplace_construct_t tag.  Also see sharp/Tags.
  */
 template <typename Type, typename Mutex>
 template <typename... Args>
-LockedData<Type, Mutex>::LockedData(sharp::variadic_construct_t,
+LockedData<Type, Mutex>::LockedData(sharp::emplace_construct_t,
         Args&&... args) noexcept(Type(std::forward<Args>(args)...))
     : datum(std::forward<Args>(args)...)
 {}
