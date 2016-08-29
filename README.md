@@ -35,9 +35,14 @@ If any issues are found please open an issue on Github.
 
 [Google test](https://github.com/google/googletest) needs to be present in the
 sharp folder to run the unit tests.  It has been included as a git submodule
-in this repository.  Run the following to install gtest within this project
+in this repository.  Run the following to install `gtest` within this project
 ```
 git submodule update --init --recursive
+```
+
+Run all unit tests with `buck` by running
+```
+buck test
 ```
 
 The unit tests for each module are in the `test` folder in the each submodule
@@ -54,5 +59,6 @@ like so
 │       ├── test.cpp
 ```
 
-To run the unit tests for the `LockedData` module run
-`buck test //sharp/LockedData/test`.
+To run the unit tests individually for a module run
+`buck test //sharp/<module_name>/test`.  For example to run unit tests for the
+`LockedData` module run `buck test //sharp/LockedData/test`
