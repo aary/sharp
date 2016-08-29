@@ -40,7 +40,7 @@ in this repository.  Run the following to install `gtest` within this project
 git submodule update --init --recursive
 ```
 
-Run all unit tests with `buck` by running
+Once `gtest` has been installed run all unit tests with `buck`
 ```
 buck test
 ```
