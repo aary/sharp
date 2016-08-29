@@ -55,7 +55,10 @@ namespace sharp {
  *  };
  *
  *  ...
- *  Something something{1}; // SURPRISE!!
+ *
+ *  // SURPRISE!
+ *  Something something{1};
+ *  Soemthing something_else{something};
  *
  * The last call to instantiate the Something object will go to the
  * initializer_list overload.  Which may be surprising to users.
