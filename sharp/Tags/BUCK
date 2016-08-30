@@ -1,4 +1,3 @@
-# The gtest library to use for buck test
 cxx_library(
     name = "Tags",
     exported_headers = [
