@@ -49,7 +49,7 @@ TEST(TagsTest, TestEachDefinedTag) {
 
 template <typename Tag>
 static void test_which_tag_for_tag() {
-    assert(which_tag<Tag>(Tag::tag) == TagType::NORMAL);
-    assert(which_tag<Tag>(Tag::template tag<int>) == TagType::TYPE);
-    assert(which_tag<Tag>(Tag::template tag<1>) == TagType::INTEGRAL);
+    EXPECT_EQ(which_tag<Tag>(Tag::tag), TagType::NORMAL);
+    EXPECT_EQ(which_tag<Tag>(Tag::template tag<int>), TagType::TYPE);
+    EXPECT_EQ(which_tag<Tag>(Tag::template tag<1>), TagType::INTEGRAL);
 }
