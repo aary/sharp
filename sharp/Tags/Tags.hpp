@@ -26,8 +26,8 @@
 namespace sharp {
 
 /**
- * A generic tag type that can be used conveniently by the called in
- * generalized tag settings.  For example the user may want to pass in a tag
+ * A generic tag type that can be used conveniently to create a new
+ * generalized tag instance.  For example the user may want to pass in a tag
  * with a given type, for example
  *
  *  sharp::Variant<string, int, double> var {
