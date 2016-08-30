@@ -357,8 +357,8 @@ LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
 template <typename Type, typename Mutex>
 LockedData<Type, Mutex>::LockedData(implementation::tag_t,
         const LockedData& other)
-    : datum{other.datum} /* do not copy mutex */ {
-}
+    : datum{other.datum} /* do not copy mutex */
+{}
 
 
 /**
