@@ -176,7 +176,7 @@ public:
      * object
      */
     template <typename... Args>
-    explicit LockedData(sharp::emplace_construct_t, Args&&...args)
+    explicit LockedData(sharp::emplace_construct::tag_t, Args&&...args)
         noexcept(noexcept(Type(std::forward<Args>(args)...)));
 
     /**
@@ -207,12 +207,12 @@ private:
      * and releases it on destruction
      */
     template <typename Action, typename... Args>
-    explicit LockedData(sharp::delegate_constructor_t, Action, Args&&...);
+    explicit LockedData(sharp::delegate_constructor::tag_t, Action, Args&&...);
 
     /**
      * Implementation of the copy constructor for the class
      */
-    explicit LockedData(sharp::implementation_t, const LockedData&);
+    explicit LockedData(sharp::implementation::tag_t, const LockedData&);
 
     /**
      * The data object that is to be locked

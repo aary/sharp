@@ -338,9 +338,9 @@ LockedData<Type, Mutex>::lock() const {
  */
 template <typename Type, typename Mutex>
 template <typename Action, typename... Args>
-LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor_t, Action,
-        Args&&... args) : LockedData<Type, Mutex>{implementation,
-    std::forward<Args>(args)...}
+LockedData<Type, Mutex>::LockedData(delegate_constructor::tag_t, Action,
+        Args&&... args) : LockedData<Type, Mutex>{
+    implementation::tag, std::forward<Args>(args)...}
 {}
 
 /**
@@ -351,12 +351,13 @@ LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor_t, Action,
  */
 template <typename Type, typename Mutex>
 LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
-        : LockedData<Type, Mutex>{delegate_constructor, other.lock(), other}
+    : LockedData<Type, Mutex>{delegate_constructor::tag, other.lock(), other}
 {}
 
 template <typename Type, typename Mutex>
-LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
-        : datum{other.datum} /* do not copy mutex */ {
+LockedData<Type, Mutex>::LockedData(implementation::tag_t,
+        const LockedData& other)
+    : datum{other.datum} /* do not copy mutex */ {
 }
 
 
@@ -367,11 +368,11 @@ LockedData<Type, Mutex>::LockedData(implementation_t, const LockedData& other)
  * have called the constructor for the datum via the usual construction syntax
  * to avoid initializer list crap with the uniform initialization syntax.
  * Although this module itself is completely free from all that via the
- * emplace_construct_t tag.  Also see sharp/Tags.
+ * emplace_construct tag.  Also see sharp/Tags.
  */
 template <typename Type, typename Mutex>
 template <typename... Args>
-LockedData<Type, Mutex>::LockedData(sharp::emplace_construct_t,
+LockedData<Type, Mutex>::LockedData(emplace_construct::tag_t,
         Args&&... args) noexcept(Type(std::forward<Args>(args)...))
     : datum(std::forward<Args>(args)...)
 {}

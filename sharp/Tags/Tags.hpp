@@ -95,7 +95,7 @@ public:
 };
 
 /**
- * @class initializer_list_construct_t
+ * @class initializer_list_construct
  *
  * The original version of the tag to disambiguate inistializer list
  * construction that also made it to Facebook's open source C++ library folly.
@@ -139,23 +139,23 @@ public:
  *  class Something {
  *  public:
  *    explicit Something(int);
- *    Something(folly::initlist_construct_t, std::initializer_list<int>);
+ *    Something(folly::initlist_construct::tag_t, std::initializer_list<int>);
  *
  *    operator int();
  *  };
  *
  *  ...
  *  Something something_one{1}; // not the initializer_list overload
- *  Something something_two{folly::initlist_construct, {1}}; // correct
+ *  Something something_two{folly::initlist_construct::tag, {1}}; // correct
  *
  * Note that const objects have internal linkage so they do not introduce
  * linker errors when multiple cpp files include this header file.
  */
-struct initializer_list_construct_t {};
-constexpr initializer_list_construct_t initializer_list_contruct{};
+class initializer_list_contruct :
+    public GeneralizedTag<initializer_list_contruct> {};
 
 /**
- * @class emplace_construct_t
+ * @class emplace_construct
  *
  * Tag used to disambiguate construction with variadic arguments.  This is
  * especially useful in simple wrappers which simulate functionality of
@@ -173,11 +173,10 @@ constexpr initializer_list_construct_t initializer_list_contruct{};
  * straight to the inner element stored in the other class, in this case
  * SimulatedAggregate
  */
-struct emplace_construct_t {};
-constexpr emplace_construct_t emplace_construct{};
+class emplace_construct : public GeneralizedTag<emplace_construct> {};
 
 /**
- * @class delegate_constructor_t
+ * @class delegate_constructor
  *
  * A tag used for RAII based constructor decoration.  This technique can be
  * described as executing code before and after initialization of a class's
@@ -187,11 +186,10 @@ constexpr emplace_construct_t emplace_construct{};
  * constructor is being used just to show that code is executing before
  * initialization
  */
-struct delegate_constructor_t {};
-constexpr delegate_constructor_t delegate_constructor{};
+class delegate_constructor : public GeneralizedTag<delegate_constructor> {};
 
 /**
- * @class implementation_t
+ * @class implementation
  *
  * A tag used to seperate the handle from the actual underlying
  * implementation.  This is more versatile than actually disambiguating
@@ -201,7 +199,6 @@ constexpr delegate_constructor_t delegate_constructor{};
  * this can be considered a part of the idiom described with
  * delegate_constructor_t
  */
-struct implementation_t {};
-constexpr implementation_t implementation{};
+class implementation : public GeneralizedTag<implementation> {};
 
 } // namespace sharp
