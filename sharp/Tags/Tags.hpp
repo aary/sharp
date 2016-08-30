@@ -26,6 +26,73 @@
 namespace sharp {
 
 /**
+ * A generic tag type that can be used conveniently by the called in
+ * generalized tag settings.  For example the user may want to pass in a tag
+ * with a given type, for example
+ *
+ *  sharp::Variant<string, int, double> var {
+ *      sharp::emplace_construct::tag<string>, "some string"};
+ *
+ * it can pass in an integral constant
+ *
+ *  sharp::Variant<string, int, double> var {
+ *      sharp::emplace_construct::tag<2>, 1.0};
+ *
+ * or it can simply be an empty tag
+ *
+ *  sharp::LockedData<vector<int>> locked_vector {
+ *      sharp::emplace_construct::tag, {1, 2, 3, 4}};
+ *
+ * The implementation uses function pointers as described here
+ *  http://en.cppreference.com/w/cpp/utility/in_place
+ *
+ * Extend this class via CRTP (goo.gl/uGrvZC) like the following
+ *
+ *  class new_tag : public GeneralizedTag<new_tag> {};
+ */
+template <typename Derived>
+class GeneralizedTag {
+private:
+
+    /**
+     * classes used to define the input type to the functions to separate them
+     * for each derived instance
+     *
+     * since this type is defined within the scope of the template
+     * instantiation, it will be unique for each tag class instantiated with
+     * this as the base
+     */
+    class InputTag {};
+    template <typename Type>
+    class InputTagType {};
+    template <int Integer>
+    class InputTagIntegral {};
+
+public:
+
+    /**
+     * The tag types that are going to be used within the API (either
+     * privately or publically) to provide tag dispatch functionality to the
+     * user
+     */
+    using tag_t = void (*) (const InputTag&);
+    template <typename Type>
+    using tag_type_t = void (*) (const InputTagType<Type>&);
+    template <int INTEGER>
+    using tag_integral_t = void (*) (const InputTagIntegral<INTEGER>&);
+
+    /**
+     * The actual tags to be used by the user.
+     */
+    static void tag(const InputTag& = InputTag{}) {}
+    template <typename Type>
+    static void tag(const InputTagType<Type>& = InputTagType<Type>{}) {}
+    template <int INTEGER>
+    static void tag(
+            const InputTagIntegral<INTEGER>& = InputTagIntegral<INTEGER>{}) {}
+};
+
+/**
  * @class initializer_list_construct_t
  *
  * The original version of the tag to disambiguate inistializer list
