@@ -4,6 +4,10 @@ cxx_library(
         "//sharp/Tags:Tags",
     ],
 
+    headers = [
+        "LockedData.hpp",
+        "LockedData.ipp",
+    ],
     exported_headers = [
         "LockedData.ipp",
         "LockedData.hpp",
