@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <sharp/Tags/Tags.hpp>
+#include <Tags/Tags.hpp>
 
 #include <utility>
 #include <type_traits>
@@ -230,4 +230,4 @@ private:
 
 } // namespace sharp
 
-#include <sharp/LockedData/LockedData.ipp>
+#include <LockedData/LockedData.ipp>

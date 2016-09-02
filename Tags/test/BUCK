@@ -4,6 +4,7 @@ cxx_test(
         "test.cpp",
     ],
     deps = [
-        "//sharp/LockedData:LockedData",
+        "//Tags:Tags",
     ],
+
 )

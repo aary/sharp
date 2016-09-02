@@ -1,5 +1,5 @@
-#include <sharp/LockedData/LockedData.hpp>
-#include <sharp/Tags/Tags.hpp>
+#include <LockedData/LockedData.hpp>
+#include <Tags/Tags.hpp>
 #include <cassert>
 #include <gtest/gtest.h>
 using namespace sharp;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sharp/LockedData/LockedData.hpp>
+#include <LockedData/LockedData.hpp>
 
 #include <cassert>
 #include <iostream>

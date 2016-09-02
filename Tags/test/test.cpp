@@ -1,7 +1,7 @@
 #include <type_traits>
 #include <cassert>
 #include <gtest/gtest.h>
-#include <sharp/Tags/Tags.hpp>
+#include <Tags/Tags.hpp>
 
 /*
  * Enum and overloaded functions to test correct tag dispatch
