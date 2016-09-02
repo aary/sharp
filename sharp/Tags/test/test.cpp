@@ -41,7 +41,7 @@ static void test_which_tag_for_tag();
 TEST(TagsTest, TestEachDefinedTag) {
 
     // run the test for each tag type
-    test_which_tag_for_tag<sharp::initializer_list_contruct>();
+    test_which_tag_for_tag<sharp::initializer_list_construct>();
     test_which_tag_for_tag<sharp::emplace_construct>();
     test_which_tag_for_tag<sharp::delegate_constructor>();
     test_which_tag_for_tag<sharp::implementation>();

@@ -6,13 +6,13 @@
  * dispatch in some cases, for example tag dispatch can be used to fix the
  * ambiguity introdced by construction with std::initializer_list like so
  *
- *  Example example{initializer_list_contruct, {1, 2, 3, 4, 5}};
+ *  Example example{initializer_list_construct, {1, 2, 3, 4, 5}};
  *
  * Here the Example class can be defined like follows
  *
  *  class Example {
  *  public:
- *      Example(initializer_list_construct_t, std::initializer_list<int>)
+ *      Example(initializer_list_construct::tag_t, std::initializer_list<int>)
  *  };
  *
  * So it is clear that the initializer list constructor is being called.  This
@@ -151,8 +151,8 @@ public:
  * Note that const objects have internal linkage so they do not introduce
  * linker errors when multiple cpp files include this header file.
  */
-class initializer_list_contruct :
-    public GeneralizedTag<initializer_list_contruct> {};
+class initializer_list_construct :
+    public GeneralizedTag<initializer_list_construct> {};
 
 /**
  * @class emplace_construct
