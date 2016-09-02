@@ -35,11 +35,12 @@ To use it with buck simply add a `[repositories]` section in your top level
     sharp = ./sharp
 ```
 
-Then add it as a dependency with the following form `sharp//<library>` and
-build with `buck build`.  Very simple examples of using this library are in
-another repository [here](https://github.com/aary/sharp-example).
+Then add it as a dependency in the `BUCK` targets file with the following form
+`sharp//<library>` and build with `buck build`.  Go
+[here](https://github.com/aary/sharp-example) to look at a very simple project
+that uses this library.
 
-If any bugs are found please open an issue on the
+If any bugs are found please open an issue on
 [Github](https://github.com/aary/sharp).
 
 ### Running unit tests
