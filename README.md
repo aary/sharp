@@ -18,19 +18,26 @@ brew install --HEAD facebook/fb/buck
 This will install buck from the `HEAD` commit from [Facebook's homebrew
 tap](https://github.com/facebook/homebrew-fb).
 
-This repository is arranged in the form of a buck project for ease of
-demonstration.  The `example/` directory includes a simple `.cpp` file that
-uses this library.  To see the output run the following
+This repository is arranged in the form of a buck submodule.  The recommended
+way of installing this library into your project is in the form of a git
+submodule.
 
 ```
-buck run example
+git submodule add https://github.com/aary/sharp
 ```
 
-This should compile and run the `.cpp` file in the `example/` folder.
+This command will install the library into your git project as a submodule.
+To use it with buck simply add a `[repositories]` section in your top level
+`.buckconfig` as follows
 
-To use this library in another buck project just move the `sharp` folder into
-the root of the other project write a `BUCK` file similar to that in the
-`example` folder and build with `buck build`
+```
+[repositories]
+    sharp = ./sharp
+```
+
+Then add it as a dependency with the following form `sharp//<library>` and
+build with `buck build`.  Examples of using this library are in another
+repository [here](https://github.com/aary/sharp-example).
 
 If any issues are found please open an issue on Github.
 
