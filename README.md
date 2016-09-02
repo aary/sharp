@@ -36,10 +36,11 @@ To use it with buck simply add a `[repositories]` section in your top level
 ```
 
 Then add it as a dependency with the following form `sharp//<library>` and
-build with `buck build`.  Examples of using this library are in another
-repository [here](https://github.com/aary/sharp-example).
+build with `buck build`.  Very simple examples of using this library are in
+another repository [here](https://github.com/aary/sharp-example).
 
-If any issues are found please open an issue on Github.
+If any bugs are found please open an issue on the
+[Github](https://github.com/aary/sharp).
 
 ### Running unit tests
 
@@ -70,5 +71,6 @@ like so
 ```
 
 To run the unit tests individually for a module run
-`buck test //sharp/<module_name>/test`.  For example to run unit tests for the
-`LockedData` module run `buck test //sharp/LockedData/test`
+`buck test //sharp/<module_name>/test` from the `sharp` folder.  For example
+to run unit tests for the `LockedData` module run `buck test
+//sharp/LockedData/test`
