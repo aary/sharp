@@ -7,12 +7,13 @@ in my free time.
 ### Building
 
 The libraries in this project support building with
-[Buck](https://buckbuild.com).  To install buck run the following
+[Buck](https://buckbuild.com).  To install buck from the latest bleeding edge
+stable on master (this project might use a feature in buck that does not
+exist in the latest stable release), run the following
 
 ```
 brew update
-brew tap facebook/fb
-brew install buck
+brew install --HEAD facebook/fb/buck
 ```
 
 This repository is arranged in the form of a buck project for ease of
