@@ -7,14 +7,16 @@ in my free time.
 ### Building
 
 The libraries in this project support building with
-[Buck](https://buckbuild.com).  To install buck from the latest bleeding edge
-stable on master (this project might use a feature in buck that does not
-exist in the latest stable release), run the following
+[Buck](https://buckbuild.com).  To install buck from the latest stable commit
+on master, run the following
 
 ```
 brew update
 brew install --HEAD facebook/fb/buck
 ```
+
+This will install buck from the `HEAD` commit from [Facebook's homebrew
+tap](https://github.com/facebook/homebrew-fb).
 
 This repository is arranged in the form of a buck project for ease of
 demonstration.  The `example/` directory includes a simple `.cpp` file that
