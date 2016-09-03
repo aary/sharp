@@ -12,19 +12,19 @@ public:
     FakeMutex() : lock_state{LockState::UNLOCKED} {}
 
     virtual void lock() {
-        assert(this->lock_state == LockState::UNLOCKED);
+        EXPECT_EQ(this->lock_state, LockState::UNLOCKED);
         this->lock_state = LockState::LOCKED;
     }
     virtual void unlock() {
-        assert(this->lock_state == LockState::LOCKED);
+        EXPECT_EQ(this->lock_state, LockState::LOCKED);
         this->lock_state = LockState::UNLOCKED;
     }
     virtual void lock_shared() {
-        assert(this->lock_state == LockState::UNLOCKED);
+        EXPECT_EQ(this->lock_state, LockState::UNLOCKED);
         this->lock_state = LockState::SHARED;
     }
     virtual void unlock_shared() {
-        assert(this->lock_state == LockState::SHARED);
+        EXPECT_EQ(this->lock_state, LockState::SHARED);
         this->lock_state = LockState::UNLOCKED;
     }
 
@@ -60,25 +60,25 @@ public:
 
     virtual void lock() override {
         this->FakeMutex::lock();
-        assert(current_track == this->a);
+        EXPECT_EQ(current_track, this->a);
         ++current_track;
     }
 
     virtual void unlock() override {
         this->FakeMutex::unlock();
-        assert(current_track == (this->a + 1));
+        EXPECT_EQ(current_track, (this->a + 1));
         --current_track;
     }
 
     virtual void lock_shared() override {
         this->FakeMutex::lock_shared();
-        assert(current_track == this->a);
+        EXPECT_EQ(current_track, this->a);
         ++current_track;
     }
 
     virtual void unlock_shared() override {
         this->FakeMutex::unlock_shared();
-        assert(current_track == (this->a + 1));
+        EXPECT_EQ(current_track, (this->a + 1));
         --current_track;
     }
 
@@ -90,71 +90,71 @@ public:
     static void test_unique_locked_proxy() {
         auto fake_mutex = FakeMutex{};
         auto object = 1;
-        assert(fake_mutex.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = LockedData<int, FakeMutex>::UniqueLockedProxy{object,
                 fake_mutex};
-            assert(fake_mutex.lock_state == FakeMutex::LockState::LOCKED);
-            assert(proxy.operator->() == &object);
-            assert(*proxy == 1);
-            assert(&(*proxy) == &object);
+            EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::LOCKED);
+            EXPECT_EQ(proxy.operator->(), &object);
+            EXPECT_EQ(*proxy, 1);
+            EXPECT_EQ(&(*proxy), &object);
         }
-        assert(fake_mutex.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
 
         // const unique locked proxy shuold read lock the lock
-        assert(fake_mutex.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = LockedData<int, FakeMutex>::ConstUniqueLockedProxy{
                 object, fake_mutex};
-            assert(fake_mutex.lock_state == FakeMutex::LockState::SHARED);
-            assert(proxy.operator->() == &object);
-            assert(*proxy == 1);
-            assert(&(*proxy) == &object);
+            EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::SHARED);
+            EXPECT_EQ(proxy.operator->(), &object);
+            EXPECT_EQ(*proxy, 1);
+            EXPECT_EQ(&(*proxy), &object);
         }
-        assert(fake_mutex.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
     static void test_execute_atomic_non_const() {
         LockedData<double, FakeMutex> locked;
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         locked.execute_atomic([&](auto&) {
-            assert(locked.mtx.lock_state == FakeMutex::LockState::LOCKED);
+            EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::LOCKED);
         });
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
     static void test_execute_atomic_const() {
         LockedData<double, FakeMutex> locked;
         [](const auto& locked) {
-            assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+            EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
             locked.execute_atomic([&](auto&) {
-                assert(locked.mtx.lock_state == FakeMutex::LockState::SHARED);
+                EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
             });
-            assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+            EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         }(locked);
     }
 
     static void test_lock() {
         LockedData<int, FakeMutex> locked;
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = locked.lock();
-            assert(locked.mtx.lock_state == FakeMutex::LockState::LOCKED);
+            EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::LOCKED);
         }
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
     static void test_lock_const() {
         const LockedData<int, FakeMutex> locked{};
         auto pointer_to_object = reinterpret_cast<uintptr_t>(&locked.datum);
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = locked.lock();
-            assert(locked.mtx.lock_state == FakeMutex::LockState::SHARED);
-            assert(reinterpret_cast<uintptr_t>(&proxy.datum)
-                    == pointer_to_object);
+            EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
+            EXPECT_EQ(reinterpret_cast<uintptr_t>(&proxy.datum),
+                    pointer_to_object);
         }
-        assert(locked.mtx.lock_state == FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
     static void test_copy_constructor() {
@@ -169,7 +169,7 @@ public:
             sharp::emplace_construct::tag, static_cast<int>(1)};
 
         // assert that only one instance was created
-        assert(InPlace::instance_counter == 1);
+        EXPECT_EQ(InPlace::instance_counter, 1);
     }
 
     static void test_assignment_operator() {
