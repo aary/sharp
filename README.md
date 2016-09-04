@@ -18,7 +18,7 @@ brew install --HEAD facebook/fb/buck
 This will install buck from the `HEAD` commit from [Facebook's homebrew
 tap](https://github.com/facebook/homebrew-fb).
 
-This repository is arranged in the form of a buck submodule.  The recommended
+This repository is arranged in the form of a buck module.  The recommended
 way of installing this library into your project is by using  git submodules.
 
 ```
