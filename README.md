@@ -19,11 +19,11 @@ This will install buck from the `HEAD` commit from [Facebook's homebrew
 tap](https://github.com/facebook/homebrew-fb).
 
 This repository is arranged in the form of a buck submodule.  The recommended
-way of installing this library into your project is in the form of a git
-submodule.
+way of installing this library into your project is by using  git submodules.
 
 ```
 git submodule add https://github.com/aary/sharp
+git submodule update --init --recursive
 ```
 
 This command will install the library into your git project as a submodule.
