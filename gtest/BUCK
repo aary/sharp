@@ -1,6 +1,13 @@
-# The gtest library to use for buck test
 cxx_library(
     name = 'gtest',
+
+    # no header namespace because this buck file is another folder and not
+    # right within the same submodule in the root project folder.  If this was
+    # not here everything would have to be included with an extra "gtest/"
+    # symbol, for example `#include "gtest/gtest.h"` would become `#include
+    # "gtest/gtest/gtest.h"
+    header_namespace = "",
+
     srcs = glob(['googletest/googletest/src/*.cc'],
       excludes=['googletest/googletest/src/gtest-all.cc']),
 
@@ -26,7 +33,12 @@ cxx_library(
         ("googletest/googletest", "**/*.h"),
     ]),
 
-    # the headers to export to the outside world for including
+    # the headers to export to the outside world for including, these also go
+    # to inclusion in the sources built above.
+    #
+    # So things like "gtest/gtest.h" that are not matched by the above rule
+    # (using the above rule, to include gtest/gtest.h one would have to
+    # #include "include/gtest/gtest.h")
     exported_headers = subdir_glob([
         ('googletest/googletest/src', '*.h'),
         ('googletest/googletest/include', '**/*.h'),
