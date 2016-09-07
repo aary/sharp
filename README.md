@@ -48,7 +48,7 @@ deps = [
 and the corresponding include statement in your C++ file would be
 
 ```
-#include <sharp/LockedData.hpp>
+#include <sharp/LockedData/LockedData.hpp>
 ```
 
 Go [here](https://github.com/aary/sharp-example) to look at a very simple
