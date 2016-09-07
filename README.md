@@ -36,9 +36,23 @@ To use it with buck simply add a `[repositories]` section in your top level
 ```
 
 Then add it as a dependency in the `BUCK` targets file with the following form
-`sharp//<library>` and build with `buck build`.  Go
-[here](https://github.com/aary/sharp-example) to look at a very simple project
-that uses this library.
+`path-to-sharp-submodule//<library-target>` and build with `buck build`.  For
+example the `deps` section in the `BUCK` file can look like so
+
+```
+deps = [
+    "sharp//LockedData:LockedData",
+],
+```
+
+and the corresponding include statement in your C++ file would be
+
+```
+#include <sharp/LockedData.hpp>
+```
+
+Go [here](https://github.com/aary/sharp-example) to look at a very simple
+project that uses this library.
 
 If any bugs are found please open an issue on
 [Github](https://github.com/aary/sharp).
@@ -72,6 +86,6 @@ like so
 ```
 
 To run the unit tests individually for a module run
-`buck test //sharp/<module_name>/test` from the `sharp` folder.  For example
+`buck test //<module_name>/test` from the `sharp` folder.  For example
 to run unit tests for the `LockedData` module run `buck test
-//sharp/LockedData/test`
+//LockedData/test`
