@@ -6,5 +6,4 @@ cxx_test(
     deps = [
         "//Tags:Tags",
     ],
-
 )

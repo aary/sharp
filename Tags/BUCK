@@ -1,5 +1,6 @@
 cxx_library(
     name = "Tags",
+    header_namespace = "sharp/Tags",
     exported_headers = [
         "Tags.hpp",
     ],

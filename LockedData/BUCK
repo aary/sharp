@@ -1,9 +1,9 @@
 cxx_library(
     name = "LockedData",
+    header_namespace = "sharp/LockedData",
     deps = [
         "//Tags:Tags",
     ],
-
     headers = [
         "LockedData.hpp",
         "LockedData.ipp",
