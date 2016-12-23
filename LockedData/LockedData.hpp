@@ -98,7 +98,7 @@ public:
 
     /**
      * Forward declarations of lightweight proxy types that are used to
-     * interact with the underlying object
+     * interact with the underlying object.
      */
     class UniqueLockedProxy;
     class ConstUniqueLockedProxy;

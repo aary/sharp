@@ -287,7 +287,7 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
-    auto locker = UniqueLockedProxy{this->datum, this->mtx};
+    auto lock = this->lock();
 
     // execute the function on the object and return the result, the lock gets
     // released after the return statement.  Note that in the case of absense
@@ -295,7 +295,7 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) {
     // used with patterns like read, copy, update.  Since the result if a
     // value will be copied into well.  i.e. the return function will finish
     // and then the lock will be released.
-    return func(this->datum);
+    return std::forward<Func>(func)(*lock);
 }
 
 template <typename Type, typename Mutex>
@@ -304,7 +304,7 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) const {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
-    auto locker = ConstUniqueLockedProxy{this->datum, this->mtx};
+    auto lock = this->lock();
 
     // execute the function on the object and return the result, the lock gets
     // released after the return statement.  Note that in the case of absense
@@ -312,13 +312,13 @@ decltype(auto) LockedData<Type, Mutex>::execute_atomic(Func&& func) const {
     // used with patterns like read, copy, update.  Since the result if a
     // value will be copied into well.  i.e. the return function will finish
     // and then the lock will be released.
-    return func(this->datum);
+    return std::forward<Func>(func)(*lock);
 }
 
 template <typename Type, typename Mutex>
 typename LockedData<Type, Mutex>::UniqueLockedProxy
 LockedData<Type, Mutex>::lock() {
-    return LockedData<Type, Mutex>::UniqueLockedProxy {this->datum, this->mtx};
+    return LockedData<Type, Mutex>::UniqueLockedProxy{this->datum, this->mtx};
 }
 
 template <typename Type, typename Mutex>
