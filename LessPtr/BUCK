@@ -1,0 +1,11 @@
+cpp_library(
+    name = "LessPtr"
+    header_namespace = "sharp/LessPtr"
+    headers = [
+        "LessPtr.hpp",
+    ],
+    exported_headers = [
+        "LessPtr.hpp",
+    ],
+    visibility = ["PUBLIC"],
+)
