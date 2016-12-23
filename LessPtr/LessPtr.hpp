@@ -23,6 +23,7 @@
 
 #include <type_traits>
 #include <utility>
+#include <functional>
 
 namespace sharp {
 
@@ -54,6 +55,7 @@ namespace detail {
  * things they point to
  */
 class LessPtr {
+public:
 
     /**
      * This overload contains the case when the first type of object can be

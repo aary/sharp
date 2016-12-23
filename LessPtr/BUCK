@@ -1,6 +1,6 @@
-cpp_library(
-    name = "LessPtr"
-    header_namespace = "sharp/LessPtr"
+cxx_library(
+    name = "LessPtr",
+    header_namespace = "sharp/LessPtr",
     headers = [
         "LessPtr.hpp",
     ],
