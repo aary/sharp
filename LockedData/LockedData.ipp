@@ -338,9 +338,9 @@ LockedData<Type, Mutex>::lock() const {
  */
 template <typename Type, typename Mutex>
 template <typename Action, typename... Args>
-LockedData<Type, Mutex>::LockedData(delegate_constructor::tag_t, Action,
+LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor::tag_t, Action,
         Args&&... args) : LockedData<Type, Mutex>{
-    implementation::tag, std::forward<Args>(args)...}
+    sharp::implementation::tag, std::forward<Args>(args)...}
 {}
 
 /**
@@ -351,11 +351,12 @@ LockedData<Type, Mutex>::LockedData(delegate_constructor::tag_t, Action,
  */
 template <typename Type, typename Mutex>
 LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
-    : LockedData<Type, Mutex>{delegate_constructor::tag, other.lock(), other}
+    : LockedData<Type, Mutex>{sharp::delegate_constructor::tag, other.lock(),
+        other}
 {}
 
 template <typename Type, typename Mutex>
-LockedData<Type, Mutex>::LockedData(implementation::tag_t,
+LockedData<Type, Mutex>::LockedData(sharp::implementation::tag_t,
         const LockedData& other)
     : datum{other.datum} /* do not copy mutex */
 {}
@@ -372,7 +373,7 @@ LockedData<Type, Mutex>::LockedData(implementation::tag_t,
  */
 template <typename Type, typename Mutex>
 template <typename... Args>
-LockedData<Type, Mutex>::LockedData(emplace_construct::tag_t,
+LockedData<Type, Mutex>::LockedData(sharp::emplace_construct::tag_t,
         Args&&... args) noexcept(Type(std::forward<Args>(args)...))
     : datum(std::forward<Args>(args)...)
 {}
