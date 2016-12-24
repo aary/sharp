@@ -1,5 +1,5 @@
 /*
- * @file TypeTraits.hpp
+ * @file Traits.hpp
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
  * This file contains some template metaprogramming interfaces that I
@@ -9,3 +9,4 @@
 
 #pragma once
 
+#include <sharp/Traits/Instantiation.hpp>

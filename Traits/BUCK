@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Traits",
+    header_namespace = "sharp/Traits",
+    headers = [
+        "Traits.hpp",
+        "Instantiation.hpp",
+    ],
+    exported_headers = [
+        "Traits.hpp",
+        "Instantiation.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

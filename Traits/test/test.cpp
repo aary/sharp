@@ -10,4 +10,8 @@
  * And all the crap object file output will go to /dev/null and you will see
  * the stderr reported.
  */
-#include "TypeTraits.hpp"
+#include <sharp/Traits/Traits.hpp>
+
+#include <gtest/gtest.h>
+
+TEST(TypeTraits, Placeholder) {}
