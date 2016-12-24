@@ -189,7 +189,9 @@ public:
 
     /**
      * Deleted the move assignment operator becauase I saw no reason to
-     * include it.  This should not be moved across threads?
+     * include it.  This should not be moved across threads?  If there is a
+     * dire need to move this around, it can be dumped in a unique_ptr and
+     * then moved
      */
     LockedData& operator=(LockedData&& other) = delete;
 
