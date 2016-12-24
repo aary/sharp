@@ -1,0 +1,12 @@
+cxx_library(
+    name = "OrderedContainer",
+    header_namespace = "sharp/OrderedContainer",
+    headers = [
+        "OrderedContainer.hpp",
+        "OrderedContainer.ipp",
+    ],
+    exported_headers = [
+        "OrderedContainer.hpp",
+        "OrderedContainer.ipp",
+    ],
+)
