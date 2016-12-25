@@ -1,4 +1,5 @@
 #include <sharp/OrderedContainer/OrderedContainer.hpp>
+#include <sharp/Traits/Traits.hpp>
 
 #include <utility>
 

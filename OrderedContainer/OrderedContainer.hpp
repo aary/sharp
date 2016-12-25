@@ -21,17 +21,12 @@
 
 #pragma once
 
-#include <sharp/Traits/Traits.hpp>
-
 #include <stack>
 #include <queue>
 #include <unordered_map>
 #include <utility>
 
 namespace sharp {
-
-namespace detail {
-} // namespace detail
 
 /**
  * @class OrderedContainer
