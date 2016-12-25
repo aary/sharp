@@ -34,11 +34,28 @@ namespace sharp {
  * A container that supports ordered ranges in its internal conatainer type,
  * any values to the container will be automatically inserted into the
  * container in an ordered fashion.
+ *
+ * The comparator must be provided if the container does not have a
+ * comparator, else this will fail to compile as the default template
+ * parameter (fetching the comparator from the container itself through the
+ * key_compare typedef will not be valid and thus SFINAE will occur, and since
+ * no template is found which can be correctly resolved, this will produce an
+ * error
  */
-template <typename Container, typename Comparator = void>
+template <typename Container,
+          typename Comparator = typename Container::key_compare>
 class OrderedContainer {
 public:
 
+    /**
+     * Default constructor that accepts a comparator as input
+     */
+    OrderedContainer(Comparator comparator_in = Comparator{});
+
+    /**
+     * Static asserts to provide good error messages to the user when
+     * instantiating an OrderedContainer with a type that is not valid
+     */
     /**
      * Static asserts for the different types of containers that are not
      * allowed with this library
@@ -53,7 +70,6 @@ public:
     static_assert(!sharp::Instantiation_v<std::decay_t<container>,
             std::unordered_set>,
             "OrderedContainer cannot be initialized with a std::stack");
-
     /**
      * Assert that the container can return iterators to the beginning and end
      * of the range with the std::begin, and std::end function calls
@@ -97,8 +113,18 @@ public:
      */
     Container& get();
 
+    /**
+     * Return a const reference to the held comparator object
+     */
+    const Comparator& get_comparator();
+
 private:
+
+    /**
+     * The container and the comparator
+     */
     Container container;
+    Comparator comparator;
 };
 
 /**
@@ -120,7 +146,8 @@ class OrderedTraits {
      * OrderedContainer class
      */
     template <typename Value>
-    static auto lower_bound(Container& container, const Value& value);
+    static auto lower_bound(Container& container, const Comparator& comparator,
+                            const Value& value);
 
     /**
      * Used to insert the value into the container at the location in the
@@ -133,6 +160,7 @@ class OrderedTraits {
      */
     template <typename Iterator, typename Value>
     static std::pair<Iterator, bool> insert(Container& container,
+                                            const Comparator& comparator,
                                             Iterator iterator,
                                             Value&& value);
 };
