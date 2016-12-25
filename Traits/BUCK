@@ -4,10 +4,15 @@ cxx_library(
     headers = [
         "Traits.hpp",
         "Instantiation.hpp",
+        "UnwrapPair.hpp",
     ],
     exported_headers = [
         "Traits.hpp",
         "Instantiation.hpp",
+        "UnwrapPair.hpp",
+    ],
+    deps = [
+        "//Tags:Tags",
     ],
     visibility = [
         "PUBLIC",
