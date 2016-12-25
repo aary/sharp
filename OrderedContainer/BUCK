@@ -9,4 +9,10 @@ cxx_library(
         "OrderedContainer.hpp",
         "OrderedContainer.ipp",
     ],
+    deps = [
+        "//Traits:Traits",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
 )

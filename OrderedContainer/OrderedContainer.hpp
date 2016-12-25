@@ -30,9 +30,12 @@
 
 #pragma once
 
+#include <sharp/Traits/Traits.hpp>
+
 #include <stack>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace sharp {
@@ -59,7 +62,7 @@ public:
     /**
      * Default constructor that accepts a comparator as input
      */
-    OrderedContainer(Comparator comparator_in = Comparator{});
+    OrderedContainer(Comparator&& comparator_in = Comparator{});
 
     /**
      * Static asserts to provide good error messages to the user when
@@ -69,14 +72,14 @@ public:
      * Static asserts for the different types of containers that are not
      * allowed with this library
      */
-    static_assert(!sharp::Instantiation_v<std::decay_t<container>, std::stack>,
+    static_assert(!sharp::Instantiation_v<std::decay_t<Container>, std::stack>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<container>, std::queue>,
+    static_assert(!sharp::Instantiation_v<std::decay_t<Container>, std::queue>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<container>,
+    static_assert(!sharp::Instantiation_v<std::decay_t<Container>,
             std::unordered_map>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<container>,
+    static_assert(!sharp::Instantiation_v<std::decay_t<Container>,
             std::unordered_set>,
             "OrderedContainer cannot be initialized with a std::stack");
     /**
@@ -92,10 +95,14 @@ public:
 
     /**
      * Insert the value into the container in an ordered manner as determined
-     * by the comparator
+     * by the comparator.
+     *
+     * Returns a pair with the first element being an iterator and the second
+     * a boolean to show whether the value was inserted or not.  The first
+     * iterator points to the element that prevented the insertion
      */
     template <typename Value>
-    void insert(Value&& value);
+    auto insert(Value&& value);
 
     /**
      * Find whether the value exists in the container and return an iterator
@@ -150,7 +157,7 @@ private:
  */
 template <typename Container>
 class OrderedTraits {
-
+public:
     /**
      * Used to find the lower bound for the value in the container, the
      * definition of "lower bound" is the same as the one employed by the
@@ -164,8 +171,9 @@ class OrderedTraits {
      * If the class already contains a comparator, then feel free to ignore
      * the second argument in the implementation of this function
      */
-    template <typename Value, typename Comparator>
-    static auto lower_bound(Container& container, const Comparator& comparator,
+    template <typename ContainerIn, typename Value, typename Comparator>
+    static auto lower_bound(ContainerIn& container,
+                            const Comparator& comparator,
                             const Value& value);
 
     /**
@@ -175,10 +183,12 @@ class OrderedTraits {
      *
      * It should return an iterator to the inserted element
      */
-    template <typename Iterator, typename Value>
-    static auto insert(Container& container,
+    template <typename ContainerIn, typename Iterator, typename Value>
+    static auto insert(ContainerIn& container,
                        Iterator iterator,
                        Value&& value);
 };
 
 } // namespace sharp
+
+#include <sharp/OrderedContainer/OrderedContainer.ipp>

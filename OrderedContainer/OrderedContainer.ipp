@@ -67,14 +67,14 @@ namespace detail {
     /**
      * Overload for the case when the container is a list instantiation
      */
-    template <typename Container, typename Value
+    template <typename Container, typename Value, typename Comparator,
               EnableIfListInstantiation<Container>* = nullptr>
     auto lower_bound_traits_impl(Container& container,
                                  const Comparator& comparator,
                                  const Value& value,
                                  sharp::preferred_dispatch<1>) {
         return std::find_if_not(std::begin(container), std::end(container),
-        [&value] (const auto& element) {
+        [&] (const auto& element) {
             return comparator(element, value);
         });
     }
@@ -84,7 +84,7 @@ namespace detail {
      * should should therefore be used in all cases.  Since the container has
      * optimized that to the max possible
      */
-    template <typename Container, typename Value,
+    template <typename Container, typename Value, typename Comparator,
               EnableIfHasLowerBoundMethod<Container, Value>* = nullptr>
     auto lower_bound_traits_impl(Container& container,
                                  const Comparator&,
@@ -99,7 +99,7 @@ namespace detail {
      * iterators returned by std::begin and std::end are random access
      * iterators
      */
-    template <typename Container, typename Value>
+    template <typename Container, typename Value, typename Comparator>
     auto lower_bound_traits_impl(Container& container,
                                  const Comparator& comparator,
                                  const Value& value,
@@ -111,8 +111,8 @@ namespace detail {
 } // namespace detail
 
 template <typename Container>
-template <typename Value, typename Comparator>
-auto OrderedTraits<Container>::lower_bound(Container& container,
+template <typename ContainerIn, typename Value, typename Comparator>
+auto OrderedTraits<Container>::lower_bound(ContainerIn& container,
                                            const Comparator& comparator,
                                            const Value& value) {
     return detail::lower_bound_traits_impl(container, comparator, value,
@@ -120,18 +120,23 @@ auto OrderedTraits<Container>::lower_bound(Container& container,
 }
 
 template <typename Container>
-template <typename Value, typename Iterator>
-auto OrderedTraits<Container>::insert(Container& container,
+template <typename ContainerIn, typename Iterator, typename Value>
+auto OrderedTraits<Container>::insert(ContainerIn& container,
                                       Iterator iterator,
                                       Value&& value) {
     // all STL containers within the domain of this module already have this
     // method
-    container.insert(iterator, std::forward<Value>(value));
+    return container.insert(iterator, std::forward<Value>(value));
 }
 
 template <typename Container, typename Comparator>
+OrderedContainer<Container, Comparator>::OrderedContainer(
+        Comparator&& comparator_in) : container{},
+    comparator{std::forward<Comparator>(comparator_in)} {}
+
+template <typename Container, typename Comparator>
 template <typename Value>
-void OrderedContainer<Container, Comparator>::insert(Value&& value) {
+auto OrderedContainer<Container, Comparator>::insert(Value&& value) {
     // get the lower bound from the lower bound function as defined in the
     // traits
     auto lower_bound_iter = OrderedTraits<Container>::lower_bound(
@@ -167,7 +172,7 @@ auto OrderedContainer<Container, Comparator>::find(const Value& value) const {
 
     // check if the lower bound iterator points to a value that is equal to
     // the value given
-    if (lower_bound_iter != std::end(this->container)) {
+    if (lower_bound_iter == std::end(this->container)) {
         return std::end(this->container);
     }
 
