@@ -7,7 +7,7 @@
  * example an object of type OrderedContainer<std::vector<int>, std::less<int>>
  * is an ordered container instantiated with a vector as the underlying
  * container with elements in the container ordered as determined by the
- * comparator std::less<int> in increasing order.
+ * comparator std::less<int> in increasing order
  *
  * This is useful when you want the flexibility of changing the underlying
  * container for faster algorithmic complexity but do not want to go through
@@ -16,7 +16,16 @@
  * sorted.  A use case can be for example when the distribution of the
  * underlyign data stream that is to be stored in the container is not known
  * and the data is still required by the program to be sorted, the choice of
- * which container to use can be abstracted by this interface.
+ * which container to use can be abstracted by this interface
+ *
+ * A note about implementation - This module follows the convention of doing
+ * all template metaprogramming on a layer above the actual implementation of
+ * the required functionality so as to allow the user to customize the
+ * behavior of the adaptor in the case when a underlying container is used
+ * that is not in the domain of containers supported by the adaptor, if you
+ * use a container that is not in the STL than please specialize the
+ * OrderedTraits class for that container, in most cases this will be a
+ * trivial specialization
  */
 
 #pragma once
@@ -131,8 +140,15 @@ private:
  * A traits class that contains all the relevant code for the container that
  * is supposed to be injected into the OrderedContainer, specialize this for
  * your own container to be compatible with OrderedContainer
+ *
+ * All the STL containers are supported by default by the OrderedTraits class,
+ * the default implementation of the traits class selects functions to execute
+ * on the given range in an implementation dependent manner, so do not rely on
+ * having an interaface and having the ordered traits class correctly picking
+ * the right functions for maximal efficiency.  If you have a container that
+ * is not an STL container then please specialize the ordered traits class
  */
-template <typename Container, typename Comparator>
+template <typename Container>
 class OrderedTraits {
 
     /**
@@ -144,25 +160,25 @@ class OrderedTraits {
      *
      * This needs to be overloaded to provide default behavior for the
      * OrderedContainer class
+     *
+     * If the class already contains a comparator, then feel free to ignore
+     * the second argument in the implementation of this function
      */
-    template <typename Value>
+    template <typename Value, typename Comparator>
     static auto lower_bound(Container& container, const Comparator& comparator,
                             const Value& value);
 
     /**
-     * Used to insert the value into the container at the location in the
-     * container specified by the iterator, this should be done as efficiently
-     * as possible
+     * Used to insert the value into the container at the location specified
+     * by the iterator, the value should be inserted into the container right
+     * before the element pointed to by the iterator
      *
-     * It should return a pair with an iterator that points to the now
-     * inserted element as well a boolean that says whether the insertion was
-     * successful or not
+     * It should return an iterator to the inserted element
      */
     template <typename Iterator, typename Value>
-    static std::pair<Iterator, bool> insert(Container& container,
-                                            const Comparator& comparator,
-                                            Iterator iterator,
-                                            Value&& value);
+    static auto insert(Container& container,
+                       Iterator iterator,
+                       Value&& value);
 };
 
 } // namespace sharp
