@@ -183,18 +183,22 @@ auto OrderedContainer<Container, Comparator>::find(const Value& value) const {
 
 template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::begin() {
+    return std::begin(this->container);
 }
 
 template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::begin() const {
+    return std::begin(this->container);
 }
 
 template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::end() {
+    return std::end(this->container);
 }
 
 template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::end() const {
+    return std::end(this->container);
 }
 
 template <typename Container, typename Comparator>
