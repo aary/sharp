@@ -201,4 +201,45 @@ class delegate_constructor : public GeneralizedTag<delegate_constructor> {};
  */
 class implementation : public GeneralizedTag<implementation> {};
 
+/**
+ * @class preferred_dispatch
+ *
+ * A module that can be used to implement compile time preferred dispatch in
+ * function overloads.
+ *
+ * For example if you have 3 ways to search a container, the first most
+ * preferred approach being a constant time lookup, the second being a
+ * logarithmic time lookup and the third being a linear time lookup, one could
+ * leverage SFINAE and preferred dispatch like so
+ *
+ *      template <typename Container, typename Value,
+ *                EnableIfHasConstantTimeLookup<Container>* = nullptr>
+ *      auto lookup_impl(Container& container, const Value& value,
+ *          sharp::preferred_dispatch<2>::tag_t);
+ *
+ *      template <typename Container, typename Value,
+ *                EnableIfHasLogTimeLookup<Container>* = nullptr>
+ *      auto lookup_impl(Container& container, const Value& value,
+ *          sharp::preferred_dispatch<1>::tag_t);
+ *
+ *      template <typename Container, typename Value,
+ *                EnableIfHasLinearTimeLookup<Container>* = nullptr>
+ *      auto lookup_impl(Container& container, const Value& value,
+ *          sharp::preferred_dispatch<0>::tag_t);
+ *
+ * Then a user may call these implementation functions like this
+ *      auto iter = lookup_impl(container, value,
+ *          sharp::preferred_dispatch<2>::tag);
+ *
+ * to specify that they want the implementation with the highest priority to
+ * be picked first, i.e. try the implementation with the 2, if that fails then
+ * fall back to the implementation with the priority 1, etc.
+ */
+template <int priority>
+class preferred_dispatch : public preferred_dispatch<priority - 1> {
+    static_assert(priority >= 0, "Priority cannot be negative");
+};
+template <>
+class preferred_dispatch<0> {};
+
 } // namespace sharp
