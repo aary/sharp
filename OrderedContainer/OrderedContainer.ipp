@@ -129,6 +129,15 @@ auto OrderedTraits<Container>::insert(ContainerIn& container,
     return container.insert(iterator, std::forward<Value>(value));
 }
 
+template <typename Container>
+template <typename ContainerIn, typename Iterator>
+auto OrderedTraits<Container>::erase(ContainerIn& container,
+                                     Iterator iterator) {
+    // all the STL containers within the domain of this module already have
+    // this method defined correctly
+    return container.erase(iterator);
+}
+
 template <typename Container, typename Comparator>
 OrderedContainer<Container, Comparator>::OrderedContainer(
         Comparator&& comparator_in) : container{},
@@ -187,6 +196,12 @@ auto OrderedContainer<Container, Comparator>::find(const Value& value) const {
 }
 
 template <typename Container, typename Comparator>
+template <typename Iterator>
+auto OrderedContainer<Container, Comparator>::erase(Iterator iterator) {
+    return OrderedTraits<Container>::erase(this->container, iterator);
+}
+
+template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::begin() {
     return std::begin(this->container);
 }
@@ -204,6 +219,16 @@ auto OrderedContainer<Container, Comparator>::end() {
 template <typename Container, typename Comparator>
 auto OrderedContainer<Container, Comparator>::end() const {
     return std::end(this->container);
+}
+
+template <typename Container, typename Comparator>
+std::size_t OrderedContainer<Container, Comparator>::size() const noexcept {
+    return this->container.size();
+}
+
+template <typename Container, typename Comparator>
+bool OrderedContainer<Container, Comparator>::empty() const noexcept {
+    return this->container.empty();
 }
 
 template <typename Container, typename Comparator>

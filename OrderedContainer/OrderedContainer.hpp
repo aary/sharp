@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <cstdint>
 
 namespace sharp {
 
@@ -113,6 +114,24 @@ public:
     auto find(const Value& value) const;
 
     /**
+     * Erases the element pointed to by the iterator, and then returns an
+     * iterator to the element right after the removed element, if the removed
+     * element was at the end then this returns std::end(container)
+     */
+    template <typename Iterator>
+    auto erase(Iterator iterator);
+
+    /**
+     * Size getter for the container
+     */
+    std::size_t size() const noexcept;
+
+    /**
+     * True if the container is empty or not
+     */
+    bool empty() const noexcept;
+
+    /**
      * Convenience iterator functions that return iterators to the beginning
      * and end of the container, these are implicitly convertible, comparable
      * and all sorts of assignable to the iterator objects returned by the
@@ -187,6 +206,15 @@ public:
     static auto insert(ContainerIn& container,
                        Iterator iterator,
                        Value&& value);
+
+    /**
+     * Erase the element pointed to by the iterator and then return the
+     * iterator that is right after the removed element.  This should be
+     * implemented by default in most containers and is implemented in all the
+     * STL containers that are supported by this adaptor
+     */
+    template <typename ContainerIn, typename Iterator>
+    static auto erase(ContainerIn& container, Iterator iterator);
 };
 
 } // namespace sharp
