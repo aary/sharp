@@ -61,17 +61,6 @@ TEST(OrderedContainer, vector_test) {
         EXPECT_NE(iter, oc.end());
         oc.erase(iter);
 
-        // print out the values in the ordered container and also the vector
-        cout << "random_integers : [";
-        for (const auto ele : random_integers) {
-            cout << ele << ' ';
-        } cout << "]" << endl;
-
-        cout << "ordered container : [";
-        for (const auto ele : oc) {
-            cout << ele << ' ';
-        } cout << "]" << endl;
-
         EXPECT_TRUE(std::equal(oc.begin(), oc.end(), random_integers.begin()));
     }
 }
