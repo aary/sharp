@@ -3,7 +3,7 @@
 namespace sharp {
 
 template <typename One, typename Two>
-detail::Range<One, Two> range(One begin, Two end) {
+auto range(One begin, Two end) {
     return detail::Range<One, Two>{begin, end};
 }
 

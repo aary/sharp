@@ -16,15 +16,6 @@
 namespace sharp {
 
 /**
- * Forward declaration for the Range class, this is needed because of C++'s
- * one pass compile system, without this the function below will not compile
- */
-namespace detail {
-    template <typename One, typename Two>
-    class Range;
-} // namespace detail
-
-/**
  * The range function that should be embedded in a range based for loop like
  * so
  *
@@ -36,7 +27,7 @@ namespace detail {
  * away and the result will be suprisingly similar to a hand written for loop
  */
 template <typename One, typename Two>
-detail::Range<One, Two> range(One begin, Two end);
+auto range(One begin, Two end);
 
 /**
  * Privates!
@@ -55,7 +46,7 @@ namespace detail {
         /**
          * Friend the factory function to create objects of this class
          */
-        friend Range<One, Two> sharp::range<One, Two>(One, Two);
+        friend auto sharp::range<One, Two>(One, Two);
 
         template <typename IncrementableType>
         class Iterator {
