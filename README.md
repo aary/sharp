@@ -69,21 +69,7 @@ git submodule update --init --recursive
 
 Once `gtest` has been installed run all unit tests with `buck`
 ```
-buck test
-```
-
-The unit tests for each module are in the `test` folder in the each submodule
-like so
-
-```
-├── LockedData
-│   ├── BUCK
-│   └── test
-│       ├── test.cpp
-├── Optional
-│   ├── BUCK
-│   └── test
-│       ├── test.cpp
+buck test --all
 ```
 
 To run the unit tests individually for a module run
