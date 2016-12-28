@@ -11,11 +11,13 @@ using namespace sharp;
 
 TEST(Range, BasicTest) {
 
+    // generate a vector with elements in [0, 10000)
     auto upper_limit = 10000;
     std::vector<int> vec;
     vec.resize(upper_limit);
     std::generate(vec.begin(), vec.end(), [i = 0] () mutable { return i++; });
 
+    // now do the same thing with the range() function
     std::vector<int> vec_two;
     for (auto i : range(0, upper_limit)) {
         vec_two.push_back(i);

@@ -7,8 +7,14 @@ auto range(One begin, Two end) {
     return detail::Range<One, Two>{begin, end};
 }
 
+/**
+ * All the major implementation goes in the detail namespace
+ */
 namespace detail {
 
+    /**
+     * Member functions of the main proxy Range
+     */
     template <typename One, typename Two>
     Range<One, Two>::Range(One begin_in, Two end_in)
         : first{begin_in}, last{end_in} {}
@@ -23,6 +29,10 @@ namespace detail {
         return Iterator<Two>{this->last};
     }
 
+
+    /**
+     * Member functions for the iterator type
+     */
     template <typename One, typename Two>
     template <typename IncrementableType>
     Range<One, Two>::Iterator<IncrementableType>::Iterator(
@@ -35,7 +45,6 @@ namespace detail {
             const {
         return this->incrementable;
     }
-
 
     template <typename One, typename Two>
     template <typename IncrementableType>
