@@ -15,4 +15,8 @@ cxx_library(
     visibility = [
         "PUBLIC",
     ],
+
+    tests = [
+        "//OrderedContainer/test:test",
+    ],
 )

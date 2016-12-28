@@ -15,4 +15,8 @@ cxx_library(
     visibility = [
         "PUBLIC",
     ],
+
+    tests = [
+        "//LockedData/test:test",
+    ],
 )

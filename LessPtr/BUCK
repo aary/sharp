@@ -7,5 +7,11 @@ cxx_library(
     exported_headers = [
         "LessPtr.hpp",
     ],
-    visibility = ["PUBLIC"],
+    visibility = [
+        "PUBLIC"
+    ],
+
+    tests = [
+        "//LessPtr/test:test",
+    ],
 )

@@ -53,7 +53,7 @@ namespace detail {
     public:
 
         /**
-         * Friend the factory function
+         * Friend the factory function to create objects of this class
          */
         friend Range<One, Two> sharp::range<One, Two>(One, Two);
 
