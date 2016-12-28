@@ -202,22 +202,12 @@ auto OrderedContainer<Container, Comparator>::erase(Iterator iterator) {
 }
 
 template <typename Container, typename Comparator>
-auto OrderedContainer<Container, Comparator>::begin() {
+auto OrderedContainer<Container, Comparator>::begin() const noexcept {
     return std::begin(this->container);
 }
 
 template <typename Container, typename Comparator>
-auto OrderedContainer<Container, Comparator>::begin() const {
-    return std::begin(this->container);
-}
-
-template <typename Container, typename Comparator>
-auto OrderedContainer<Container, Comparator>::end() {
-    return std::end(this->container);
-}
-
-template <typename Container, typename Comparator>
-auto OrderedContainer<Container, Comparator>::end() const {
+auto OrderedContainer<Container, Comparator>::end() const noexcept {
     return std::end(this->container);
 }
 
@@ -232,12 +222,13 @@ bool OrderedContainer<Container, Comparator>::empty() const noexcept {
 }
 
 template <typename Container, typename Comparator>
-Container& OrderedContainer<Container, Comparator>::get() {
+Container& OrderedContainer<Container, Comparator>::get() noexcept {
     return this->container;
 }
 
 template <typename Container, typename Comparator>
-const Comparator& OrderedContainer<Container, Comparator>::get_comparator() {
+const Comparator& OrderedContainer<Container, Comparator>::get_comparator()
+        const noexcept {
     return this->comparator;
 }
 

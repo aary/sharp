@@ -138,20 +138,18 @@ public:
      * containers begin() and end() methods (following the right const correct
      * path)
      */
-    auto begin();
-    auto end();
-    auto begin() const;
-    auto end() const;
+    auto begin() const noexcept;
+    auto end() const noexcept;
 
     /**
      * Return a reference to the internal container being stored by this class
      */
-    Container& get();
+    Container& get() noexcept;
 
     /**
      * Return a const reference to the held comparator object
      */
-    const Comparator& get_comparator();
+    const Comparator& get_comparator() const noexcept;
 
 private:
 
