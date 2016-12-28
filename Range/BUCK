@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Range",
+    header_namespace = "sharp/Range",
+    headers = [
+        "Range.hpp",
+        "Range.ipp",
+    ],
+    exported_headers = [
+        "Range.hpp",
+        "Range.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
