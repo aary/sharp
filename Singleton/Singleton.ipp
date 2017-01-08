@@ -1,3 +1,5 @@
+#pragma once
+
 #include <sharp/Singleton/Singleton.hpp>
 #include <sharp/LockedData/LockedData.hpp>
 
