@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <memory>
+
 namespace sharp {
 
 template <typename Type>
@@ -14,7 +16,7 @@ class Singleton {
      * The accessor function that can be used to create and use singleton
      * instances
      */
-    static Type& get();
+    static std::shared_ptr<Type> get_strong();
 };
 
 } // namespace sharp
