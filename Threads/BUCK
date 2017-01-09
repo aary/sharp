@@ -1,0 +1,24 @@
+cxx_library(
+    name = "Threads",
+    header_namespace = "sharp/Threads",
+
+    srcs = glob([
+        "**/*.cpp",
+    ], excludes = [
+        "**/test/*.cpp",
+    ]),
+    headers = subdir_glob([
+        ("", "**/*.hpp"),
+    ]),
+    exported_headers = subdir_glob([
+        ("", "**/*.hpp"),
+    ]),
+
+    tests = [
+        "//Threads/test:test",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
