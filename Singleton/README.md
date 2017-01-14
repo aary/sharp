@@ -33,3 +33,11 @@ int main() {
     // use singleton
 }
 ```
+
+The C++ standard specifies that destruction of static objects will proceed in
+the reverse order of destruction, but there is no good way to serialize and
+generalize destruction of such objects at end time if there is no relation to
+the order of construction,  this API offers such a possibility, by creating an
+instance of a proxy object like so
+`static Singleton<Type>::register_destruct_dependence<SOne, STwo> dep;` You
+can register a destruction dependence for the singletons conveniently
