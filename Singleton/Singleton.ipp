@@ -2,6 +2,7 @@
 
 #include <sharp/Singleton/Singleton.hpp>
 #include <sharp/LockedData/LockedData.hpp>
+#include <sharp/Threads/Threads.hpp>
 
 #include <functional>
 #include <vector>
@@ -63,6 +64,7 @@ namespace detail {
      * SingletonWrapper<int> and a SingletonWrapper<double> have different
      * inner variables
      */
+    class SingletonStorage;
     template <typename ContextType>
     class SingletonWrapper : public SingletonWrapperBase {
     public:
@@ -97,17 +99,30 @@ namespace detail {
         }
 
         bool is_initialized() override {
-            return this->is_initialized.load(/* std::memory_order_acquire */);
+            return this->initialized.load(/* std::memory_order_acquire */);
         }
 
         void initialize() override {
-            this->object = std::make_unique<ContextType>();
-            this->is_initialized.store(true);
+            // make a strong reference to the object and then assign a weak
+            // reference to that object, note that thie is being done because
+            // this function will be called in a threadsafe manner, i.e. there
+            // will always be a lock around this function, but the weak
+            // pointer can be accessed from different threads without the need
+            // for synchronization, and this is because the
+            // std::weak_ptr::lock() method is marked const in the standard
+            // library and const methods in the C++ standard library are
+            // always threadsafe
+            this->object_strong = std::make_shared<ContextType>();
+            this->object_weak = this->object_strong;
+            this->initialized.store(true);
         }
 
         void destroy() override {
-            this->object.reset(nullptr);
-            this->is_initialized.store(false);
+            // destroy the strong reference, any threads with strong
+            // references are responsible for releasing said references, no
+            // need to call any non-const method on the weak_ptr
+            this->object_strong.reset();
+            this->initialized.store(false);
         }
 
         /**
@@ -119,10 +134,10 @@ namespace detail {
 
     private:
         /**
-         * Default constructor sets the is_initialized member variable to
+         * Default constructor sets the initialized member variable to
          * false to mark that the singleton is not yet created
          */
-        SingletonWrapper() : is_initialized{false} {}
+        SingletonWrapper() : initialized{false} {}
 
 
         /**
@@ -130,7 +145,7 @@ namespace detail {
          * initialized and contains a false otherwise.  This is the element
          * that's used in the double checked locking interface.
          */
-        std::atomic<bool> is_initialized;
+        std::atomic<bool> initialized;
 
         /**
          * The actual datum that is stored in instances of this class, at
@@ -158,21 +173,21 @@ namespace detail {
     public:
 
         /**
-         * Creates an instance of a SingletonWrapper<ContextType> and then
-         * stores the pointer to that in the internal unordered map, the
-         * pointer can be stored because the type of the wrapper is erased
-         * through the abstract base class
-         */
-        template <typename ContextType>
-        SingletonWrapper<ContextType>* create_wrapper();
-
-        /**
          * Construct and return a pointer to the storage atomically
          */
         static SingletonStorage& get() {
             static SingletonStorage* storage = new SingletonStorage{};
             return *storage;
         }
+
+        /**
+         * only way to create a singleton storage is through the public get
+         * interface
+         */
+        SingletonStorage(const SingletonStorage&) = delete;
+        SingletonStorage(SingletonStorage&&) = delete;
+        SingletonStorage& operator=(const SingletonStorage&) = delete;
+        SingletonStorage& operator=(SingletonStorage&&) = delete;
 
         /**
          * Initializes the SingletonWrapper for the type passed in, the
@@ -220,6 +235,16 @@ namespace detail {
         SingletonStorage();
 
         /**
+         * A function to destroy the instances of all the singletons in the
+         * right order that they were created.
+         *
+         * This function is static because it will be used to register in the
+         * std::atexit() function call, which requires a void(*)() function
+         * pointer
+         */
+        static void destroy_singletons();
+
+        /**
          * An object that stores the metadata used for controlling the
          * lifetime of singletons.  Not using an std::pair because this is
          * clearer
@@ -230,7 +255,7 @@ namespace detail {
              * to control the lifetime of a singleton
              */
             std::unordered_map<std::type_index,
-                               std::unique_ptr<SingletonWrapperBase>> control;
+                               SingletonWrapperBase*> control;
 
             /**
              * This contains the objects in the order that they were created, so
@@ -240,19 +265,18 @@ namespace detail {
             std::vector<std::type_index> stack_creation;
 
             /**
-             * boolean to indicate whether the storage is already in the
-             * process of creation / destruction of a singleton, in that case
-             * don't reacquire the lock.  This is a workaround for a recursive
-             * mutex
+             * A singleton cannot be created while other singletons are being
+             * destroyed, signal an error if this boolean is true in the
+             * function that creates a singleton
              */
-            // bool is_creating_destroying{false};
+            bool are_singletons_being_destroyed{false};
         };
 
         /**
          * The synchronized interface to the storage struct above, see
          * sharp/LockedData
          */
-        sharp::LockedData<SingletonStorageImpl> storage;
+        sharp::LockedData<SingletonStorageImpl, sharp::RecursiveMutex> storage;
 
     };
 
@@ -264,62 +288,78 @@ std::shared_ptr<Type> Singleton<Type>::get_strong() {
     // get the singleton handle that stores the internal singleton instance
     // that is to be returned to the user, this is synchronized by the C++
     // runtime
-    static auto& singleton_handle = SingletonWrapper<Type>::get();
+    static auto& singleton_handle = detail::SingletonWrapper<Type>::get();
 
     // this is the first gate for the double checked locking pattern, if this
     // is successful then the singleton has already been initialized, if this
     // is not successful then the second stage of the double checked locking
     // pattern will be executed in which the lock will be acquired
     if (singleton_handle.is_initialized()) {
-        return singleton_handle->get_strong();
+        return singleton_handle.get_strong();
     }
 
     // otherwise, its time to launch the creation, this function will have to
-    // acquire the lock for double checked locking in two places, one for the
-    // singleton_handle above and one for the HasStorageBeenDestroyed boolean,
-    // both can be gated with the same mutex in the storage
-    SingletonStorage::get().launch_creation<Type>();
+    // acquire the lock for double checked locking since the access above is
+    // lock free
+    detail::SingletonStorage::get().launch_creation<Type>();
 
     // then return the instance, it should be created, if not then PANIC
-    assert(singleton_handle->is_initialized());
-    return singleton_handle->get_strong();
+    assert(singleton_handle.is_initialized());
+    return singleton_handle.get_strong();
 }
 
 namespace detail {
 
     template <typename ContextType>
-    SingletonWrapper<ContextType>* SingletonStorage::create_wrapper() {
-
-        // create the singleton holder objects
-        auto wrapper_ptr = new SingletonWrapper<ContextType>{};
-        auto wrapper_base_ptr = static_cast<SingletonWrapperBase*>(wrapper_ptr);
-
-        // insert the pair into the unordered_map
-        auto pair_to_insert = std::make_pair(
-                std::type_index{typeid(ContextType)}, wrapper_base_ptr);
-
-        // acquire the lock and insert into storage
-        auto locked_storage = this->storage.lock();
-        assert(locked_storage->control.find(
-                    std::type_index{typeid(ContextType)})
-                != locked_storage->end());
-        locked_storage->control.insert(std::move(pair_to_insert));
-        locked_storage->stack_creation.push_back(
-                std::type_index{typeid(ContextType)});
-
-        return wrapper_ptr;
-    }
-
-    template <typename ContextType>
     SingletonWrapper<ContextType>& SingletonWrapper<ContextType>::get() {
         static SingletonWrapper<ContextType>* self =
-            SingletonStorage::create_wrapper<ContextType>();
+            new SingletonWrapper<ContextType>{};
         return *self;
     }
 
     template <typename ContextType>
     void SingletonStorage::launch_creation() {
-        auto& storage = SingletonStorage::get();
+        auto& singleton_storage = SingletonStorage::get();
+
+        // acquire the lock for the storage and then construct the element,
+        // the construction can push back other elements into the vector that
+        // stores the order of construction
+        auto lock = singleton_storage.storage.lock();
+
+        // get the instance of a singleton wrapper for the type
+        auto& wrapper_ptr = SingletonWrapper<ContextType>::get();
+
+        // if there is a circular dependence then the object will already
+        // exist in the storage, leading to a double creation of the object,
+        // at that point signal the user that this is an error before double
+        // creating the object
+        if (lock->control.find(std::type_index{typeid(ContextType)})
+                != lock->control.end()) {
+            throw std::runtime_error{"Circular singleton dependence"};
+        }
+
+        // if singletons are being destoryed when this is called then throw an
+        // error too
+        if (lock->are_singletons_being_destroyed) {
+            throw std::runtime_error{"Singletons are being destroyed, cannot "
+                "create a singleton now"};
+        }
+
+        // initialize the inner datum, this will initialize a strong refernece
+        // and make a weak pointer point to it, subsequent accesses to the
+        // datum will all be through the weak pointer
+        wrapper_ptr.initialize();
+
+        // now insert the bookkeeping into the storage, so that the instances
+        // of the singleton will be destroyed in the reverse order that they
+        // have been created
+        auto wrapper_base_ptr
+            = static_cast<SingletonWrapperBase*>(&wrapper_ptr);
+        auto pair_to_insert = std::make_pair(
+                std::type_index{typeid(ContextType)}, wrapper_base_ptr);
+        auto return_pair = lock->control.insert(std::move(pair_to_insert));
+        assert(return_pair.second);
+        lock->stack_creation.push_back(std::type_index{typeid(ContextType)});
     }
 
 } // namespace detail

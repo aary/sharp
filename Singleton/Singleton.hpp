@@ -11,6 +11,7 @@ namespace sharp {
 
 template <typename Type>
 class Singleton {
+public:
 
     /**
      * The accessor function that can be used to create and use singleton
