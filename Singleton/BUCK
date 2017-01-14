@@ -1,0 +1,28 @@
+cxx_library(
+    name = "Singleton",
+    header_namespace = "sharp/Singleton",
+    deps = [
+        "//Tags:Tags",
+        "//LockedData:LockedData",
+        "//Threads:Threads",
+    ],
+    srcs = [
+        "Singleton.cpp",
+    ],
+    headers = [
+        "Singleton.hpp",
+        "Singleton.ipp",
+    ],
+    exported_headers = [
+        "Singleton.ipp",
+        "Singleton.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+
+    tests = [
+        "//Singleton/test:test",
+    ],
+)
