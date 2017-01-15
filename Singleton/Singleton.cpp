@@ -1,4 +1,4 @@
-#include "Singleton.hpp"
+#include <sharp/Singleton/Singleton.hpp>
 
 namespace sharp {
 namespace detail {
