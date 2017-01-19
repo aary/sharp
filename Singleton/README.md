@@ -41,3 +41,13 @@ the order of construction,  this API offers such a possibility, by creating an
 instance of a proxy object like so
 `static Singleton<Type>::register_destruct_dependence<SOne, STwo> dep;` You
 can register a destruction dependence for the singletons conveniently
+
+Double checked is used extensively throughout this module to enable fast
+asynchronous processing without any blocking.  The only time the system blocks
+is when a singleton is being created and multiple things try and create the
+singleton at the same time.  Also again at destruction a `std::shared_ptr` and
+a `std::weak_ptr` are used in sync to get fast on blocking access to a shared
+object.  After destruction a thread can continue to hold on to a singleton as
+long as it holds a strong reference.  Further the `std::weak_ptr::lock()`
+metohd being const implies thread safety and therefore no access blocks as
+long as the singleton is not being created.
