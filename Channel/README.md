@@ -98,9 +98,9 @@ int main() {
 ```
 
 
-### `select` API
-The implementation picks whether you are waiting on a read or a write 
-based on the signature of the function passed in along with the channel.
+### Channel Multiplexing via `select`
+The `select` API implementation picks whether you are waiting on a read or a
+write based on the signature of the function passed in along with the channel.
 
 ```c++
 #include <iostream>
