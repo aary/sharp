@@ -7,7 +7,7 @@ limit to the buffer size, which would seem limiting.
 
 Example usage
 
-```
+```c++
 #include <numeric>
 #include <thread>
 #include <vector>
@@ -43,7 +43,7 @@ int main() {
 
 Buffered channels are supported as well
 
-```
+```c++
 #include <iostream>
 
 #include <sharp/Channel/Channel.hpp>
@@ -66,7 +66,7 @@ int main() {
 The range based approach is also supported for continuous streaming of objects
 from thread to thread
 
-```
+```c++
 #include <sharp/Channel/Channel.hpp>
 
 void fibonacci(int n, Channel<int>& c) {
@@ -100,7 +100,7 @@ int main() {
 
 The `select` API
 
-```
+```c++
 #include <iostream>
 
 #include <sharp/Channel/Channel.hpp>
