@@ -5,7 +5,7 @@ A type safe channel like the similar one in Go.  The module also provides a
 similar construct for buffered channels but in a way that does not require a
 limit to the buffer size, which would seem limiting.
 
-Example usage
+### Example usage
 
 ```c++
 #include <numeric>
@@ -41,7 +41,7 @@ int main() {
 }
 ```
 
-Buffered channels are supported as well
+### Buffered channels
 
 ```c++
 #include <iostream>
@@ -63,8 +63,7 @@ int main() {
 ```
 
 
-The range based approach is also supported for continuous streaming of objects
-from thread to thread
+### Range based channeling
 
 ```c++
 #include <sharp/Channel/Channel.hpp>
@@ -99,9 +98,9 @@ int main() {
 ```
 
 
-The `select` API.  The implementation picks whether you are waiting on a read
-or a write based on the signature of the function passed in along with the
-channel.
+### `select` API
+The implementation picks whether you are waiting on a read or a write 
+based on the signature of the function passed in along with the channel.
 
 ```c++
 #include <iostream>
