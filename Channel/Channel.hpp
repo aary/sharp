@@ -94,5 +94,5 @@ public:
      * wait on a read or a write operation, and multiplexes I/O based on that
      */
     template <typename Func, typename... Args>
-    static void select(std::pair<Channel&, Function>, Args&&...);
+    static void select(std::pair<Channel&, Func>, Args&&...);
 };

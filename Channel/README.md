@@ -29,8 +29,8 @@ int main() {
     std::vector<int> s{7, 2, 8, -9, 4, 0};
 
     auto c = sharp::Channel<int>{};
-    std::thread{[&]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
-    std::thread{[&]() { sum(s.begin() + s.size()/2, s.end(), c); }}.detach();
+    std::thread{[]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
+    std::thread{[]() { sum(s.begin() + s.size()/2, s.end(), c); }}.detach();
 
     auto x = c.read();
     auto y = c.read();
