@@ -68,12 +68,13 @@ from thread to thread
 
 ```c++
 #include <sharp/Channel/Channel.hpp>
+#include <sharp/Range/Range.hpp>
 
-void fibonacci(int n, Channel<int>& c) {
+void fibonacci(int n, sharp::Channel<int>& c) {
     auto x = 0;
     auto y = 1;
 
-    for (auto i = 0; i < n; ++i) {
+    for (auto i : sharp::range(0, n)) {
         c.send(i);
 
         auto new_y = x + y;
@@ -86,7 +87,7 @@ void fibonacci(int n, Channel<int>& c) {
 
 int main() {
 
-    auto c = Channel<int>{};
+    auto c = sharp::Channel<int>{};
     fibonacci(10, c);
 
     for (auto i : c) {
