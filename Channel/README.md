@@ -98,7 +98,9 @@ int main() {
 ```
 
 
-The `select` API
+The `select` API.  The implementation picks whether you are waiting on a read
+or a write based on the signature of the function passed in along with the
+channel.
 
 ```c++
 #include <iostream>
@@ -114,12 +116,14 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
     auto should_continue = true;
     while (should_continue) {
         sharp::Channel::select(
-            {c, [&] () {
-                c.send(x);
+            {c, [&] () -> int {
 
-                auto new_y = y;
+                auto to_send = x;
+                auto new_y = x + y;
                 x = y;
                 y = new_y;
+
+                return to_send;
             }},
 
             {quit, [&](auto) {
