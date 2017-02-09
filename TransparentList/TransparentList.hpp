@@ -57,12 +57,24 @@ public:
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
 
     /**
+     * The datum, this is made public so that the user can interact with it as
+     * they wish
+     */
+    Type datum;
+
+    /**
+     * Make the list class a friend so that it can access the pointers in the
+     * struct
+     */
+    friend class TransparentList<Type>;
+
+private:
+
+    /**
      * the previous next pointers and the data item
      */
     Node<Type>* prev;
     Node<Type>* next;
-    Type datum;
-
 };
 
 template <typename Type>
