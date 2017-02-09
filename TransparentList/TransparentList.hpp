@@ -32,10 +32,6 @@ namespace eecs281 {
 template <typename Type>
 class Node {
 public:
-    Node<Type>* prev;
-    Node<Type>* next;
-    Type datum;
-
     /**
      * Allow construction from any type the datum is constructible from
      */
@@ -59,6 +55,14 @@ public:
     template <typename U, typename Args>
     Node(std::in_place_t, std::initializer_list<U> ilist, Args&&... args)
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
+
+    /**
+     * the previous next pointers and the data item
+     */
+    Node<Type>* prev;
+    Node<Type>* next;
+    Type datum;
+
 };
 
 template <typename Type>
@@ -184,6 +188,20 @@ public:
     auto end() noexcept;
 
 private:
+
+    /**
+     * Insert right after a node, this does not check for validity
+     */
+    void insert_after(Node<Type>* to_insert_after, Node<Type>* to_insert)
+        noexcept;
+
+    /**
+     * Insert right before a node, this does not check for validity or
+     * anything
+     */
+    void insert_before(Node<Type>* to_insert_before, Node<Type>* to_insert)
+        noexcept;
+
     /**
      * The head and tail pointers are the only bookkeeping in this list
      */

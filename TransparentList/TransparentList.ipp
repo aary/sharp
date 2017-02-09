@@ -8,7 +8,11 @@ namespace eecs281 {
 
 template <typename Type>
 static void assert_pointer_invariants(Type* pointer) {
+    // assert that the pointer is valid and not null
     assert(pointer);
+
+    // assert that the pointer is aligned on the right boundary with respect
+    // to the largest alignment on the system just to be safe
     assert(!(reinterpret_cast<uintptr_t>(pointer) % alignof(std::max_align_t)));
 }
 
@@ -60,6 +64,34 @@ TransparentList<Type>::TransparentList() noexcept
         : head{nullptr}, tail{nullptr} {}
 
 template <typename Type>
+void TransparentList<Type>::insert_after(Node<Type>* to_insert_after,
+                                         Node<Type>* to_insert) noexcept {
+    // insert right after the node
+    to_insert->prev = to_insert_after;
+    to_insert->next = to_insert_after->next;
+    to_insert_after->next = to_insert;
+
+    // change the next node's previous pointer if the next pointer is valid
+    if (to_insert_after->next) {
+        to_insert_after->next->prev = to_insert;
+    }
+}
+
+template <typename Type>
+void TransparentList<Type>::insert_before(Node<Type>* to_insert_before,
+                                          Node<Type>* to_insert) noexcept {
+    // insert right before the node
+    to_insert->prev = to_insert_before->prev;
+    to_insert->next = to_insert_before;
+    to_insert_before->prev = to_insert;
+
+    // change the previous node's next pointer if the previous pointer is valid
+    if (to_insert_before->prev) {
+        to_insert_before->prev->next = to_insert;
+    }
+}
+
+template <typename Type>
 void TransparentList<Type>::push_back(Node<Type>* node_to_insert) noexcept {
     assert_pointer_invariants(node_to_insert);
 
@@ -76,9 +108,7 @@ void TransparentList<Type>::push_back(Node<Type>* node_to_insert) noexcept {
 
     // otherwise just insert into the linked list
     assert(!this->tail->next);
-    node_to_insert->next = nullptr;
-    node_to_insert->prev = this->tail;
-    this->tail->next = node_to_insert;
+    this->insert_after(this->tail, node_to_insert);
     this->tail = node_to_insert;
 }
 
@@ -100,15 +130,13 @@ void TransparentList<Type>::push_front(Node<Type>* node_to_insert) noexcept {
 
     // otherwise just insert into the beginning
     assert(!this->head->prev);
-    node_to_insert->prev = nullptr;
-    node_to_insert->next = this->head;
-    this->head->prev = node_to_insert;
+    this->insert_before(this->head, node_to_insert);
     this->head = node_to_insert;
 }
 
 template <typename Type>
 void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
-                              Node<Type>* node_to_insert) noexcept {
+                                   Node<Type>* node_to_insert) noexcept {
     assert_pointer_invariants(node_to_insert);
 
     // if the iterator was pointing past the end of the linked list then
@@ -119,15 +147,31 @@ void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
 
     // if not then the iterator was pointing to a valid element, insert right
     // before it
-    node_to_insert->next = iterator.node_ptr;
-    node_to_insert->prev = iterator.node_ptr->prev;
-    iterator.node_ptr->prev = node_to_insert;
+    assert(iterator.node_ptr);
+    this->insert_before(iterator.node_ptr, node_to_insert);
 }
 
 template <typename Type>
 void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
         noexcept {
     assert_pointer_invariants(iterator.node_ptr);
+
+    // if this was the only node in the list then erase it and set the head
+    // and tail pointers to null
+    if (this->head == iterator.node_ptr) {
+        assert(this->tail == iterator.node_ptr);
+        this->head = nullptr;
+        this->tail = nullptr;
+    }
+    assert(this->tail != this->head);
+
+    // erase the current pointer
+    if (iterator.node_ptr->next) {
+        iterator.node_ptr->next->prev = iterator->node_ptr->prev;
+    }
+    if (iterator.node_ptr->prev) {
+        iterator.node_ptr->prev->next = iterator.node_ptr->next;
+    }
 }
 
 } // namespace eecs281
