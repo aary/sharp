@@ -4,7 +4,7 @@
 
 #include "TransparentList.hpp"
 
-namespace eecs281 {
+namespace sharp {
 
 template <typename Type>
 static void assert_pointer_invariants(Type* pointer) {
@@ -174,4 +174,4 @@ void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
     }
 }
 
-} // namespace eecs281
+} // namespace sharp

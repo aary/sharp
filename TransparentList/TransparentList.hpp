@@ -23,7 +23,7 @@
 #include <iterator>
 #include <initializer_list>
 
-namespace eecs281 {
+namespace sharp {
 
 /**
  * The node class, elements are stored in here, these should be pushed onto
@@ -221,6 +221,6 @@ private:
     Node<Type>* tail;
 };
 
-} // namespace eecs281
+} // namespace sharp
 
 #include "TransparentList.ipp"
