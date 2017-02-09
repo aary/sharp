@@ -33,13 +33,6 @@ template <typename Type>
 class Node {
 public:
     /**
-     * Allow construction from any type the datum is constructible from
-     */
-    template <typename DatumType>
-    Node(DatumType&& datum_in)
-            : datum{std::forward<DatumType>(datum_in)} {}
-
-    /**
      * In place construction with variadic arguments that can be forwarded to
      * the constructor of type Datum
      */
