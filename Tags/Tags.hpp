@@ -88,9 +88,9 @@ public:
      */
     static void tag(const InputTag& = InputTag{}) {}
     template <typename Type>
-    static void tag(const InputTagType<Type>& = InputTagType<Type>{}) {}
+    static void tag_type(const InputTagType<Type>& = InputTagType<Type>{}) {}
     template <int INTEGER>
-    static void tag(
+    static void tag_integral(
             const InputTagIntegral<INTEGER>& = InputTagIntegral<INTEGER>{}) {}
 };
 

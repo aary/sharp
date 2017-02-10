@@ -27,8 +27,9 @@ TEST(TagsTest, TestGeneralizedTag) {
     class test_tag : public sharp::GeneralizedTag<test_tag> {};
 
     EXPECT_EQ(which_tag<test_tag>(test_tag::tag), TagType::NORMAL);
-    EXPECT_EQ(which_tag<test_tag>(test_tag::tag<int>), TagType::TYPE);
-    EXPECT_EQ(which_tag<test_tag>(test_tag::tag<1>), TagType::INTEGRAL);
+    EXPECT_EQ(which_tag<test_tag>(test_tag::tag_type<int>), TagType::TYPE);
+    EXPECT_EQ(which_tag<test_tag>(test_tag::tag_integral<1>),
+            TagType::INTEGRAL);
 }
 
 /**
@@ -50,6 +51,6 @@ TEST(TagsTest, TestEachDefinedTag) {
 template <typename Tag>
 static void test_which_tag_for_tag() {
     EXPECT_EQ(which_tag<Tag>(Tag::tag), TagType::NORMAL);
-    EXPECT_EQ(which_tag<Tag>(Tag::template tag<int>), TagType::TYPE);
-    EXPECT_EQ(which_tag<Tag>(Tag::template tag<1>), TagType::INTEGRAL);
+    EXPECT_EQ(which_tag<Tag>(Tag::template tag_type<int>), TagType::TYPE);
+    EXPECT_EQ(which_tag<Tag>(Tag::template tag_integral<1>), TagType::INTEGRAL);
 }
