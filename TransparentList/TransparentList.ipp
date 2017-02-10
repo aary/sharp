@@ -40,7 +40,7 @@ public:
     /**
      * Dereferenece operator
      */
-    auto& operator*() noexcept;
+    Node<Type>& operator*() noexcept;
 
     /**
      * Chain operator->, returns a pointer to the held node.  The compiler
@@ -100,7 +100,7 @@ static void assert_pointer_invariants(Type* pointer) {
  * The dereference operator for the node iterator class
  */
 template <typename Type>
-auto& TransparentList<Type>::NodeIterator::operator*() noexcept {
+Node<Type>& TransparentList<Type>::NodeIterator::operator*() noexcept {
     return *this->node_ptr;
 }
 
@@ -215,10 +215,8 @@ void TransparentList<Type>::push_front(Node<Type>* node_to_insert) noexcept {
         // if the tail pointer is pointing to nothing then the head should
         // also be pointing to null
         assert(!this->tail);
-        node_to_insert->prev = nullptr;
-        node_to_insert->next = nullptr;
-        this->head = node_to_insert;
-        this->tail = node_to_insert;
+        this->push_back(node_to_insert);
+        assert(this->tail == this->head);
         return;
     }
 
