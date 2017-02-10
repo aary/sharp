@@ -2,7 +2,7 @@
 #include <iterator>
 #include <cstdint>
 
-#include "TransparentList.hpp"
+#include <sharp/TransparentList/TransparentList.hpp>
 
 namespace sharp {
 
