@@ -7,6 +7,16 @@
 
 namespace sharp {
 
+template <typename Type>
+static void assert_pointer_invariants(Type* pointer) {
+    // assert that the pointer is valid and not null
+    assert(pointer);
+
+    // assert that the pointer is aligned on the right boundary with respect
+    // to the largest alignment on the system just to be safe
+    assert(!(reinterpret_cast<uintptr_t>(pointer) % alignof(std::max_align_t)));
+}
+
 /**
  * An iterator class for generality and convenience
  */
@@ -40,7 +50,10 @@ public:
     /**
      * Dereferenece operator
      */
-    Node<Type>& operator*() noexcept;
+    Node<Type>& operator*() noexcept {
+        assert_pointer_invariants(this->node_ptr);
+        return *this->node_ptr;
+    }
 
     /**
      * Chain operator->, returns a pointer to the held node.  The compiler
@@ -48,19 +61,30 @@ public:
      * so calling operator-> on an instance of a NodeIterator is
      * equivalent to calling operator-> on a Node<Type>* object
      */
-    Node<Type>* operator->() noexcept;
+    Node<Type>* operator->() noexcept {
+        assert_pointer_invariants(this->node_ptr);
+        return this->node_ptr;
+    }
 
     /**
      * Preincrement operator to advance the node pointer to the next spot
      */
-    NodeIterator& operator++() noexcept;
+    NodeIterator& operator++() noexcept {
+        assert_pointer_invariants(this->node_ptr);
+        this->node_ptr = this->node_ptr->next;
+        return *this;
+    }
 
     /**
      * Equality operators to determine whether two iterators are pointing to
      * the same node
      */
-    bool operator==(const NodeIterator& other) const noexcept;
-    bool operator!=(const NodeIterator& other) const noexcept;
+    bool operator==(const NodeIterator& other) const noexcept {
+        return this->node_ptr == other.node_ptr;
+    }
+    bool operator!=(const NodeIterator& other) const noexcept {
+        return this->node_ptr != other.node_ptr;
+    }
 
     /**
      * Become friends with the list class that this iterator is a part of
@@ -82,56 +106,6 @@ private:
      */
     Node<Type>* node_ptr;
 };
-
-template <typename Type>
-static void assert_pointer_invariants(Type* pointer) {
-    // assert that the pointer is valid and not null
-    assert(pointer);
-
-    // assert that the pointer is aligned on the right boundary with respect
-    // to the largest alignment on the system just to be safe
-    assert(!(reinterpret_cast<uintptr_t>(pointer) % alignof(std::max_align_t)));
-}
-
-/**
- * Implementations of the iterator class methods
- */
-/**
- * The dereference operator for the node iterator class
- */
-template <typename Type>
-Node<Type>& TransparentList<Type>::NodeIterator::operator*() noexcept {
-    return *this->node_ptr;
-}
-
-template <typename Type>
-Node<Type>* TransparentList<Type>::NodeIterator::operator->() noexcept {
-    return this->node_ptr;
-}
-
-/**
- * Preincrement operator for the iterator to elements of the doubly linked list
- */
-template <typename Type>
-typename TransparentList<Type>::NodeIterator&
-TransparentList<Type>::NodeIterator::operator++() noexcept {
-    this->node_ptr = this->node_ptr->next;
-    return *this;
-}
-
-/**
- * Comparison operators
- */
-template <typename Type>
-bool TransparentList<Type>::NodeIterator::operator==(
-        const NodeIterator& other) const noexcept {
-    return this->node_ptr == other.node_ptr;
-}
-template <typename Type>
-bool TransparentList<Type>::NodeIterator::operator!=(
-        const NodeIterator& other) const noexcept {
-    return this->node_ptr != other.node_ptr;
-}
 
 /**
  * Implementations for the linked list class methods
