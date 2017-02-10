@@ -7,7 +7,9 @@
  * as allocators as well.  Resulting in convenience for situations where the
  * program is written right on top of an existing memory model with no
  * intermediate abstractions such as some embedded systems, kernel level
- * programming and library implementations such as malloc.
+ * programming and library implementations such as malloc.  Good C++
+ * abstractions are usually not available in these cases, and the result is
+ * often bad code which could be more idiomatic
  *
  * Since it can be used for pretty much any purpose and uses pointers, the
  * linked list asserts alignment on the largest boundary of primitive types to
