@@ -1,0 +1,19 @@
+cxx_library(
+    name = "TransparentList",
+    header_namespace = "sharp/TransparentList",
+    headers = [
+        "TransparentList.hpp",
+        "TransparentList.ipp",
+    ],
+    exported_headers = [
+        "TransparentList.hpp",
+        "TransparentList.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//TransparentList/test:test",
+    ]
+)
