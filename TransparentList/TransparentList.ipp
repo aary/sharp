@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iterator>
 #include <cstdint>
+#include <iostream>
 
 #include <sharp/TransparentList/TransparentList.hpp>
 
@@ -23,12 +24,12 @@ static void assert_pointer_invariants(Type* pointer) {
  * The dereference operator for the node iterator class
  */
 template <typename Type>
-auto& TransparentList<Type>::NodeIterator::operator*() {
+auto& TransparentList<Type>::NodeIterator::operator*() noexcept {
     return *this->node_ptr;
 }
 
 template <typename Type>
-Node<Type>* TransparentList<Type>::NodeIterator::operator->() {
+Node<Type>* TransparentList<Type>::NodeIterator::operator->() noexcept {
     return this->node_ptr;
 }
 
@@ -36,8 +37,8 @@ Node<Type>* TransparentList<Type>::NodeIterator::operator->() {
  * Preincrement operator for the iterator to elements of the doubly linked list
  */
 template <typename Type>
-TransparentList<Type>::NodeIterator&
-TransparentList<Type>::NodeIterator::operator++() {
+typename TransparentList<Type>::NodeIterator&
+TransparentList<Type>::NodeIterator::operator++() noexcept {
     this->node_ptr = this->node_ptr->next;
     return *this;
 }
@@ -47,18 +48,28 @@ TransparentList<Type>::NodeIterator::operator++() {
  */
 template <typename Type>
 bool TransparentList<Type>::NodeIterator::operator==(
-        const TransparentList<Type>::NodeIterator& other) const noexcept {
+        const NodeIterator& other) const noexcept {
     return this->node_ptr == other.node_ptr;
 }
 template <typename Type>
 bool TransparentList<Type>::NodeIterator::operator!=(
-        const TransparentList<Type>::NodeIterator& other) const noexcept {
+        const NodeIterator& other) const noexcept {
     return this->node_ptr != other.node_ptr;
 }
 
 /**
  * Implementations for the linked list class methods
  */
+template <typename Type>
+auto TransparentList<Type>::begin() noexcept {
+    return NodeIterator{this->head};
+}
+
+template <typename Type>
+auto TransparentList<Type>::end() noexcept {
+    return NodeIterator{nullptr};
+}
+
 template <typename Type>
 TransparentList<Type>::TransparentList() noexcept
         : head{nullptr}, tail{nullptr} {}
@@ -69,12 +80,15 @@ void TransparentList<Type>::insert_after(Node<Type>* to_insert_after,
     // insert right after the node
     to_insert->prev = to_insert_after;
     to_insert->next = to_insert_after->next;
-    to_insert_after->next = to_insert;
 
     // change the next node's previous pointer if the next pointer is valid
     if (to_insert_after->next) {
         to_insert_after->next->prev = to_insert;
     }
+
+    // then actually change the next pointer of the previous node to point to
+    // the current node
+    to_insert_after->next = to_insert;
 }
 
 template <typename Type>
@@ -83,12 +97,14 @@ void TransparentList<Type>::insert_before(Node<Type>* to_insert_before,
     // insert right before the node
     to_insert->prev = to_insert_before->prev;
     to_insert->next = to_insert_before;
-    to_insert_before->prev = to_insert;
 
     // change the previous node's next pointer if the previous pointer is valid
     if (to_insert_before->prev) {
         to_insert_before->prev->next = to_insert;
     }
+
+    // then change the actual previous pointer to point to this node
+    to_insert_before->prev = to_insert;
 }
 
 template <typename Type>
@@ -104,6 +120,7 @@ void TransparentList<Type>::push_back(Node<Type>* node_to_insert) noexcept {
         node_to_insert->next = nullptr;
         this->tail = node_to_insert;
         this->head = node_to_insert;
+        return;
     }
 
     // otherwise just insert into the linked list
@@ -126,6 +143,7 @@ void TransparentList<Type>::push_front(Node<Type>* node_to_insert) noexcept {
         node_to_insert->next = nullptr;
         this->head = node_to_insert;
         this->tail = node_to_insert;
+        return;
     }
 
     // otherwise just insert into the beginning
@@ -143,6 +161,7 @@ void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
     // insert should insert past the last element, i.e. a push_back()
     if (iterator == NodeIterator{nullptr}) {
         this->push_back(node_to_insert);
+        return;
     }
 
     // if not then the iterator was pointing to a valid element, insert right
@@ -162,6 +181,7 @@ void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
         assert(this->tail == iterator.node_ptr);
         this->head = nullptr;
         this->tail = nullptr;
+        return;
     }
     assert(this->tail != this->head);
 

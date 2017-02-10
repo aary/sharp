@@ -1,6 +1,9 @@
 cxx_library(
     name = "TransparentList",
     header_namespace = "sharp/TransparentList",
+    deps = [
+        "//Tags:Tags",
+    ],
     headers = [
         "TransparentList.hpp",
         "TransparentList.ipp",

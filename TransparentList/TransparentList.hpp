@@ -23,7 +23,15 @@
 #include <iterator>
 #include <initializer_list>
 
+#include <sharp/Tags/Tags.hpp>
+
 namespace sharp {
+
+/**
+ * Forward declaration for the linked list class
+ */
+template <typename Type>
+class TransparentList;
 
 /**
  * The node class, elements are stored in here, these should be pushed onto
@@ -36,8 +44,8 @@ public:
      * In place construction with variadic arguments that can be forwarded to
      * the constructor of type Datum
      */
-    template <typename Args>
-    Node(std::in_place_t, Args&&... args)
+    template <typename... Args>
+    Node(sharp::emplace_construct::tag_t, Args&&... args)
             : datum{std::forward<Args>(args)...} {}
 
     /**
@@ -45,8 +53,10 @@ public:
      * that can be forwarded to the constructor of type Datum.  This is
      * required because initializer lists are not deducible via templates.
      */
-    template <typename U, typename Args>
-    Node(std::in_place_t, std::initializer_list<U> ilist, Args&&... args)
+    template <typename U, typename... Args>
+    Node(sharp::emplace_construct::tag_t,
+         std::initializer_list<U> ilist,
+         Args&&... args)
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
 
     /**
@@ -101,7 +111,7 @@ public:
         using value_type = Node<Type>;
         using pointer = Node<Type>*;
         using reference = Node<Type>&;
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
 
         /**
          * Dereferenece operator
@@ -125,8 +135,8 @@ public:
          * Equality operators to determine whether two iterators are pointing to
          * the same node
          */
-        bool operator==(const Node<Type>& other) const noexcept;
-        bool operator!=(const Node<Type>& other) const noexcept;
+        bool operator==(const NodeIterator& other) const noexcept;
+        bool operator!=(const NodeIterator& other) const noexcept;
 
         /**
          * Become friends with the list class that this iterator is a part of
@@ -141,7 +151,7 @@ public:
          * passing a valid node pointer, an assertion fails if the node
          * pointer is null
          */
-        NodeIterator(Node<Type>* node_in) noexcept : node{node_in};
+        NodeIterator(Node<Type>* node_in) noexcept : node_ptr{node_in} {}
 
         /**
          * A pointer to the node that the iterator refers to
