@@ -80,9 +80,13 @@ public:
      * the same node
      */
     bool operator==(const NodeIterator& other) const noexcept {
+        assert_pointer_invariants(this->node_ptr);
+        assert_pointer_invariants(other.node_ptr);
         return this->node_ptr == other.node_ptr;
     }
     bool operator!=(const NodeIterator& other) const noexcept {
+        assert_pointer_invariants(this->node_ptr);
+        assert_pointer_invariants(other.node_ptr);
         return this->node_ptr != other.node_ptr;
     }
 
@@ -99,7 +103,9 @@ private:
      * passing a valid node pointer, an assertion fails if the node
      * pointer is null
      */
-    NodeIterator(Node<Type>* node_in) noexcept : node_ptr{node_in} {}
+    NodeIterator(Node<Type>* node_in) noexcept : node_ptr{node_in} {
+        assert_pointer_invariants(this->node_ptr);
+    }
 
     /**
      * A pointer to the node that the iterator refers to
