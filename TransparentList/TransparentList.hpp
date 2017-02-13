@@ -40,14 +40,15 @@ class TransparentList;
  * the linked list
  */
 template <typename Type>
-class Node {
+class TransparentNode {
 public:
+
     /**
      * In place construction with variadic arguments that can be forwarded to
      * the constructor of type Datum
      */
     template <typename... Args>
-    Node(sharp::emplace_construct::tag_t, Args&&... args)
+    TransparentNode(sharp::emplace_construct::tag_t, Args&&... args)
             : datum{std::forward<Args>(args)...} {}
 
     /**
@@ -56,7 +57,7 @@ public:
      * required because initializer lists are not deducible via templates.
      */
     template <typename U, typename... Args>
-    Node(sharp::emplace_construct::tag_t, std::initializer_list<U> ilist,
+    TransparentNode(sharp::emplace_construct::tag_t, std::initializer_list<U> ilist,
          Args&&... args)
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
 
@@ -77,8 +78,8 @@ private:
     /**
      * the previous next pointers and the data item
      */
-    Node<Type>* prev;
-    Node<Type>* next;
+    TransparentNode<Type>* prev;
+    TransparentNode<Type>* next;
 };
 
 template <typename Type>
@@ -100,8 +101,8 @@ public:
      * Method to push back and front a node to the linked list, the node
      * should be created and it's scope should not be an issue here
      */
-    void push_back(Node<Type>* node_to_insert) noexcept;
-    void push_front(Node<Type>* node_to_insert) noexcept;
+    void push_back(TransparentNode<Type>* node_to_insert) noexcept;
+    void push_front(TransparentNode<Type>* node_to_insert) noexcept;
 
     /**
      * Methods to pop back from a linked list and pop front from a linked list
@@ -113,7 +114,7 @@ public:
      * Method to insert a given node right before the element pointed to by the
      * iterator
      */
-    void insert(NodeIterator iterator, Node<Type>* node_to_insert)
+    void insert(NodeIterator iterator, TransparentNode<Type>* node_to_insert)
         noexcept;
 
     /**
@@ -138,21 +139,21 @@ private:
     /**
      * Insert right after a node, this does not check for validity
      */
-    void insert_after(Node<Type>* to_insert_after, Node<Type>* to_insert)
-        noexcept;
+    void insert_after(TransparentNode<Type>* to_insert_after,
+                      TransparentNode<Type>* to_insert) noexcept;
 
     /**
      * Insert right before a node, this does not check for validity or
      * anything
      */
-    void insert_before(Node<Type>* to_insert_before, Node<Type>* to_insert)
-        noexcept;
+    void insert_before(TransparentNode<Type>* to_insert_before,
+                       TransparentNode<Type>* to_insert) noexcept;
 
     /**
      * The head and tail pointers are the only bookkeeping in this list
      */
-    Node<Type>* head;
-    Node<Type>* tail;
+    TransparentNode<Type>* head;
+    TransparentNode<Type>* tail;
 };
 
 } // namespace sharp

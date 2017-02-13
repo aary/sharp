@@ -2,19 +2,18 @@
 #include <iterator>
 #include <cstdint>
 #include <iostream>
+#include <type_traits>
 
 #include <sharp/TransparentList/TransparentList.hpp>
 
 namespace sharp {
 
 template <typename Type>
-static void assert_pointer_invariants(Type* pointer) {
-    // assert that the pointer is valid and not null
-    assert(pointer);
-
+static void assert_alignment_invariants(Type* pointer) {
     // assert that the pointer is aligned on the right boundary with respect
     // to the largest alignment on the system just to be safe
-    assert(!(reinterpret_cast<uintptr_t>(pointer) % alignof(std::max_align_t)));
+    assert(!(reinterpret_cast<std::uintptr_t>(pointer)
+                % alignof(std::max_align_t)));
 }
 
 /**
@@ -42,27 +41,17 @@ public:
      * iterator, a reverse iterator, etc
      */
     using difference_type = int;
-    using value_type = Node<Type>;
-    using pointer = Node<Type>*;
-    using reference = Node<Type>&;
+    using value_type = TransparentNode<Type>*;
+    using pointer = TransparentNode<Type>**;
+    using reference = std::add_lvalue_reference_t<TransparentNode<Type>*>;
     using iterator_category = std::bidirectional_iterator_tag;
 
     /**
      * Dereferenece operator
      */
-    Node<Type>& operator*() noexcept {
-        assert_pointer_invariants(this->node_ptr);
-        return *this->node_ptr;
-    }
-
-    /**
-     * Chain operator->, returns a pointer to the held node.  The compiler
-     * chains operator-> calls on everything returned by the call itself,
-     * so calling operator-> on an instance of a NodeIterator is
-     * equivalent to calling operator-> on a Node<Type>* object
-     */
-    Node<Type>* operator->() noexcept {
-        assert_pointer_invariants(this->node_ptr);
+    TransparentNode<Type>* operator*() noexcept {
+        assert_alignment_invariants(this->node_ptr);
+        assert(this->node_ptr);
         return this->node_ptr;
     }
 
@@ -70,8 +59,18 @@ public:
      * Preincrement operator to advance the node pointer to the next spot
      */
     NodeIterator& operator++() noexcept {
-        assert_pointer_invariants(this->node_ptr);
+        assert_alignment_invariants(this->node_ptr);
+        assert(this->node_ptr);
         this->node_ptr = this->node_ptr->next;
+        return *this;
+    }
+
+    /**
+     * Assignment operator to assign to and from an iterator
+     */
+    NodeIterator& operator=(const NodeIterator& other) noexcept {
+        assert_alignment_invariants(other.node_ptr);
+        this->node_ptr = other.node_ptr;
         return *this;
     }
 
@@ -80,13 +79,13 @@ public:
      * the same node
      */
     bool operator==(const NodeIterator& other) const noexcept {
-        assert_pointer_invariants(this->node_ptr);
-        assert_pointer_invariants(other.node_ptr);
+        assert_alignment_invariants(this->node_ptr);
+        assert_alignment_invariants(other.node_ptr);
         return this->node_ptr == other.node_ptr;
     }
     bool operator!=(const NodeIterator& other) const noexcept {
-        assert_pointer_invariants(this->node_ptr);
-        assert_pointer_invariants(other.node_ptr);
+        assert_alignment_invariants(this->node_ptr);
+        assert_alignment_invariants(other.node_ptr);
         return this->node_ptr != other.node_ptr;
     }
 
@@ -103,14 +102,14 @@ private:
      * passing a valid node pointer, an assertion fails if the node
      * pointer is null
      */
-    NodeIterator(Node<Type>* node_in) noexcept : node_ptr{node_in} {
-        assert_pointer_invariants(this->node_ptr);
+    NodeIterator(TransparentNode<Type>* node_in) noexcept : node_ptr{node_in} {
+        assert_alignment_invariants(this->node_ptr);
     }
 
     /**
      * A pointer to the node that the iterator refers to
      */
-    Node<Type>* node_ptr;
+    TransparentNode<Type>* node_ptr;
 };
 
 /**
@@ -131,8 +130,9 @@ TransparentList<Type>::TransparentList() noexcept
         : head{nullptr}, tail{nullptr} {}
 
 template <typename Type>
-void TransparentList<Type>::insert_after(Node<Type>* to_insert_after,
-                                         Node<Type>* to_insert) noexcept {
+void TransparentList<Type>::insert_after(
+        TransparentNode<Type>* to_insert_after,
+        TransparentNode<Type>* to_insert) noexcept {
     // insert right after the node
     to_insert->prev = to_insert_after;
     to_insert->next = to_insert_after->next;
@@ -148,8 +148,9 @@ void TransparentList<Type>::insert_after(Node<Type>* to_insert_after,
 }
 
 template <typename Type>
-void TransparentList<Type>::insert_before(Node<Type>* to_insert_before,
-                                          Node<Type>* to_insert) noexcept {
+void TransparentList<Type>::insert_before(
+        TransparentNode<Type>* to_insert_before,
+        TransparentNode<Type>* to_insert) noexcept {
     // insert right before the node
     to_insert->prev = to_insert_before->prev;
     to_insert->next = to_insert_before;
@@ -164,8 +165,10 @@ void TransparentList<Type>::insert_before(Node<Type>* to_insert_before,
 }
 
 template <typename Type>
-void TransparentList<Type>::push_back(Node<Type>* node_to_insert) noexcept {
-    assert_pointer_invariants(node_to_insert);
+void TransparentList<Type>::push_back(TransparentNode<Type>* node_to_insert)
+        noexcept {
+    assert_alignment_invariants(node_to_insert);
+    assert(node_to_insert);
 
     // handle base case when the tail pointer is pointing to nothing
     if (!this->tail) {
@@ -186,8 +189,10 @@ void TransparentList<Type>::push_back(Node<Type>* node_to_insert) noexcept {
 }
 
 template <typename Type>
-void TransparentList<Type>::push_front(Node<Type>* node_to_insert) noexcept {
-    assert_pointer_invariants(node_to_insert);
+void TransparentList<Type>::push_front(TransparentNode<Type>* node_to_insert)
+        noexcept {
+    assert_alignment_invariants(node_to_insert);
+    assert(node_to_insert);
 
     // if the head pointer it pointing to null then just insert in the
     // beginning
@@ -208,8 +213,10 @@ void TransparentList<Type>::push_front(Node<Type>* node_to_insert) noexcept {
 
 template <typename Type>
 void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
-                                   Node<Type>* node_to_insert) noexcept {
-    assert_pointer_invariants(node_to_insert);
+                                   TransparentNode<Type>* node_to_insert)
+        noexcept {
+    assert_alignment_invariants(node_to_insert);
+    assert(node_to_insert);
 
     // if the iterator was pointing past the end of the linked list then
     // insert should insert past the last element, i.e. a push_back()
@@ -227,7 +234,8 @@ void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
 template <typename Type>
 void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
         noexcept {
-    assert_pointer_invariants(iterator.node_ptr);
+    assert_alignment_invariants(iterator.node_ptr);
+    assert(iterator.node_ptr);
 
     // if this was the only node in the list then erase it and set the head
     // and tail pointers to null
