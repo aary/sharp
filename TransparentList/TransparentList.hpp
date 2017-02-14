@@ -61,8 +61,9 @@ public:
      * required because initializer lists are not deducible via templates.
      */
     template <typename U, typename... Args>
-    TransparentNode(sharp::emplace_construct::tag_t, std::initializer_list<U> ilist,
-         Args&&... args)
+    TransparentNode(sharp::emplace_construct::tag_t,
+                    std::initializer_list<U> ilist,
+                    Args&&... args)
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
 
     /**
