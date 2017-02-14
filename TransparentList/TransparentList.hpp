@@ -38,9 +38,13 @@ class TransparentList;
 /**
  * The node class, elements are stored in here, these should be pushed onto
  * the linked list
+ *
+ * The node class is aligned to the maximum boundary as set by the system,
+ * this is done to ensure compatibility with low level interfaces and use
+ * cases on all systems
  */
 template <typename Type>
-class TransparentNode {
+class alignas(alignof(std::max_align_t)) TransparentNode {
 public:
 
     /**
