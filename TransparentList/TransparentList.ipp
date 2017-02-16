@@ -66,6 +66,16 @@ public:
     }
 
     /**
+     * Predecrement operator to move the node pointer to the previous spot
+     */
+    NodeIterator& operator--() noexcept {
+        assert_alignment_invariants(this->node_ptr);
+        assert(this->node_ptr);
+        this->node_ptr = this->node_ptr->prev;
+        return *this;
+    }
+
+    /**
      * Assignment operator to assign to and from an iterator
      */
     NodeIterator& operator=(const NodeIterator& other) noexcept {

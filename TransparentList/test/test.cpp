@@ -152,3 +152,28 @@ TEST(TransparentList, test_erase) {
         return node_one->datum == node_two->datum;
     }));
 }
+
+TEST(TransparentList, test_increment_decrement_iterators) {
+    auto list = sharp::TransparentList<int>{};
+    auto vec = vector<unique_ptr<TransparentNode<int>>>{};
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
+
+    for (const auto& node : vec) {
+        list.push_back(node.get());
+    }
+
+    auto iter = list.begin();
+    EXPECT_EQ((*iter)->datum, 1);
+    ++iter;
+    EXPECT_EQ((*iter)->datum, 2);
+    --iter;
+    EXPECT_EQ((*iter)->datum, 1);
+    ++iter;
+    EXPECT_EQ((*iter)->datum, 2);
+    ++iter;
+    EXPECT_EQ((*iter)->datum, 3);
+    ++iter;
+    EXPECT_EQ(iter, list.end());
+}
