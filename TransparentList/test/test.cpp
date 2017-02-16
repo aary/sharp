@@ -159,6 +159,16 @@ TEST(TransparentList, test_erase) {
                 [](const auto& node_one, const auto& node_two) {
         return node_one->datum == node_two->datum;
     }));
+
+    vec.insert(vec.begin(),
+            make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
+    iter = list.insert(list.begin(), vec.front().get());
+    list.erase(iter);
+    vec.erase(vec.begin());
+    EXPECT_TRUE(std::equal(vec.begin(), vec.end(), list.begin(), list.end(),
+                [](const auto& node_one, const auto& node_two) {
+        return node_one->datum == node_two->datum;
+    }));
 }
 
 TEST(TransparentList, test_increment_decrement_iterators) {
