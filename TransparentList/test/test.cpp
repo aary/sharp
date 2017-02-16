@@ -18,14 +18,11 @@ TEST(TransparentList, construct_test) {
 }
 
 TEST(TransparentList, simple_push_back_test) {
-    auto list = TransparentList<int>{};
+    auto list = sharp::TransparentList<int>{};
     auto new_node = make_unique<TransparentNode<int>>(emplace_construct::tag,
             1);
     list.push_back(new_node.get());
     EXPECT_EQ(new_node.get(), *list.begin());
-
-    auto made_iterator = TransparentList<int>::make_iterator(*list.begin());
-    EXPECT_EQ(list.begin(), made_iterator);
 }
 
 TEST(TransparentList, simple_push_front_test) {

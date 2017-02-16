@@ -139,11 +139,6 @@ public:
      */
     auto end() noexcept;
 
-    /**
-     * Return an iterator that points to the node passed in
-     */
-    static auto make_iterator(TransparentNode<Type>* node);
-
 private:
 
     /**
