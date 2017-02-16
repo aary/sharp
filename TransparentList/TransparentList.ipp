@@ -136,6 +136,11 @@ auto TransparentList<Type>::end() noexcept {
 }
 
 template <typename Type>
+auto TransparentList<Type>::make_iterator(TransparentNode<Type>* n) {
+    return NodeIterator{n};
+}
+
+template <typename Type>
 TransparentList<Type>::TransparentList() noexcept
         : head{nullptr}, tail{nullptr} {}
 
