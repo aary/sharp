@@ -1,6 +1,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <utility>
 
 #include <gtest/gtest.h>
 #include <sharp/TransparentList/TransparentList.hpp>
@@ -176,4 +177,21 @@ TEST(TransparentList, test_increment_decrement_iterators) {
     EXPECT_EQ((*iter)->datum, 3);
     ++iter;
     EXPECT_EQ(iter, list.end());
+}
+
+TEST(TransparentList, test_insert) {
+    auto list = sharp::TransparentList<int>{};
+    auto one = make_unique<TransparentNode<int>>(emplace_construct::tag, 1);
+    auto two = make_unique<TransparentNode<int>>(emplace_construct::tag, 2);
+    list.insert(list.begin(), one.get());
+    list.insert(list.begin(), two.get());
+
+    auto vec = std::vector<unique_ptr<TransparentNode<int>>>{};
+    vec.push_back(std::move(two));
+    vec.push_back(std::move(one));
+
+    EXPECT_TRUE(std::equal(vec.begin(), vec.end(), list.begin(), list.end(),
+                [&](const auto& node_one, const auto& node_two) {
+        return node_one->datum == node_two->datum;
+    }));
 }

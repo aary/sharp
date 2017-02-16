@@ -236,9 +236,14 @@ void TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
     }
 
     // if not then the iterator was pointing to a valid element, insert right
-    // before it
+    // before it, at this stage there was only one node so insert right before
+    // it.  This can change the head pointer since it is a "before this"
+    // insertion so update the head also
     assert(iterator.node_ptr);
     this->insert_before(iterator.node_ptr, node_to_insert);
+    if (iterator == this->begin()) {
+        this->head = this->head->prev;
+    }
 }
 
 template <typename Type>
