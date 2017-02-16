@@ -255,9 +255,13 @@ void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
     // if this was the only node in the list then erase it and set the head
     // and tail pointers to null
     if (this->head == iterator.node_ptr) {
-        assert(this->tail == iterator.node_ptr);
-        this->head = nullptr;
-        this->tail = nullptr;
+        this->head = this->head->next;
+
+        // if the tail was equal to the head then there was only one element
+        if (this->tail == iterator.node_ptr) {
+            assert(!this->head);
+            this->tail = nullptr;
+        }
         return;
     }
     assert(this->tail != this->head);
