@@ -249,7 +249,7 @@ void TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
 
     // erase the current pointer
     if (iterator.node_ptr->next) {
-        iterator.node_ptr->next->prev = iterator->node_ptr->prev;
+        iterator.node_ptr->next->prev = iterator.node_ptr->prev;
     }
     if (iterator.node_ptr->prev) {
         iterator.node_ptr->prev->next = iterator.node_ptr->next;

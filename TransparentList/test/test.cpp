@@ -129,3 +129,26 @@ TEST(TransparentList, range_test_and_push_back_front_test) {
     }));
 }
 
+TEST(TransparentList, test_erase) {
+    auto list = sharp::TransparentList<int>{};
+    auto vec = vector<unique_ptr<TransparentNode<int>>>{};
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
+
+    for (const auto& node : vec) {
+        list.push_back(node.get());
+    }
+
+    auto iter = std::find_if(list.begin(), list.end(), [&](auto node) {
+        return node->datum == 2;
+    });
+    EXPECT_TRUE(iter != list.end());
+    list.erase(iter);
+
+    vec.erase(vec.begin() + 1);
+    EXPECT_TRUE(std::equal(vec.begin(), vec.end(), list.begin(), list.end(),
+                [](const auto& node_one, const auto& node_two) {
+        return node_one->datum == node_two->datum;
+    }));
+}
