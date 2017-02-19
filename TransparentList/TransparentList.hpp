@@ -78,7 +78,7 @@ public:
      */
     friend class TransparentList<Type>;
 
-// private:
+private:
 
     /**
      * the previous next pointers and the data item
