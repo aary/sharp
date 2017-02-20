@@ -230,7 +230,7 @@ TransparentList<Type>::insert(TransparentList<Type>::NodeIterator iterator,
 
     // if the iterator was pointing past the end of the linked list then
     // insert should insert past the last element, i.e. a push_back()
-    if (iterator == NodeIterator{nullptr}) {
+    if (iterator == this->end()) {
         this->push_back(node_to_insert);
         return NodeIterator{node_to_insert};
     }
