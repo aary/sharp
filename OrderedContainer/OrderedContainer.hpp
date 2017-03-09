@@ -73,14 +73,16 @@ public:
      * Static asserts for the different types of containers that are not
      * allowed with this library
      */
-    static_assert(!sharp::Instantiation_v<std::decay_t<Container>, std::stack>,
+    static_assert(!sharp::IsInstantiationOf_v<std::decay_t<Container>,
+            std::stack>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<Container>, std::queue>,
+    static_assert(!sharp::IsInstantiationOf_v<std::decay_t<Container>,
+            std::queue>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<Container>,
+    static_assert(!sharp::IsInstantiationOf_v<std::decay_t<Container>,
             std::unordered_map>,
             "OrderedContainer cannot be initialized with a std::stack");
-    static_assert(!sharp::Instantiation_v<std::decay_t<Container>,
+    static_assert(!sharp::IsInstantiationOf_v<std::decay_t<Container>,
             std::unordered_set>,
             "OrderedContainer cannot be initialized with a std::stack");
     /**

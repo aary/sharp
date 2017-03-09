@@ -14,14 +14,14 @@
 namespace sharp {
 
 /**
- * @class Instantiation
+ * @class IsInstantiationOf
  *
  * This class is a template type that derives from std::integral_constant to
  * give it constant constexpr behavior as a compile time template constant
  * that evaluates to true when the type on the left is an instantiatation of
  * the type on the right, for example
  *
- *      cout << std::boolalpha << Instantiation_v<std::list<int>, std::list>
+ *      cout << std::boolalpha << IsInstantiationOf_v<std::list<int>, std::list>
  *
  * will output a "true" to standard out
  */
@@ -31,7 +31,7 @@ namespace sharp {
  * nested template syntax
  */
 template <typename Type, template <typename...> class InstantiatedType>
-struct Instantiation : public std::integral_constant<bool, false> {};
+struct IsInstantiationOf : public std::integral_constant<bool, false> {};
 
 /**
  * Specialized implementation for when the type on the left is an
@@ -43,7 +43,7 @@ struct Instantiation : public std::integral_constant<bool, false> {};
  * first line below this comment block
  */
 template <template <typename...> class InstantiatedType, typename... Args>
-struct Instantiation<InstantiatedType<Args...>, InstantiatedType>
+struct IsInstantiationOf<InstantiatedType<Args...>, InstantiatedType>
     : public std::integral_constant<bool, true> {};
 
 /**
@@ -51,10 +51,11 @@ struct Instantiation<InstantiatedType<Args...>, InstantiatedType>
  * value traits, the _v is added to all value traits in the C++17 standard
  */
 template <typename Type, template <typename...> class InstantiatedType>
-constexpr bool Instantiation_v = Instantiation<Type, InstantiatedType>::value;
+constexpr bool IsInstantiationOf_v
+    = IsInstantiationOf<Type, InstantiatedType>::value;
 
 /**
- * A temporary Vector class used to test the Instantiation trait
+ * A temporary Vector class used to test the IsInstantiationOf trait
  */
 namespace detail { namespace test {
     template <typename...>
@@ -64,9 +65,9 @@ namespace detail { namespace test {
 /**
  * Test suite for this header, will be ran whenever someone includes this
  */
-static_assert(Instantiation_v<detail::test::Vector<int>, detail::test::Vector>,
-        "sharp::Instantiation tests failed!");
-static_assert(Instantiation_v<detail::test::Vector<int, double>,
-        detail::test::Vector>, "sharp::Instantiation tests failed!");
+static_assert(IsInstantiationOf_v<detail::test::Vector<int>,
+        detail::test::Vector>, "sharp::IsInstantiationOf tests failed!");
+static_assert(IsInstantiationOf_v<detail::test::Vector<int, double>,
+        detail::test::Vector>, "sharp::IsInstantiationOf tests failed!");
 
 } // namespace sharp

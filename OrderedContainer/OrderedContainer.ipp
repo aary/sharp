@@ -28,7 +28,7 @@ namespace detail {
      */
     template <typename Container>
     using EnableIfListInstantiation = std::enable_if_t<
-            sharp::Instantiation_v<std::decay_t<Container>, std::list>>;
+            sharp::IsInstantiationOf_v<std::decay_t<Container>, std::list>>;
     /**
      * Return a non error expression to be used in a SFINAE context when the
      * type passed has a lower_bound member function
@@ -46,17 +46,18 @@ namespace detail {
      */
     template <typename Container, typename Value>
     using EnableIfIsSequenceContainer = std::enable_if_t<
-            sharp::Instantiation_v<std::decay_t<Container>, std::list>
-            || sharp::Instantiation_v<std::decay_t<Container>, std::deque>
-            || sharp::Instantiation_v<std::decay_t<Container>, std::vector>>;
+            sharp::IsInstantiationOf_v<std::decay_t<Container>, std::list>
+            || sharp::IsInstantiationOf_v<std::decay_t<Container>, std::deque>
+            || sharp::IsInstantiationOf_v<std::decay_t<Container>,
+                std::vector>>;
     /**
      * Return a non error expression to be used in a SFINAE context when the
      * type passed is a map type container, i.e.  in the set std::{map, set}
      */
     template <typename Container, typename Value>
     using EnableIfIsTreeContainer = std::enable_if_t<
-            sharp::Instantiation_v<std::decay_t<Container>, std::map>
-            || sharp::Instantiation_v<std::decay_t<Container>, std::set>>;
+            sharp::IsInstantiationOf_v<std::decay_t<Container>, std::map>
+            || sharp::IsInstantiationOf_v<std::decay_t<Container>, std::set>>;
 
     /**
      * Implementation functions for finding the lower bound of a container.
