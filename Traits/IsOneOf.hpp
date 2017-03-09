@@ -41,6 +41,8 @@ namespace detail {
 }
 
 /**
+ * @class IsOneOf
+ *
  * The main trait just uses the implementaion trait after checking to make
  * sure that the AmongstThese parameter pack contains at least one type
  */
