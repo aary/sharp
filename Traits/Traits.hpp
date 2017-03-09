@@ -12,3 +12,4 @@
 #include <sharp/Traits/IsInstantiationOf.hpp>
 #include <sharp/Traits/IsCallable.hpp>
 #include <sharp/Traits/UnwrapPair.hpp>
+#include <sharp/Traits/IsOneOf.hpp>

@@ -5,6 +5,7 @@ cxx_library(
         "Traits.hpp",
         "IsInstantiationOf.hpp",
         "IsCallable.hpp",
+        "IsOneOf.hpp",
         "UnwrapPair.hpp",
     ],
     deps = [
