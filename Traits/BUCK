@@ -1,14 +1,9 @@
 cxx_library(
     name = "Traits",
     header_namespace = "sharp/Traits",
-    headers = [
-        "Traits.hpp",
-        "Instantiation.hpp",
-        "UnwrapPair.hpp",
-    ],
     exported_headers = [
         "Traits.hpp",
-        "Instantiation.hpp",
+        "IsInstantiationOf.hpp",
         "UnwrapPair.hpp",
     ],
     deps = [
