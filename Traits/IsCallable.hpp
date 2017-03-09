@@ -78,8 +78,25 @@ struct IsCallable {
     static constexpr const bool value = detail::IsCallableFunctor<Func>::value;
 };
 
+/**
+ * This is needed when the type is a fundamental type like an int.  If this
+ * were not there then the specialization of IsCallable that an int would go
+ * to is the first one, which assumes that the type is a class type, and
+ * inheriting from a class type is an error, therefore there would be an error
+ * without this specialization
+ */
 template <typename Func>
-struct IsCallable<Func, std::enable_if_t<std::is_function<Func>::value>>
+struct IsCallable<Func, std::enable_if_t<std::is_fundamental<Func>::value>>
+    : std::integral_constant<bool, false> {};
+
+/**
+ * Remove the pointer type and then partially specialize in the case where the
+ * argument is a function type, either a function pointer or a pure function
+ * type
+ */
+template <typename Func>
+struct IsCallable<Func, std::enable_if_t<
+        std::is_function<std::remove_pointer_t<Func>>::value>>
     : std::integral_constant<bool, true> {};
 
 /**
@@ -125,6 +142,7 @@ namespace sharp { namespace detail { namespace test {
         void operator()(int) {}
     };
     void function_one() {}
+    struct NonCallable {};
 } } }
 
 static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorOne>,
@@ -143,3 +161,8 @@ static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorSeven>,
         "sharp::IsCallable tests failed!");
 static_assert(sharp::IsCallable_v<decltype(sharp::detail::test::function_one)>,
         "sharp::IsCallable tests failed!");
+static_assert(sharp::IsCallable_v<decltype(&sharp::detail::test::function_one)>,
+        "sharp::IsCallable tests failed!");
+static_assert(!sharp::IsCallable_v<sharp::detail::test::NonCallable>,
+        "sharp::IsCallable tests failed!");
+static_assert(!sharp::IsCallable_v<int>, "sharp::IsCallable tests failed!");
