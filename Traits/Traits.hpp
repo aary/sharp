@@ -10,4 +10,5 @@
 #pragma once
 
 #include <sharp/Traits/IsInstantiationOf.hpp>
+#include <sharp/Traits/IsCallable.hpp>
 #include <sharp/Traits/UnwrapPair.hpp>

@@ -4,6 +4,7 @@ cxx_library(
     exported_headers = [
         "Traits.hpp",
         "IsInstantiationOf.hpp",
+        "IsCallable.hpp",
         "UnwrapPair.hpp",
     ],
     deps = [
