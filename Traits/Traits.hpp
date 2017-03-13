@@ -9,9 +9,9 @@
 
 #pragma once
 
-#include <sharp/Traits/IsInstantiationOf.hpp>
-#include <sharp/Traits/IsCallable.hpp>
-#include <sharp/Traits/UnwrapPair.hpp>
-#include <sharp/Traits/IsOneOf.hpp>
-#include <sharp/Traits/TypeLists.hpp>
-#include <sharp/Traits/FunctionIntrospect.hpp>
+#include <sharp/Traits/detail/IsInstantiationOf.hpp>
+#include <sharp/Traits/detail/IsCallable.hpp>
+#include <sharp/Traits/detail/UnwrapPair.hpp>
+#include <sharp/Traits/detail/IsOneOf.hpp>
+#include <sharp/Traits/detail/TypeLists.hpp>
+#include <sharp/Traits/detail/FunctionIntrospect.hpp>

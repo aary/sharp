@@ -19,8 +19,8 @@
 
 #include <type_traits>
 
-#include <sharp/Traits/IsCallable.hpp>
-#include <sharp/Traits/TypeLists.hpp>
+#include <sharp/Traits/detail/IsCallable.hpp>
+#include <sharp/Traits/detail/TypeLists.hpp>
 
 namespace sharp {
 

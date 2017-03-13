@@ -3,12 +3,12 @@ cxx_library(
     header_namespace = "sharp/Traits",
     exported_headers = [
         "Traits.hpp",
-        "IsInstantiationOf.hpp",
-        "IsCallable.hpp",
-        "IsOneOf.hpp",
-        "TypeLists.hpp",
-        "FunctionIntrospect.hpp",
-        "UnwrapPair.hpp",
+        "detail/IsInstantiationOf.hpp",
+        "detail/IsCallable.hpp",
+        "detail/IsOneOf.hpp",
+        "detail/TypeLists.hpp",
+        "detail/FunctionIntrospect.hpp",
+        "detail/UnwrapPair.hpp",
     ],
     deps = [
         "//Tags:Tags",
