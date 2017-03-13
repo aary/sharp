@@ -67,6 +67,29 @@ namespace detail {
     struct TypeExistsImpl<ToQuery, ToQuery, Tail...>
             : std::integral_constant<bool, true> {};
 
+    /**
+     * Implementation trait for IndexOfType, this starts off at 0 and then
+     * continues through the type list until it finds the given type, as a
+     * result the index of the type is going to be the first location where
+     * a matching type is found, for example the location of an int in
+     * <int, double, int, char> is 0 and not 2
+     */
+    template <typename ToQuery, typename... TypeList>
+    struct IndexOfTypeImpl
+            : std::integral_constant<int, 0> {
+
+        static_assert(sizeof...(TypeList) == 0,
+                "detail::IndexOfTypeImpl instantiated with non 0 length pack");
+    };
+    template <typename ToQuery, typename Head, typename... TypeList>
+    struct IndexOfTypeImpl<ToQuery, Head, TypeList...> {
+        static constexpr const int value =
+            1 + IndexOfTypeImpl<ToQuery, TypeList...>::value;
+    };
+    template <typename ToQuery, typename... TypeList>
+    struct IndexOfTypeImpl<ToQuery, ToQuery, TypeList...>
+            : std::integral_constant<int, 0> {};
+
 } // namespace detail
 
 /**
@@ -116,11 +139,23 @@ struct TypeExists {
  *
  * A trait that lets you inspect a type set and determine the index of the
  * type passed, for example the indices of int, bool and char in
- * <int, bool char> are 0, 1 and 2 respectively
+ * <int, bool char> are 0, 1 and 2 respectively, if the type does not exist in
+ * the template pack then the value of the trait will be the sizeof the
+ * type list
  */
-// template <typename ToQuery, typename... TypeList>
-// struct IndexOfType {
-    // static_assert(sharp::TypeExists<ToQuery,
+template <typename ToQuery, typename... TypeList>
+struct IndexOfType {
+
+    static_assert(sizeof...(TypeList) > 1,
+            "sharp::IndexOfType cannot be called on empty type list");
+    // static_assert(sharp::TypeExists<ToQuery, TypeList...>::value,
+            // "IndexOfType cannot be called on type list that does not "
+            // "contain the required type");
+
+    // get the index of the type from the implementation
+    static constexpr const int value
+        = detail::IndexOfTypeImpl<ToQuery, TypeList...>::value;
+};
 
 /**
  * Convenience template for uniformity with the standard library type traits,
@@ -136,6 +171,8 @@ using TypeAtIndex_t = typename TypeAtIndex<argument_index, TypeList...>::type;
  */
 template <typename ToQuery, typename... TypeList>
 constexpr bool TypeExists_v = TypeExists<ToQuery, TypeList...>::value;
+template <typename ToQuery, typename... TypeList>
+constexpr int IndexOfType_v = IndexOfType<ToQuery, TypeList...>::value;
 
 /*******************************************************************************
  * Tests
@@ -186,4 +223,19 @@ static_assert(TypeExists_v<int, int, int>,
 static_assert(TypeExists_v<int, int, int, int>,
         "sharp::TypeExists tests failed!");
 
+/**
+ * Tests for IndexOfType
+ */
+static_assert(IndexOfType_v<int, char, int> == 1,
+        "sharp::IndexOfType tests failed!");
+static_assert(IndexOfType_v<int, int, char> == 0,
+        "sharp::IndexOfType tests failed!");
+static_assert(IndexOfType_v<int, char, double> == 2,
+        "sharp::IndexOfType tests failed!");
+static_assert(IndexOfType_v<int, char, double, int> == 2,
+        "sharp::IndexOfType tests failed!");
+static_assert(IndexOfType_v<int, int, double, char> == 0,
+        "sharp::IndexOfType tests failed!");
+static_assert(IndexOfType_v<int&, int, int&, double, char> == 1,
+        "sharp::IndexOfType tests failed!");
 } // namespace sharp
