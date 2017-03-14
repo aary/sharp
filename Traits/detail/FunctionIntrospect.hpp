@@ -93,7 +93,6 @@ namespace detail {
          */
         template <int argument_index_impl, typename Functor>
         struct ArgumentTypeImplFunctor;
-
         template <int argument_index_impl,
                   typename FunctorType, typename ReturnType, typename... Args>
         struct ArgumentTypeImplFunctor<argument_index_impl,
