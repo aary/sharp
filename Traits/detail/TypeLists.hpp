@@ -125,11 +125,6 @@ struct TypeAtIndex {
  */
 template <typename ToQuery, typename... TypeList>
 struct TypeExists {
-    /**
-     * Fire dem assertions
-     */
-    static_assert(sizeof...(TypeList) > 0, "Cannot query an empty type list");
-
     static constexpr const bool value
         = detail::TypeExistsImpl<ToQuery, TypeList...>::value;
 };
@@ -145,14 +140,6 @@ struct TypeExists {
  */
 template <typename ToQuery, typename... TypeList>
 struct FindType {
-
-    static_assert(sizeof...(TypeList) > 1,
-            "sharp::FindType cannot be called on empty type list");
-    // static_assert(sharp::TypeExists<ToQuery, TypeList...>::value,
-            // "FindType cannot be called on type list that does not "
-            // "contain the required type");
-
-    // get the index of the type from the implementation
     static constexpr const int value
         = detail::FindTypeImpl<ToQuery, TypeList...>::value;
 };
@@ -194,6 +181,7 @@ static_assert(std::is_same<TypeAtIndex_t<0, const int&>, const int&>::value,
 /**
  * Tests for TypeExists
  */
+static_assert(!TypeExists_v<int>, "sharp::TypeExists tests failed!");
 static_assert(TypeExists_v<int, int, double, char>,
         "sharp::TypeExists tests failed!");
 static_assert(!TypeExists_v<int*, int, double, char>,
@@ -226,6 +214,7 @@ static_assert(TypeExists_v<int, int, int, int>,
 /**
  * Tests for FindType
  */
+static_assert(FindType_v<int> == 0, "sharp::FindType tests failed!");
 static_assert(FindType_v<int, char, int> == 1,
         "sharp::FindType tests failed!");
 static_assert(FindType_v<int, int, char> == 0,
