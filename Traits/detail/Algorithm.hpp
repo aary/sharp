@@ -10,6 +10,8 @@
 
 #include <type_traits>
 
+#include <sharp/Traits/detail/Functional.hpp>
+
 namespace sharp {
 
 /**
@@ -92,21 +94,6 @@ namespace detail {
             typename FindIfImpl<Predicate, Tail...>::type>;
     };
 
-    /**
-     * Implementation for the FindIfNot trait
-     */
-    template <template <typename...> class Predicate, typename... TypeList>
-    struct FindIfNotImpl {
-        using type = End;
-    };
-    template <template <typename...> class Predicate,
-              typename Head, typename... Tail>
-    struct FindIfNotImpl<Predicate, Head, Tail...> {
-        using type = std::conditional_t<
-            !Predicate<Head>::value,
-            Head,
-            typename FindIfImpl<Predicate, Tail...>::type>;
-    };
 }
 
 /**
@@ -179,7 +166,7 @@ struct FindIf {
 template <template <typename...> class Predicate, typename... TypeList>
 struct FindIfNot {
     using type
-        = typename detail::FindIfNotImpl<Predicate, TypeList...>::type;
+        = typename FindIf<Negate<Predicate>::template type, TypeList...>::type;
 };
 
 /**
