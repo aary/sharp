@@ -91,6 +91,22 @@ namespace detail {
             Head,
             typename FindIfImpl<Predicate, Tail...>::type>;
     };
+
+    /**
+     * Implementation for the FindIfNot trait
+     */
+    template <template <typename...> class Predicate, typename... TypeList>
+    struct FindIfNotImpl {
+        using type = End;
+    };
+    template <template <typename...> class Predicate,
+              typename Head, typename... Tail>
+    struct FindIfNotImpl<Predicate, Head, Tail...> {
+        using type = std::conditional_t<
+            !Predicate<Head>::value,
+            Head,
+            typename FindIfImpl<Predicate, Tail...>::type>;
+    };
 }
 
 /**
@@ -155,6 +171,18 @@ struct FindIf {
 };
 
 /**
+ * @class FindIfNot
+ *
+ * A trait that lets you find the first type for which the predicate returned
+ * false, similar to std::find_if_not
+ */
+template <template <typename...> class Predicate, typename... TypeList>
+struct FindIfNot {
+    using type
+        = typename detail::FindIfNotImpl<Predicate, TypeList...>::type;
+};
+
+/**
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -173,6 +201,8 @@ constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
  */
 template <template <typename...> class Predicate, typename... TypeList>
 using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
+template <template <typename...> class Predicate, typename... TypeList>
+using FindIfNot_t = typename FindIfNot<Predicate, TypeList...>::type;
 
 /*******************************************************************************
  * Tests
@@ -239,12 +269,24 @@ static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
  * Tests for FindIf
  */
 static_assert(std::is_same<FindIf_t<std::is_reference>, End>::value,
-        "sharp::CountIf tests failed!");
+        "sharp::FindIt tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>, int&>::value,
-        "sharp::CountIf tests failed!");
+        "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>, int&>
-        ::value, "sharp::CountIf tests failed!");
+        ::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, double, int>, End>
-        ::value, "sharp::CountIf tests failed!");
+        ::value, "sharp::FindIf tests failed!");
+
+/**
+ * Tests for FindIfNot
+ */
+static_assert(std::is_same<FindIfNot_t<std::is_reference>, End>::value,
+        "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>, int>
+        ::value, "sharp::FindItNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, int*, int&>, int*>
+        ::value, "sharp::FindItNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, double, int>, double>
+        ::value, "sharp::FindIfNot tests failed!");
 
 } // namespace sharp
