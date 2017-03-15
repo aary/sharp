@@ -42,7 +42,8 @@ struct Negate {
 
 /**
  * Convenience wrappers around type traits to allow users to fetch the types
- * from a trait conveniently
+ * from a trait conveniently, proposal to add template template aliases here
+ * goo.gl/eWSJu1
  */
 // template <template <typename...> class Trait, typename... ToBind>
 // template <typename... Args>
@@ -60,6 +61,8 @@ static_assert(Bind<std::is_same, int>::type<int>::value,
  * Tests for bind
  */
 static_assert(!Negate<Bind<std::is_same, int>::type>::type<int>::value,
+        "sharp::Negate tests failed");
+static_assert(Negate<std::is_reference>::type<int>::value,
         "sharp::Negate tests failed");
 
 
