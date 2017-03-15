@@ -15,3 +15,4 @@
 #include <sharp/Traits/detail/IsOneOf.hpp>
 #include <sharp/Traits/detail/TypeLists.hpp>
 #include <sharp/Traits/detail/FunctionIntrospect.hpp>
+#include <sharp/Traits/detail/Algorithm.hpp>
