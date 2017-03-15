@@ -12,6 +12,19 @@
 
 namespace sharp {
 
+/**
+ * @class End
+ *
+ * A tag that denotes the end of a type list range, similar to std::end() this
+ * marks the end of a type list range.  This is used in cases where an
+ * algorithm returns past the end of a range to denote that a value could not
+ * be found.
+ *
+ * For example if the predicate passed to FindIf returns true for none of the
+ * types then the algorithm returns an End tag to denote failure
+ */
+struct End {};
+
 namespace detail {
 
     /**
@@ -61,6 +74,22 @@ namespace detail {
         static constexpr const int value
             = int(Predicate<Head>::value)
                 + CountIfImpl<Predicate, Tail...>::value;
+    };
+
+    /**
+     * Implementation for the FindIf trait
+     */
+    template <template <typename...> class Predicate, typename... TypeList>
+    struct FindIfImpl {
+        using type = End;
+    };
+    template <template <typename...> class Predicate,
+              typename Head, typename... Tail>
+    struct FindIfImpl<Predicate, Head, Tail...> {
+        using type = std::conditional_t<
+            Predicate<Head>::value,
+            Head,
+            typename FindIfImpl<Predicate, Tail...>::type>;
     };
 }
 
@@ -114,7 +143,19 @@ struct CountIf {
 };
 
 /**
- * Default value typedefs, these end in the suffix _v, this is keeping in
+ * @class FindIf
+ *
+ * A trait that lets you find the first type for which the predicate returned
+ * true, similar to std::find_if
+ */
+template <template <typename...> class Predicate, typename... TypeList>
+struct FindIf {
+    using type
+        = typename detail::FindIfImpl<Predicate, TypeList...>::type;
+};
+
+/**
+ * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
 template <template <typename...> class Predicate, typename... TypeList>
@@ -125,6 +166,13 @@ template <template <typename...> class Predicate, typename... TypeList>
 constexpr const bool NoneOf_v = NoneOf<Predicate, TypeList...>::value;
 template <template <typename...> class Predicate, typename... TypeList>
 constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
+
+/**
+ * Conventional typedefs, these end in the suffix _t, this is keeping in
+ * convention with the C++ standard library features post and including C++17
+ */
+template <template <typename...> class Predicate, typename... TypeList>
+using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
 
 /*******************************************************************************
  * Tests
@@ -186,5 +234,17 @@ static_assert(CountIf_v<std::is_reference, int&, double> == 1,
         "sharp::CountIf tests failed!");
 static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
         "sharp::CountIf tests failed!");
+
+/**
+ * Tests for FindIf
+ */
+static_assert(std::is_same<FindIf_t<std::is_reference>, End>::value,
+        "sharp::CountIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>, int&>::value,
+        "sharp::CountIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>, int&>
+        ::value, "sharp::CountIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, double, int>, End>
+        ::value, "sharp::CountIf tests failed!");
 
 } // namespace sharp
