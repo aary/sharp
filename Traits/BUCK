@@ -10,6 +10,7 @@ cxx_library(
         "detail/FunctionIntrospect.hpp",
         "detail/UnwrapPair.hpp",
         "detail/Algorithm.hpp",
+        "detail/Functional.hpp",
     ],
     deps = [
         "//Tags:Tags",
