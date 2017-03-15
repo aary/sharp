@@ -138,7 +138,7 @@ template <int argument_index, typename... TypeList>
 struct TypeAtIndex {
 
     /**
-     * Fire dem assertions
+     * Fire dem assertions, TODO check whether these assertions are valid
      */
     static_assert(sizeof...(TypeList) > 0, "Can only query a non 0 sized pack");
     static_assert(argument_index >= 0, "The type index cannot be negative");
@@ -186,7 +186,7 @@ struct FindType {
 template <typename... TypeList>
 struct Unique {
     /**
-     * Fire dem assertions
+     * Fire dem assertions, TODO check whether these assertions are valid
      */
     static_assert(sizeof...(TypeList) > 0,
             "sharp::Unique cannot be called with empty type list");
