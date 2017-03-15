@@ -9,6 +9,7 @@
 #pragma once
 
 #include <type_traits>
+#include <tuple>
 
 #include <sharp/Traits/detail/Functional.hpp>
 
@@ -94,6 +95,39 @@ namespace detail {
             typename FindIfImpl<Predicate, Tail...>::type>;
     };
 
+    /**
+     * Implementation for the FindFirstOfTrait
+     */
+    template <typename TypeListContainerOne, typename TypeListContainerTwo>
+    struct FindFirstOfImpl;
+    template <typename HeadOne, typename... TailOne,
+              typename... TailTwo>
+    struct FindFirstOfImpl<std::tuple<HeadOne, TailOne...>,
+                           std::tuple<TailTwo...>> {
+
+        /**
+         * Iterate through the second list using the first head as what you
+         * check for equality, if that returns a false, i.e. if the first
+         * element was not in the second list then do the same for the
+         * expanded pack on the first list
+         *
+         * So if the lists are <int, double> and <char, bool> check int to see
+         * if int exists in <char, bool>, if it doesnt then check to see if
+         * double exists in <char, bool> and so on
+         */
+        using type = std::conditional_t<!std::is_same<
+            typename FindIfImpl<
+                       Bind<std::is_same, HeadOne>::template type,
+                       TailTwo...>::type,
+            End>::value,
+            HeadOne,
+            typename FindFirstOfImpl<std::tuple<TailOne...>,
+                                     std::tuple<TailTwo...>>::type>;
+    };
+    template <typename... TailTwo>
+    struct FindFirstOfImpl<std::tuple<>, std::tuple<TailTwo...>> {
+        using type = End;
+    };
 }
 
 /**
@@ -170,6 +204,18 @@ struct FindIfNot {
 };
 
 /**
+ * @class FindFirstOf
+ *
+ * A trait that lets you find the first type in the first list that matches
+ * any element in the second list
+ */
+template <typename TypeListContainerOne, typename TypeListContainerTwo>
+struct FindFirstOf {
+    using type = typename detail::FindFirstOfImpl<TypeListContainerOne,
+          TypeListContainerTwo>::type;
+};
+
+/**
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -190,6 +236,9 @@ template <template <typename...> class Predicate, typename... TypeList>
 using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
 template <template <typename...> class Predicate, typename... TypeList>
 using FindIfNot_t = typename FindIfNot<Predicate, TypeList...>::type;
+template <typename TypeListContainerOne, typename TypeListContainerTwo>
+using FindFirstOf_t = typename FindFirstOf<
+    TypeListContainerOne, TypeListContainerTwo>::type;
 
 /*******************************************************************************
  * Tests
@@ -274,6 +323,28 @@ static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>, int>
 static_assert(std::is_same<FindIfNot_t<std::is_reference, int*, int&>, int*>
         ::value, "sharp::FindItNot tests failed!");
 static_assert(std::is_same<FindIfNot_t<std::is_reference, double, int>, double>
+        ::value, "sharp::FindIfNot tests failed!");
+
+/**
+ * Tests for FindFirstOf
+ */
+static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<>>, End>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<int>, std::tuple<>>, End>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<int>>, End>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
+                                         std::tuple<>>, End>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<>,
+                                         std::tuple<int, double>>, End>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
+                                         std::tuple<char, double>>, double>
+        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
+                                         std::tuple<char, double>>, End>
         ::value, "sharp::FindIfNot tests failed!");
 
 } // namespace sharp
