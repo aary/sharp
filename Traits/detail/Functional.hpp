@@ -27,9 +27,40 @@ struct Bind {
 };
 
 /**
+ * @class Negate
+ *
+ * Negates the value trait to contain the negation of whatever the value trait
+ * would otherwise contain
+ */
+template <template <typename...> class Trait>
+struct Negate {
+    template <typename... Args>
+    struct type {
+        static constexpr const bool value = !Trait<Args...>::value;
+    };
+};
+
+/**
+ * Convenience wrappers around type traits to allow users to fetch the types
+ * from a trait conveniently
+ */
+// template <template <typename...> class Trait, typename... ToBind>
+// template <typename... Args>
+// using Bind_t = typename Bind<Trait, ToBind...>::template type<Args...>;
+// template <template <typename...> class Trait>
+// using Negate_t = typename Negate<Trait>::type;
+
+/**
  * Tests for bind
  */
 static_assert(Bind<std::is_same, int>::type<int>::value,
         "sharp::Bind tests failed");
+
+/**
+ * Tests for bind
+ */
+static_assert(!Negate<Bind<std::is_same, int>::type>::type<int>::value,
+        "sharp::Negate tests failed");
+
 
 } // namespace sharp
