@@ -33,7 +33,7 @@ namespace detail {
     /**
      * Implementation for the AllOf trait
      */
-    template <template <typename...> class Predicate, typename... TypeList>
+    template <template <typename...> class Predicate, typename... Types>
     struct AllOfImpl {
         static constexpr const bool value = true;
     };
@@ -49,7 +49,7 @@ namespace detail {
      * Implementation for the AnyOf trait, this unlike the AllOf trait returns
      * a false when the list is empty, in line with std::any_of
      */
-    template <template <typename...> class Predicate, typename... TypeList>
+    template <template <typename...> class Predicate, typename... Types>
     struct AnyOfImpl {
         static constexpr const bool value = false;
     };
@@ -64,7 +64,7 @@ namespace detail {
     /**
      * Implementation for the count if trait
      */
-    template <template <typename...> class Predicate, typename... TypeList>
+    template <template <typename...> class Predicate, typename... Types>
     struct CountIfImpl {
         static constexpr const int value = 0;
     };
@@ -82,7 +82,7 @@ namespace detail {
     /**
      * Implementation for the FindIf trait
      */
-    template <template <typename...> class Predicate, typename... TypeList>
+    template <template <typename...> class Predicate, typename... Types>
     struct FindIfImpl {
         using type = End;
     };
@@ -98,7 +98,7 @@ namespace detail {
     /**
      * Implementation for the FindFirstOfTrait
      */
-    template <typename TypeListContainerOne, typename TypeListContainerTwo>
+    template <typename TypesContainerOne, typename TypesContainerTwo>
     struct FindFirstOfImpl;
     template <typename HeadOne, typename... TailOne,
               typename... TailTwo>
@@ -137,30 +137,30 @@ namespace detail {
      * most cases, when they are not hit then the default case will be this
      * one which ends the recursion by defining the type to be the End type
      */
-    template <typename... TypeList>
+    template <typename... Types>
     struct AdjacentFindImpl {
         using type = End;
     };
     /**
      * Keep going here, since you have not found types that are the same
      */
-    template <typename First, typename Second, typename... TypeList>
-    struct AdjacentFindImpl<First, Second, TypeList...> {
-        using type = typename AdjacentFindImpl<Second, TypeList...>::type;
+    template <typename First, typename Second, typename... Types>
+    struct AdjacentFindImpl<First, Second, Types...> {
+        using type = typename AdjacentFindImpl<Second, Types...>::type;
     };
     /**
      * Stop here because you have hit the point where you have found two of
      * the same types
      */
-    template <typename First, typename... TypeList>
-    struct AdjacentFindImpl<First, First, TypeList...> {
+    template <typename First, typename... Types>
+    struct AdjacentFindImpl<First, First, Types...> {
         using type = First;
     };
 
     /**
      * Implementation for the Mismatch trait
      */
-    template <typename TypeListContainerOne, typename TypeListContainerTwo>
+    template <typename TypesContainerOne, typename TypesContainerTwo>
     struct MismatchImpl;
     template <typename HeadOne, typename... TailOne,
               typename HeadTwo, typename... TailTwo>
@@ -202,6 +202,17 @@ namespace detail {
                 : MaxImpl<second, tail...>::value;
     };
 
+    template <int... integers>
+    struct MinImpl : std::integral_constant<int, -1> {};
+    template <int first>
+    struct MinImpl<first> : std::integral_constant<int, first> {};
+    template <int first, int second, int... tail>
+    struct MinImpl<first, second, tail...> {
+        static constexpr const int value = (first < second)
+                ? MinImpl<first, tail...>::value
+                : MinImpl<second, tail...>::value;
+    };
+
 } // namespace detail
 
 /**
@@ -211,10 +222,10 @@ namespace detail {
  * the type list, for example <std::is_reference, int&, double&> will return
  * true
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct AllOf {
     static constexpr const bool value
-        = detail::AllOfImpl<Predicate, TypeList...>::value;
+        = detail::AllOfImpl<Predicate, Types...>::value;
 };
 
 /**
@@ -224,10 +235,10 @@ struct AllOf {
  * in the type list, for example <std::is_reference, int&, double> will
  * return true
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct AnyOf {
     static constexpr const bool value
-        = detail::AnyOfImpl<Predicate, TypeList...>::value;
+        = detail::AnyOfImpl<Predicate, Types...>::value;
 };
 
 /**
@@ -236,9 +247,9 @@ struct AnyOf {
  * A trait that returns a true if the predicate returns true for none of the
  * types in the type list, this is just the negation of AnyOf
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct NoneOf {
-    static constexpr const bool value = !AnyOf<Predicate, TypeList...>::value;
+    static constexpr const bool value = !AnyOf<Predicate, Types...>::value;
 };
 
 /**
@@ -247,10 +258,10 @@ struct NoneOf {
  * A trait that counts the number of times the predicate returns true on the
  * type list
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct CountIf {
     static constexpr const int value
-        = detail::CountIfImpl<Predicate, TypeList...>::value;
+        = detail::CountIfImpl<Predicate, Types...>::value;
 };
 
 /**
@@ -259,10 +270,10 @@ struct CountIf {
  * A trait that returns the first types that are not the same in the two
  * provided type lists
  */
-template <typename TypeListContainerOne, typename TypeListContainerTwo>
+template <typename TypesContainerOne, typename TypesContainerTwo>
 struct Mismatch {
-    using type = typename detail::MismatchImpl<TypeListContainerOne,
-                                               TypeListContainerTwo>::type;
+    using type = typename detail::MismatchImpl<TypesContainerOne,
+                                               TypesContainerTwo>::type;
 };
 
 /**
@@ -271,10 +282,10 @@ struct Mismatch {
  * A trait that lets you find the first type for which the predicate returned
  * true, similar to std::find_if
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct FindIf {
     using type
-        = typename detail::FindIfImpl<Predicate, TypeList...>::type;
+        = typename detail::FindIfImpl<Predicate, Types...>::type;
 };
 
 /**
@@ -283,10 +294,10 @@ struct FindIf {
  * A trait that lets you find the type passed in, this is implemented using
  * the FindIf trait and a std::is_same predicate
  */
-template <typename ToFind, typename... TypeList>
+template <typename ToFind, typename... Types>
 struct Find {
     using type = typename FindIf<Bind<std::is_same, ToFind>::template type,
-                                 TypeList...>::type;
+                                 Types...>::type;
 };
 
 /**
@@ -295,10 +306,10 @@ struct Find {
  * A trait that lets you find the first type for which the predicate returned
  * false, similar to std::find_if_not
  */
-template <template <typename...> class Predicate, typename... TypeList>
+template <template <typename...> class Predicate, typename... Types>
 struct FindIfNot {
     using type
-        = typename FindIf<Negate<Predicate>::template type, TypeList...>::type;
+        = typename FindIf<Negate<Predicate>::template type, Types...>::type;
 };
 
 /**
@@ -307,10 +318,10 @@ struct FindIfNot {
  * A trait that lets you find the first type in the first list that matches
  * any element in the second list
  */
-template <typename TypeListContainerOne, typename TypeListContainerTwo>
+template <typename TypesContainerOne, typename TypesContainerTwo>
 struct FindFirstOf {
-    using type = typename detail::FindFirstOfImpl<TypeListContainerOne,
-          TypeListContainerTwo>::type;
+    using type = typename detail::FindFirstOfImpl<TypesContainerOne,
+          TypesContainerTwo>::type;
 };
 
 /**
@@ -320,9 +331,9 @@ struct FindFirstOf {
  * list, it returns the repeated type, if no type was repeated, then this will
  * return the End type
  */
-template <typename... TypeList>
+template <typename... Types>
 struct AdjacentFind {
-    using type = typename detail::AdjacentFindImpl<TypeList...>::type;
+    using type = typename detail::AdjacentFindImpl<Types...>::type;
 };
 
 /**
@@ -336,38 +347,50 @@ struct Max {
 };
 
 /**
+ * @class Min
+ *
+ * Determines the maximum of the given integral values
+ */
+template <int... integers>
+struct Min {
+    static constexpr const int value = detail::MinImpl<integers...>::value;
+};
+
+/**
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
-template <template <typename...> class Predicate, typename... TypeList>
-constexpr const bool AllOf_v = AllOf<Predicate, TypeList...>::value;
-template <template <typename...> class Predicate, typename... TypeList>
-constexpr const bool AnyOf_v = AnyOf<Predicate, TypeList...>::value;
-template <template <typename...> class Predicate, typename... TypeList>
-constexpr const bool NoneOf_v = NoneOf<Predicate, TypeList...>::value;
-template <template <typename...> class Predicate, typename... TypeList>
-constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
+template <template <typename...> class Predicate, typename... Types>
+constexpr const bool AllOf_v = AllOf<Predicate, Types...>::value;
+template <template <typename...> class Predicate, typename... Types>
+constexpr const bool AnyOf_v = AnyOf<Predicate, Types...>::value;
+template <template <typename...> class Predicate, typename... Types>
+constexpr const bool NoneOf_v = NoneOf<Predicate, Types...>::value;
+template <template <typename...> class Predicate, typename... Types>
+constexpr const int CountIf_v = CountIf<Predicate, Types...>::value;
 template <int... integers>
 constexpr const int Max_v = Max<integers...>::value;
+template <int... integers>
+constexpr const int Min_v = Min<integers...>::value;
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
-template <typename TypeListContainerOne, typename TypeListContainerTwo>
-using Mismatch_t = typename Mismatch<TypeListContainerOne, TypeListContainerTwo>
+template <typename TypesContainerOne, typename TypesContainerTwo>
+using Mismatch_t = typename Mismatch<TypesContainerOne, TypesContainerTwo>
     ::type;
-template <template <typename...> class Predicate, typename... TypeList>
-using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
-template <typename ToFind, typename... TypeList>
-using Find_t = typename Find<ToFind, TypeList...>::type;
-template <template <typename...> class Predicate, typename... TypeList>
-using FindIfNot_t = typename FindIfNot<Predicate, TypeList...>::type;
-template <typename TypeListContainerOne, typename TypeListContainerTwo>
+template <template <typename...> class Predicate, typename... Types>
+using FindIf_t = typename FindIf<Predicate, Types...>::type;
+template <typename ToFind, typename... Types>
+using Find_t = typename Find<ToFind, Types...>::type;
+template <template <typename...> class Predicate, typename... Types>
+using FindIfNot_t = typename FindIfNot<Predicate, Types...>::type;
+template <typename TypesContainerOne, typename TypesContainerTwo>
 using FindFirstOf_t = typename FindFirstOf<
-    TypeListContainerOne, TypeListContainerTwo>::type;
-template <typename... TypeList>
-using AdjacentFind_t = typename AdjacentFind<TypeList...>::type;
+    TypesContainerOne, TypesContainerTwo>::type;
+template <typename... Types>
+using AdjacentFind_t = typename AdjacentFind<Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -438,6 +461,15 @@ static_assert(Max_v<1> == 1, "sharp::Max tests failed!");
 static_assert(Max_v<1, 2> == 2, "sharp::Max tests failed!");
 static_assert(Max_v<1, 2, 3> == 3, "sharp::Max tests failed!");
 static_assert(Max_v<-1, 2, 3> == 3, "sharp::Max tests failed!");
+
+/**
+ * Tests for Min
+ */
+static_assert(Min_v<> == -1, "sharp::Min tests failed!");
+static_assert(Min_v<1> == 1, "sharp::Min tests failed!");
+static_assert(Min_v<1, 2> == 1, "sharp::Min tests failed!");
+static_assert(Min_v<1, 2, 3> == 1, "sharp::Min tests failed!");
+static_assert(Min_v<-1, 2, 3> == -1, "sharp::Min tests failed!");
 
 /**
  * Tests for Mismatch
