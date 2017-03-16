@@ -17,3 +17,4 @@
 #include <sharp/Traits/detail/FunctionIntrospect.hpp>
 #include <sharp/Traits/detail/Algorithm.hpp>
 #include <sharp/Traits/detail/Functional.hpp>
+#include <sharp/Traits/detail/Utility.hpp>
