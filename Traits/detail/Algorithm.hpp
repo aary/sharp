@@ -13,6 +13,7 @@
 
 #include <sharp/Traits/detail/Functional.hpp>
 #include <sharp/Traits/detail/Utility.hpp>
+#include <sharp/Traits/detail/IsInstantiationOf.hpp>
 
 namespace sharp {
 
@@ -229,16 +230,60 @@ namespace detail {
     };
 
     template <int... integers>
-    struct MinImpl : std::integral_constant<int, -1> {};
+    struct MinValueImpl : std::integral_constant<int, -1> {};
     template <int first>
-    struct MinImpl<first> : std::integral_constant<int, first> {};
+    struct MinValueImpl<first> : std::integral_constant<int, first> {};
     template <int first, int second, int... tail>
-    struct MinImpl<first, second, tail...> {
+    struct MinValueImpl<first, second, tail...> {
         static constexpr const int value = (first < second)
-                ? MinImpl<first, tail...>::value
-                : MinImpl<second, tail...>::value;
+                ? MinValueImpl<first, tail...>::value
+                : MinValueImpl<second, tail...>::value;
     };
 
+    /**
+     * Implementation for the Search trait
+     *
+     * TODO remove the third partial specialization and see what happens, the
+     * compiler will say that there is an error with type not existing in the
+     * template and that is because there is infinite recursion going on
+     */
+    template <typename TypesContainerOne, typename TypesContainerTwo>
+    struct SearchImpl;
+    template <typename HeadTwo, typename... TailTwo>
+    struct SearchImpl<End, std::tuple<HeadTwo, TailTwo...>> {
+        using type = End;
+    };
+    template <typename HeadOne, typename... TailOne>
+    struct SearchImpl<std::tuple<HeadOne, TailOne...>,
+                      std::tuple<HeadOne, TailOne...>> {
+        using type = std::tuple<HeadOne, TailOne...>;
+    };
+    template <typename HeadOne, typename... TailOne,
+              typename HeadTwo, typename... TailTwo>
+    struct SearchImpl<std::tuple<HeadOne, TailOne...>,
+                      std::tuple<HeadTwo, TailTwo...>> {
+        using find_occurence = typename detail::FindIfImpl<
+            Bind<std::is_same, HeadTwo>::template type,
+            HeadOne, TailOne...>::type;
+
+        static_assert(sharp::IsInstantiationOf_v<find_occurence, std::tuple>,
+                "Something went wrong in the implementation of "
+                "sharp::detail::SearchImpl");
+
+        /**
+         * If found the same type, then assign the type to be the found range,
+         * if the range is not the same then there is a chance that the range
+         * will be there somewhere later, so keep finding
+         *
+         * TODO replace with Equal once you write that
+         */
+        using type = std::conditional_t<std::is_same<
+                find_occurence,
+                std::tuple<HeadTwo, TailTwo...>>::value,
+            find_occurence,
+            typename SearchImpl<find_occurence,
+                                std::tuple<HeadTwo, TailTwo...>>::type>;
+    };
 
 } // namespace detail
 
@@ -364,6 +409,18 @@ struct AdjacentFind {
 };
 
 /**
+ * @class Search
+ *
+ * A trait that searches for the second range in the first range.  similar to
+ * std::search
+ */
+template <typename TypesContainerOne, typename TypesContainerTwo>
+struct Search {
+    using type = typename detail::SearchImpl<TypesContainerOne,
+                                             TypesContainerTwo>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -394,7 +451,7 @@ struct MaxType {
  */
 template <int... integers>
 struct MinValue {
-    static constexpr const int value = detail::MinImpl<integers...>::value;
+    static constexpr const int value = detail::MinValueImpl<integers...>::value;
 };
 template <template <typename...> class Comparator, typename... Types>
 struct MinType {
@@ -441,6 +498,8 @@ template <template <typename...> class Comparator, typename... Types>
 using MaxType_t = typename MaxType<Comparator, Types...>::type;
 template <template <typename...> class Comparator, typename... Types>
 using MinType_t = typename MinType<Comparator, Types...>::type;
+template <typename TypesContainerOne, typename TypesContainerTwo>
+using Search_t = typename Search<TypesContainerOne, TypesContainerTwo>::type;
 
 /*******************************************************************************
  * Tests
@@ -649,5 +708,17 @@ static_assert(std::is_same<AdjacentFind_t<char, int, int>,
         std::tuple<int, int>>::value, "sharp::AdjacentFind tests failed!");
 static_assert(std::is_same<AdjacentFind_t<int*, double&, int*>, End>::value,
         "sharp::AdjacentFind tests failed!");
+
+/**
+ * Tests for Search
+ */
+static_assert(std::is_same<Search_t<std::tuple<double, char>,
+                                    std::tuple<double, char>>,
+                           std::tuple<double, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
+                                    std::tuple<double, char>>,
+                           std::tuple<double, char>>::value,
+        "sharp::Search tests failed!");
 
 } // namespace sharp
