@@ -355,20 +355,20 @@ static_assert(std::is_same<FindIfNot_t<std::is_reference, double, int>, double>
  * Tests for FindFirstOf
  */
 static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int>, std::tuple<>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<int>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
                                          std::tuple<>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<>,
                                          std::tuple<int, double>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
                                          std::tuple<char, double>>, double>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
                                          std::tuple<char, double>>, End>
         ::value, "sharp::FindIfNot tests failed!");
