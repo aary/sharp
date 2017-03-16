@@ -100,7 +100,7 @@ namespace detail {
     struct FindIfImpl<Predicate, Head, Tail...> {
         using type = std::conditional_t<
             Predicate<Head>::value,
-            Head,
+            std::tuple<Head, Tail...>,
             typename FindIfImpl<Predicate, Tail...>::type>;
     };
 
@@ -129,7 +129,7 @@ namespace detail {
                        Bind<std::is_same, HeadOne>::template type,
                        TailTwo...>::type,
             End>::value,
-            HeadOne,
+            std::tuple<HeadOne, TailOne...>,
             typename FindFirstOfImpl<std::tuple<TailOne...>,
                                      std::tuple<TailTwo...>>::type>;
     };
@@ -163,7 +163,7 @@ namespace detail {
      */
     template <typename First, typename... Types>
     struct AdjacentFindImpl<First, First, Types...> {
-        using type = First;
+        using type = std::tuple<First, First, Types...>;
     };
 
     /**
@@ -175,15 +175,18 @@ namespace detail {
               typename HeadTwo, typename... TailTwo>
     struct MismatchImpl<std::tuple<HeadOne, TailOne...>,
                         std::tuple<HeadTwo, TailTwo...>> {
-        using type = std::pair<HeadOne, HeadTwo>;
+        using type = std::pair<std::tuple<HeadOne, TailOne...>,
+                               std::tuple<HeadTwo, TailTwo...>>;
     };
     template <typename HeadOne, typename... TailOne>
     struct MismatchImpl<std::tuple<HeadOne, TailOne...>, std::tuple<>> {
-        using type = std::pair<HeadOne, End>;
+        using type = std::pair<std::tuple<HeadOne, TailOne...>,
+                               End>;
     };
     template <typename HeadTwo, typename... TailTwo>
     struct MismatchImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
-        using type = std::pair<End, HeadTwo>;
+        using type = std::pair<End,
+                               std::tuple<HeadTwo, TailTwo...>>;
     };
     template <>
     struct MismatchImpl<std::tuple<>, std::tuple<>> {
@@ -522,7 +525,7 @@ static_assert(AnyOf_v<std::is_reference, int&, double&>,
 /**
  * Tests for NoneOf
  */
-static_assert(!!NoneOf_v<std::is_reference>,
+static_assert(NoneOf_v<std::is_reference>,
         "sharp::NoneOf tests failed!");
 static_assert(!NoneOf_v<std::is_reference, int&>,
         "sharp::NoneOf tests failed!");
@@ -530,7 +533,7 @@ static_assert(!NoneOf_v<std::is_reference, int&, double>,
         "sharp::NoneOf tests failed!");
 static_assert(!NoneOf_v<std::is_reference, int, double&>,
         "sharp::NoneOf tests failed!");
-static_assert(!!NoneOf_v<std::is_reference, int*, double*>,
+static_assert(NoneOf_v<std::is_reference, int*, double*>,
         "sharp::NoneOf tests failed!");
 static_assert(!NoneOf_v<std::is_reference, int&, double&>,
         "sharp::NoneOf tests failed!");
@@ -555,12 +558,13 @@ static_assert(MaxValue_v<1> == 1, "sharp::Max tests failed!");
 static_assert(MaxValue_v<1, 2> == 2, "sharp::Max tests failed!");
 static_assert(MaxValue_v<1, 2, 3> == 3, "sharp::Max tests failed!");
 static_assert(MaxValue_v<-1, 2, 3> == 3, "sharp::Max tests failed!");
+
 static_assert(std::is_same<MaxType_t<detail::test::LessThanValueList,
-                    ValueList<0>, ValueList<1>>, ValueList<1>>::value,
-    "sharp::Max tests failed!");
+                                     ValueList<0>, ValueList<1>>,
+                           ValueList<1>>::value, "sharp::Max tests failed!");
 static_assert(std::is_same<MaxType_t<detail::test::LessThanValueList,
-                    ValueList<1>, ValueList<0>>, ValueList<1>>::value,
-    "sharp::Max tests failed!");
+                                     ValueList<1>, ValueList<0>>,
+                           ValueList<1>>::value, "sharp::Max tests failed!");
 
 /**
  * Tests for Min
@@ -571,55 +575,65 @@ static_assert(MinValue_v<1, 2> == 1, "sharp::Min tests failed!");
 static_assert(MinValue_v<1, 2, 3> == 1, "sharp::Min tests failed!");
 static_assert(MinValue_v<-1, 2, 3> == -1, "sharp::Min tests failed!");
 static_assert(std::is_same<MinType_t<detail::test::LessThanValueList,
-                    ValueList<0>, ValueList<1>>, ValueList<0>>::value,
-    "sharp::Min tests failed!");
+                                     ValueList<0>, ValueList<1>>,
+                           ValueList<0>>::value, "sharp::Min tests failed!");
 static_assert(std::is_same<MinType_t<detail::test::LessThanValueList,
-                    ValueList<1>, ValueList<0>>, ValueList<0>>::value,
-    "sharp::Min tests failed!");
+                                     ValueList<1>, ValueList<0>>,
+                           ValueList<0>>::value, "sharp::Min tests failed!");
 
 /**
  * Tests for Mismatch
  */
 static_assert(std::is_same<Mismatch_t<std::tuple<int, double, char>,
                                       std::tuple<int, double, char*>>,
-                           std::pair<char, char*>>::value,
-        "sharp::Mismatch tests failed!");
+                           std::pair<std::tuple<char>, std::tuple<char*>>>
+        ::value, "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<>>,
                            std::pair<End, End>>::value,
         "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<int, double>, std::tuple<>>,
-                           std::pair<int, End>>::value,
+                           std::pair<std::tuple<int, double>, End>>::value,
         "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<int, double>>,
-                           std::pair<End, int>>::value,
+                           std::pair<End, std::tuple<int, double>>>::value,
         "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<int, char*>,
                                       std::tuple<int, double>>,
-                           std::pair<char*, double>>::value,
-        "sharp::Mismatch tests failed!");
+                           std::pair<std::tuple<char*>, std::tuple<double>>>
+        ::value, "sharp::Mismatch tests failed!");
+static_assert(std::is_same<Mismatch_t<std::tuple<int, char*>,
+                                      std::tuple<int, double, bool, char>>,
+                           std::pair<std::tuple<char*>,
+                                     std::tuple<double, bool, char>>>
+        ::value, "sharp::Mismatch tests failed!");
 
 /**
  * Tests for FindIf
  */
 static_assert(std::is_same<FindIf_t<std::is_reference>, End>::value,
         "sharp::FindIt tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>, int&>::value,
-        "sharp::FindIf tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>, int&>
-        ::value, "sharp::FindIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>,
+        std::tuple<int&>>::value, "sharp::FindIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>,
+        std::tuple<int&>>::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, double, int>, End>
         ::value, "sharp::FindIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, double&, int>,
+        std::tuple<double&, int>>::value, "sharp::FindIf tests failed!");
 
 /**
  * Tests for Find
  */
 static_assert(std::is_same<Find_t<int>, End>::value,
         "sharp::FindIt tests failed!");
-static_assert(std::is_same<Find_t<int, double, int>, int>::value,
+static_assert(std::is_same<Find_t<int, double, int>, std::tuple<int>>::value,
         "sharp::FindIf tests failed!");
-static_assert(std::is_same<Find_t<int, int, double>, int>::value,
+static_assert(std::is_same<Find_t<int, int, double>,
+        std::tuple<int, double>>::value, "sharp::FindIf tests failed!");
+static_assert(std::is_same<Find_t<int, double*, int>, std::tuple<int>>::value,
         "sharp::FindIf tests failed!");
-static_assert(std::is_same<Find_t<int, double*, int>, int>::value,
+static_assert(std::is_same<Find_t<int, double*, int, bool>,
+                           std::tuple<int, bool>>::value,
         "sharp::FindIf tests failed!");
 
 /**
@@ -627,12 +641,12 @@ static_assert(std::is_same<Find_t<int, double*, int>, int>::value,
  */
 static_assert(std::is_same<FindIfNot_t<std::is_reference>, End>::value,
         "sharp::FindIfNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>, int>
-        ::value, "sharp::FindItNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, int*, int&>, int*>
-        ::value, "sharp::FindItNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, double, int>, double>
-        ::value, "sharp::FindIfNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>,
+        std::tuple<int, int&>>::value, "sharp::FindItNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, int*, int&>,
+        std::tuple<int*, int&>>::value, "sharp::FindItNot tests failed!");
+static_assert(std::is_same<FindIfNot_t<std::is_reference, int&, double, int>,
+        std::tuple<double, int>>::value, "sharp::FindIfNot tests failed!");
 
 /**
  * Tests for FindFirstOf
