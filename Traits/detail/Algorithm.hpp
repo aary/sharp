@@ -192,6 +192,18 @@ struct FindIf {
 };
 
 /**
+ * @class Find
+ *
+ * A trait that lets you find the type passed in, this is implemented using
+ * the FindIf trait and a std::is_same predicate
+ */
+template <typename ToFind, typename... TypeList>
+struct Find {
+    using type = typename FindIf<Bind<std::is_same, ToFind>::template type,
+                                 TypeList...>::type;
+};
+
+/**
  * @class FindIfNot
  *
  * A trait that lets you find the first type for which the predicate returned
@@ -234,6 +246,8 @@ constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
  */
 template <template <typename...> class Predicate, typename... TypeList>
 using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
+template <typename ToFind, typename... TypeList>
+using Find_t = typename Find<ToFind, TypeList...>::type;
 template <template <typename...> class Predicate, typename... TypeList>
 using FindIfNot_t = typename FindIfNot<Predicate, TypeList...>::type;
 template <typename TypeListContainerOne, typename TypeListContainerTwo>
@@ -312,6 +326,18 @@ static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>, int&>
         ::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, double, int>, End>
         ::value, "sharp::FindIf tests failed!");
+
+/**
+ * Tests for Find
+ */
+static_assert(std::is_same<Find_t<int>, End>::value,
+        "sharp::FindIt tests failed!");
+static_assert(std::is_same<Find_t<int, double, int>, int>::value,
+        "sharp::FindIf tests failed!");
+static_assert(std::is_same<Find_t<int, int, double>, int>::value,
+        "sharp::FindIf tests failed!");
+static_assert(std::is_same<Find_t<int, double*, int>, int>::value,
+        "sharp::FindIf tests failed!");
 
 /**
  * Tests for FindIfNot
