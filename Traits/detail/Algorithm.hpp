@@ -187,7 +187,22 @@ namespace detail {
         using type = typename MismatchImpl<std::tuple<TailOne...>,
                                            std::tuple<TailTwo...>>::type;
     };
-}
+
+    /**
+     * Implementation for the constexpr max trait
+     */
+    template <int... integers>
+    struct MaxImpl : std::integral_constant<int, -1> {};
+    template <int first>
+    struct MaxImpl<first> : std::integral_constant<int, first> {};
+    template <int first, int second, int... tail>
+    struct MaxImpl<first, second, tail...> {
+        static constexpr const int value = (first > second)
+                ? MaxImpl<first, tail...>::value
+                : MaxImpl<second, tail...>::value;
+    };
+
+} // namespace detail
 
 /**
  * @class AllOf
@@ -311,6 +326,16 @@ struct AdjacentFind {
 };
 
 /**
+ * @class Max
+ *
+ * Determines the maximum of the given integral values
+ */
+template <int... integers>
+struct Max {
+    static constexpr const int value = detail::MaxImpl<integers...>::value;
+};
+
+/**
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -322,6 +347,8 @@ template <template <typename...> class Predicate, typename... TypeList>
 constexpr const bool NoneOf_v = NoneOf<Predicate, TypeList...>::value;
 template <template <typename...> class Predicate, typename... TypeList>
 constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
+template <int... integers>
+constexpr const int Max_v = Max<integers...>::value;
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
@@ -402,6 +429,15 @@ static_assert(CountIf_v<std::is_reference, int&, double> == 1,
         "sharp::CountIf tests failed!");
 static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
         "sharp::CountIf tests failed!");
+
+/**
+ * Tests for Max
+ */
+static_assert(Max_v<> == -1, "sharp::Max tests failed!");
+static_assert(Max_v<1> == 1, "sharp::Max tests failed!");
+static_assert(Max_v<1, 2> == 2, "sharp::Max tests failed!");
+static_assert(Max_v<1, 2, 3> == 3, "sharp::Max tests failed!");
+static_assert(Max_v<-1, 2, 3> == 3, "sharp::Max tests failed!");
 
 /**
  * Tests for Mismatch
