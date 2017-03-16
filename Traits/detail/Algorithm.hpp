@@ -201,14 +201,36 @@ namespace detail {
      * Implementation for the constexpr max trait
      */
     template <int... integers>
-    struct MaxImpl : std::integral_constant<int, -1> {};
+    struct MaxValueImpl : std::integral_constant<int, -1> {};
     template <int first>
-    struct MaxImpl<first> : std::integral_constant<int, first> {};
+    struct MaxValueImpl<first> : std::integral_constant<int, first> {};
     template <int first, int second, int... tail>
-    struct MaxImpl<first, second, tail...> {
+    struct MaxValueImpl<first, second, tail...> {
         static constexpr const int value = (first > second)
-                ? MaxImpl<first, tail...>::value
-                : MaxImpl<second, tail...>::value;
+                ? MaxValueImpl<first, tail...>::value
+                : MaxValueImpl<second, tail...>::value;
+    };
+
+    /**
+     * Implementation for the type based Max trait, this follows the same
+     * logic as the trait above, but just differently for types by using the
+     * comparator
+     */
+    template <template <typename...> class Comparator, typename... Types>
+    struct MaxTypeImpl {
+        using type = End;
+    };
+    template <template <typename...> class Comparator, typename Head>
+    struct MaxTypeImpl<Comparator, Head> {
+        using type = Head;
+    };
+    template <template <typename...> class Comparator,
+              typename First, typename Second, typename... Tail>
+    struct MaxTypeImpl<Comparator, First, Second, Tail...> {
+        using type = std::conditional_t<
+            Comparator<First, Second>::value,
+            typename MaxTypeImpl<Comparator, Second, Tail...>::type,
+            typename MaxTypeImpl<Comparator, First, Tail...>::type>;
     };
 
     template <int... integers>
@@ -364,21 +386,40 @@ struct AdjacentFind {
 /**
  * @class Max
  *
- * Determines the maximum of the given integral values
+ * Determines the maximum of the given integral values.  If types are given
+ * instead then the user must provide a comparator that can be used to compare
+ * two different types and test which one is smaller, i.e. the predicate
+ * should behave the same way as it does in the standard library, it should
+ * be a logical less than operator, for example the type A is smaller than the
+ * type B if Comparator<A, B>::value is true
  */
 template <int... integers>
-struct Max {
-    static constexpr const int value = detail::MaxImpl<integers...>::value;
+struct MaxValue {
+    static constexpr const int value = detail::MaxValueImpl<integers...>::value;
+};
+template <template <typename...> class Comparator, typename... Types>
+struct MaxType {
+    using type = typename detail::MaxTypeImpl<Comparator, Types...>::type;
 };
 
 /**
  * @class Min
  *
- * Determines the maximum of the given integral values
+ * Determines the maximum of the given integral values.  If types are given
+ * instead then the user must provide a comparator that can be used to compare
+ * two different types and test which one is smaller, i.e. the predicate
+ * should behave the same way as it does in the standard library, it should
+ * be a logical less than operator, for example the type A is smaller than the
+ * type B if Comparator<A, B>::value is true
  */
 template <int... integers>
-struct Min {
+struct MinValue {
     static constexpr const int value = detail::MinImpl<integers...>::value;
+};
+template <template <typename...> class Comparator, typename... Types>
+struct MinType {
+    using type
+        = typename MaxType<Negate<Comparator>::template type, Types...>::type;
 };
 
 /**
@@ -406,9 +447,9 @@ constexpr const bool NoneOf_v = NoneOf<Predicate, Types...>::value;
 template <template <typename...> class Predicate, typename... Types>
 constexpr const int CountIf_v = CountIf<Predicate, Types...>::value;
 template <int... integers>
-constexpr const int Max_v = Max<integers...>::value;
+constexpr const int MaxValue_v = MaxValue<integers...>::value;
 template <int... integers>
-constexpr const int Min_v = Min<integers...>::value;
+constexpr const int MinValue_v = MinValue<integers...>::value;
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
@@ -431,10 +472,23 @@ using AdjacentFind_t = typename AdjacentFind<Types...>::type;
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using Concatenate_t = typename Concatenate<TypesContainerOne, TypesContainerTwo>
     ::type;
+template <template <typename...> class Comparator, typename... Types>
+using MaxType_t = typename MaxType<Comparator, Types...>::type;
+template <template <typename...> class Comparator, typename... Types>
+using MinType_t = typename MinType<Comparator, Types...>::type;
 
 /*******************************************************************************
  * Tests
  ******************************************************************************/
+namespace detail { namespace test {
+    template <typename ValueListOne, typename ValueListTwo>
+    struct LessThanValueList;
+    template <int value_one, int value_two>
+    struct LessThanValueList<ValueList<value_one>, ValueList<value_two>> {
+        static constexpr const bool value = value_one < value_two;
+    };
+}}
+
 /**
  * Tests for AllOf
  */
@@ -496,20 +550,32 @@ static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
 /**
  * Tests for Max
  */
-static_assert(Max_v<> == -1, "sharp::Max tests failed!");
-static_assert(Max_v<1> == 1, "sharp::Max tests failed!");
-static_assert(Max_v<1, 2> == 2, "sharp::Max tests failed!");
-static_assert(Max_v<1, 2, 3> == 3, "sharp::Max tests failed!");
-static_assert(Max_v<-1, 2, 3> == 3, "sharp::Max tests failed!");
+static_assert(MaxValue_v<> == -1, "sharp::Max tests failed!");
+static_assert(MaxValue_v<1> == 1, "sharp::Max tests failed!");
+static_assert(MaxValue_v<1, 2> == 2, "sharp::Max tests failed!");
+static_assert(MaxValue_v<1, 2, 3> == 3, "sharp::Max tests failed!");
+static_assert(MaxValue_v<-1, 2, 3> == 3, "sharp::Max tests failed!");
+static_assert(std::is_same<MaxType_t<detail::test::LessThanValueList,
+                    ValueList<0>, ValueList<1>>, ValueList<1>>::value,
+    "sharp::Max tests failed!");
+static_assert(std::is_same<MaxType_t<detail::test::LessThanValueList,
+                    ValueList<1>, ValueList<0>>, ValueList<1>>::value,
+    "sharp::Max tests failed!");
 
 /**
  * Tests for Min
  */
-static_assert(Min_v<> == -1, "sharp::Min tests failed!");
-static_assert(Min_v<1> == 1, "sharp::Min tests failed!");
-static_assert(Min_v<1, 2> == 1, "sharp::Min tests failed!");
-static_assert(Min_v<1, 2, 3> == 1, "sharp::Min tests failed!");
-static_assert(Min_v<-1, 2, 3> == -1, "sharp::Min tests failed!");
+static_assert(MinValue_v<> == -1, "sharp::Min tests failed!");
+static_assert(MinValue_v<1> == 1, "sharp::Min tests failed!");
+static_assert(MinValue_v<1, 2> == 1, "sharp::Min tests failed!");
+static_assert(MinValue_v<1, 2, 3> == 1, "sharp::Min tests failed!");
+static_assert(MinValue_v<-1, 2, 3> == -1, "sharp::Min tests failed!");
+static_assert(std::is_same<MinType_t<detail::test::LessThanValueList,
+                    ValueList<0>, ValueList<1>>, ValueList<0>>::value,
+    "sharp::Min tests failed!");
+static_assert(std::is_same<MinType_t<detail::test::LessThanValueList,
+                    ValueList<1>, ValueList<0>>, ValueList<0>>::value,
+    "sharp::Min tests failed!");
 
 /**
  * Tests for Mismatch
