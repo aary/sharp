@@ -128,6 +128,34 @@ namespace detail {
     struct FindFirstOfImpl<std::tuple<>, std::tuple<TailTwo...>> {
         using type = End;
     };
+
+    /**
+     * Implementation for the AdjacentFind algorithm
+     */
+    /**
+     * Stop the iteration here, either of the below two cases should be hit in
+     * most cases, when they are not hit then the default case will be this
+     * one which ends the recursion by defining the type to be the End type
+     */
+    template <typename... TypeList>
+    struct AdjacentFindImpl {
+        using type = End;
+    };
+    /**
+     * Keep going here, since you have not found types that are the same
+     */
+    template <typename First, typename Second, typename... TypeList>
+    struct AdjacentFindImpl<First, Second, TypeList...> {
+        using type = typename AdjacentFindImpl<Second, TypeList...>::type;
+    };
+    /**
+     * Stop here because you have hit the point where you have found two of
+     * the same types
+     */
+    template <typename First, typename... TypeList>
+    struct AdjacentFindImpl<First, First, TypeList...> {
+        using type = First;
+    };
 }
 
 /**
@@ -228,6 +256,18 @@ struct FindFirstOf {
 };
 
 /**
+ * @class AdjacentFind
+ *
+ * A trait that lets you find the first time a type was repeated in a type
+ * list, it returns the repeated type, if no type was repeated, then this will
+ * return the End type
+ */
+template <typename... TypeList>
+struct AdjacentFind {
+    using type = typename detail::AdjacentFindImpl<TypeList...>::type;
+};
+
+/**
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -253,6 +293,8 @@ using FindIfNot_t = typename FindIfNot<Predicate, TypeList...>::type;
 template <typename TypeListContainerOne, typename TypeListContainerTwo>
 using FindFirstOf_t = typename FindFirstOf<
     TypeListContainerOne, TypeListContainerTwo>::type;
+template <typename... TypeList>
+using AdjacentFind_t = typename AdjacentFind<TypeList...>::type;
 
 /*******************************************************************************
  * Tests
@@ -371,6 +413,18 @@ static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
         ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
                                          std::tuple<char, double>>, End>
-        ::value, "sharp::FindIfNot tests failed!");
+        ::value, "sharp::FindFirstOf tests failed!");
+
+/**
+ * Tests for AdjacentFind
+ */
+static_assert(std::is_same<AdjacentFind_t<int, double, char>, End>::value,
+        "sharp::AdjacentFind tests failed!");
+static_assert(std::is_same<AdjacentFind_t<int, int, char>, int>::value,
+        "sharp::AdjacentFind tests failed!");
+static_assert(std::is_same<AdjacentFind_t<char, int, int>, int>::value,
+        "sharp::AdjacentFind tests failed!");
+static_assert(std::is_same<AdjacentFind_t<int*, double&, int*>, End>::value,
+        "sharp::AdjacentFind tests failed!");
 
 } // namespace sharp
