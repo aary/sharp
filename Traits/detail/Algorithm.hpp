@@ -156,6 +156,37 @@ namespace detail {
     struct AdjacentFindImpl<First, First, TypeList...> {
         using type = First;
     };
+
+    /**
+     * Implementation for the Mismatch trait
+     */
+    template <typename TypeListContainerOne, typename TypeListContainerTwo>
+    struct MismatchImpl;
+    template <typename HeadOne, typename... TailOne,
+              typename HeadTwo, typename... TailTwo>
+    struct MismatchImpl<std::tuple<HeadOne, TailOne...>,
+                        std::tuple<HeadTwo, TailTwo...>> {
+        using type = std::pair<HeadOne, HeadTwo>;
+    };
+    template <typename HeadOne, typename... TailOne>
+    struct MismatchImpl<std::tuple<HeadOne, TailOne...>, std::tuple<>> {
+        using type = std::pair<HeadOne, End>;
+    };
+    template <typename HeadTwo, typename... TailTwo>
+    struct MismatchImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
+        using type = std::pair<End, HeadTwo>;
+    };
+    template <>
+    struct MismatchImpl<std::tuple<>, std::tuple<>> {
+        using type = std::pair<End, End>;
+    };
+    template <typename HeadOne, typename... TailOne,
+              typename... TailTwo>
+    struct MismatchImpl<std::tuple<HeadOne, TailOne...>,
+                        std::tuple<HeadOne, TailTwo...>> {
+        using type = typename MismatchImpl<std::tuple<TailOne...>,
+                                           std::tuple<TailTwo...>>::type;
+    };
 }
 
 /**
@@ -205,6 +236,18 @@ template <template <typename...> class Predicate, typename... TypeList>
 struct CountIf {
     static constexpr const int value
         = detail::CountIfImpl<Predicate, TypeList...>::value;
+};
+
+/**
+ * @class Mismatch
+ *
+ * A trait that returns the first types that are not the same in the two
+ * provided type lists
+ */
+template <typename TypeListContainerOne, typename TypeListContainerTwo>
+struct Mismatch {
+    using type = typename detail::MismatchImpl<TypeListContainerOne,
+                                               TypeListContainerTwo>::type;
 };
 
 /**
@@ -284,6 +327,9 @@ constexpr const int CountIf_v = CountIf<Predicate, TypeList...>::value;
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
+template <typename TypeListContainerOne, typename TypeListContainerTwo>
+using Mismatch_t = typename Mismatch<TypeListContainerOne, TypeListContainerTwo>
+    ::type;
 template <template <typename...> class Predicate, typename... TypeList>
 using FindIf_t = typename FindIf<Predicate, TypeList...>::type;
 template <typename ToFind, typename... TypeList>
@@ -356,6 +402,27 @@ static_assert(CountIf_v<std::is_reference, int&, double> == 1,
         "sharp::CountIf tests failed!");
 static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
         "sharp::CountIf tests failed!");
+
+/**
+ * Tests for Mismatch
+ */
+static_assert(std::is_same<Mismatch_t<std::tuple<int, double, char>,
+                                      std::tuple<int, double, char*>>,
+                           std::pair<char, char*>>::value,
+        "sharp::Mismatch tests failed!");
+static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<>>,
+                           std::pair<End, End>>::value,
+        "sharp::Mismatch tests failed!");
+static_assert(std::is_same<Mismatch_t<std::tuple<int, double>, std::tuple<>>,
+                           std::pair<int, End>>::value,
+        "sharp::Mismatch tests failed!");
+static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<int, double>>,
+                           std::pair<End, int>>::value,
+        "sharp::Mismatch tests failed!");
+static_assert(std::is_same<Mismatch_t<std::tuple<int, char*>,
+                                      std::tuple<int, double>>,
+                           std::pair<char*, double>>::value,
+        "sharp::Mismatch tests failed!");
 
 /**
  * Tests for FindIf
