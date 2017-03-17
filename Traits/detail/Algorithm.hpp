@@ -272,6 +272,10 @@ namespace detail {
     /**
      * Define the base cases
      */
+    template <>
+    struct SearchImpl<std::tuple<>, std::tuple<>> {
+        using type = std::tuple<>;
+    };
     template <typename... TypesTwo>
     struct SearchImpl<std::tuple<>, std::tuple<TypesTwo...>> {
         using type = std::tuple<>;
@@ -293,6 +297,20 @@ namespace detail {
               typename HeadTwo, typename... TailTwo>
     struct SearchImpl<std::tuple<HeadOne, TailOne...>,
                       std::tuple<HeadTwo, TailTwo...>> {
+
+    private:
+        /**
+         * find the first occurence of the first thing in the second list in
+         * the first list, if this is the result then the type will be
+         * typedefed to this, otherwise continue looking in whatever this
+         * returned, for example if the second list is <double, char> and the
+         * first one is <int, double, double, char> this will first evaluate to
+         * <double, double, char> since that is the first occurence of the
+         * second list in the first.  Then when that is not satisfactory as
+         * the return value, the first list will be popped to be
+         * <double, char> (which is the pop_fronted version of the result
+         * below
+         */
         using find_occurence = typename detail::FindIfImpl<
             Bind<std::is_same, HeadTwo>::template type,
             HeadOne, TailOne...>::type;
@@ -301,6 +319,7 @@ namespace detail {
                 "Something went wrong in the implementation of "
                 "sharp::detail::SearchImpl");
 
+    public:
         /**
          * The human readable pseudocode for the following
          *
@@ -337,6 +356,27 @@ namespace detail {
                 std::tuple<>,
                 typename SearchImpl<PopFront_t<find_occurence>,
                                     std::tuple<HeadTwo, TailTwo...>>::type>>;
+    };
+
+    /**
+     * Implemenattion trait for the searchnimpl trait
+     */
+    template <typename TypeToRepeat, int n, typename... Types>
+    struct SearchNImpl {
+    private:
+        /**
+         * Get a type list that contains the type to look for repeated n times
+         */
+        using repeated_type_tuple = ConcatenateN_t<TypeToRepeat, n>;
+        static_assert(IsInstantiationOf_v<repeated_type_tuple, std::tuple>,
+                "Something went wrong in the implementation of sharp::SearchN");
+
+    public:
+        /**
+         * Find it in the type list to see if it exists
+         */
+        using type = typename SearchImpl<std::tuple<Types...>,
+                                         repeated_type_tuple>::type;
     };
 
 } // namespace detail
@@ -491,6 +531,17 @@ struct Search {
 };
 
 /**
+ * @class SearchN
+ *
+ * Trait that searches for n occurences of a given element, similar to
+ * std::search_n
+ */
+template <typename TypeToRepeat, int n, typename... Types>
+struct SearchN {
+    using type = typename detail::SearchNImpl<TypeToRepeat, n, Types...>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -573,6 +624,8 @@ template <template <typename...> class Comparator, typename... Types>
 using MinType_t = typename MinType<Comparator, Types...>::type;
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using Search_t = typename Search<TypesContainerOne, TypesContainerTwo>::type;
+template <typename TypeToRepeat, int n, typename... Types>
+using SearchN_t = typename SearchN<TypeToRepeat, n, Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -821,5 +874,43 @@ static_assert(std::is_same<Search_t<std::tuple<double>,
                                     std::tuple<double, int>>,
                            std::tuple<>>::value,
         "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
+                                    std::tuple<int>>,
+                           std::tuple<int, double, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
+                                    std::tuple<double>>,
+                           std::tuple<double, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
+                                    std::tuple<>>,
+                           std::tuple<int, double, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<>,
+                                    std::tuple<>>,
+                           std::tuple<>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<double, int, int, int, double>,
+                                    std::tuple<int, int, int>>,
+                           std::tuple<int, int, int, double>>::value,
+        "sharp::Search tests failed!");
+
+
+/**
+ * Tests for SearchN
+ */
+static_assert(std::is_same<SearchN_t<int, 3, double, int, int, int, double>,
+                           std::tuple<int, int, int, double>>::value,
+        "sharp::SearchN tests failed");
+static_assert(std::is_same<SearchN_t<int, 1, double, int, int, int, double>,
+                           std::tuple<int, int, int, double>>::value,
+        "sharp::SearchN tests failed");
+static_assert(std::is_same<SearchN_t<double, 2, double, int, double, double,
+                                     int>,
+                           std::tuple<double, double, int>>::value,
+        "sharp::SearchN tests failed");
+static_assert(std::is_same<SearchN_t<double, 3, double, int, int, int, double>,
+                           std::tuple<>>::value,
+        "sharp::SearchN tests failed");
 
 } // namespace sharp
