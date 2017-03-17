@@ -103,6 +103,15 @@ static_assert(std::is_same<sharp::SearchN_t<int, 2, int, bool, int, int, char>,
                            std::tuple<int, int, char>>::value);
 ```
 
+#### `std::transform_if`
+
+```
+static_assert(std::is_same<
+    sharp::TransformIf_t<std::is_volatile,
+                         std::remove_volatile, volatile int, const int>,
+    std::tuple<int, const int>>::value);
+```
+
 #### `std::transform`
 
 ```
@@ -123,4 +132,11 @@ static_assert(std::is_same<sharp::RemoveIf_t<std::is_reference, char, int&>,
 ```
 static_assert(std::is_same<sharp::Reverse_t<int, char>,
                            std::tuple<char, int>>::value);
+```
+
+#### `std::unique`
+
+```
+static_assert(std::is_same<sharp::Unique_t<int, double, int>,
+                           std::tuple<int, double>>::value);
 ```
