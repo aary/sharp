@@ -19,30 +19,31 @@ struct CannotContainReferences {
 };
 ```
 
-### `std::all_of`
+
+#### `std::all_of`
 ```
 static_assert(sharp::AllOf_v<std::is_pointer, int*, double*>);
 ```
 
-### `std::any_of`
+#### `std::any_of`
 
 ```
 static_assert(sharp::AnyOf_v<std::is_reference, int, double, int&>);
 ```
 
-### `std::none_of`
+#### `std::none_of`
 
 ```
 static_assert(sharp::NoneOf_v<std::is_const, int, double, char>);
 ```
 
-### `std::count_if`
+#### `std::count_if`
 
 ```
 static_assert(sharp::Countif_v<std::is_reference, int, double, int&> == 1);
 ```
 
-### `std::mismatch`
+#### `std::mismatch`
 
 ```
 static_assert(std::is_same<sharp::Mismatch_t<std::tuple<int, double, char>,
@@ -51,28 +52,28 @@ static_assert(std::is_same<sharp::Mismatch_t<std::tuple<int, double, char>,
                                      std::tuple<float, char>>>::value);
 ```
 
-### `std::equal`
+#### `std::equal`
 
 ```
 static_assert(sharp::Equal_v<std::tuple<int, double>,
                              std::tuple<int, double, char>>);
 ```
 
-### `std::find_if`
+#### `std::find_if`
 
 ```
 static_assert(std::is_same<sharp::FindIf_t<std::is_reference, int, char&, int>,
                            std::tuple<char&, int>>::value);
 ```
 
-### `std::find_if_not`
+#### `std::find_if_not`
 
 ```
 static_assert(std::is_same<sharp::FindIfNot_t<std::is_reference, int&, int>,
                            std::tuple<int>>::value);
 ```
 
-### `std::find_first_of`
+#### `std::find_first_of`
 
 ```
 static_assert(std::is_same<sharp::FindFirstOf_t<std::tuple<int, char, bool>,
@@ -80,14 +81,14 @@ static_assert(std::is_same<sharp::FindFirstOf_t<std::tuple<int, char, bool>,
                            std::tuple<char, bool>>::value);
 ```
 
-### `std::adjacent_find`
+#### `std::adjacent_find`
 
 ```
 static_assert(std::is_same<sharp::AdjacentFind_t<int, double, double, int>,
                            std::tuple<double, double, int>>::value);
 ```
 
-### `std::search`
+#### `std::search`
 
 ```
 static_assert(std::is_same<sharp::Search_t<std::tuple<int, double, char, bool>,
@@ -95,14 +96,14 @@ static_assert(std::is_same<sharp::Search_t<std::tuple<int, double, char, bool>,
                            std::tuple<double, char, bool>>::value);
 ```
 
-### `std::search_n`
+#### `std::search_n`
 
 ```
 static_assert(std::is_same<sharp::SearchN_t<int, 2, int, bool, int, int, char>,
                            std::tuple<int, int, char>>::value);
 ```
 
-### `std::transform`
+#### `std::transform`
 
 ```
 static_assert(std::is_same<
@@ -110,14 +111,14 @@ static_assert(std::is_same<
     std::tuple<int, const int>>::value);
 ```
 
-### `std::remove_if`
+#### `std::remove_if`
 
 ```
 static_assert(std::is_same<sharp::RemoveIf_t<std::is_reference, char, int&>,
                            std::tuple<char>>::value);
 ```
 
-### `std::reverse`
+#### `std::reverse`
 
 ```
 static_assert(std::is_same<sharp::Reverse_t<int, char>,
