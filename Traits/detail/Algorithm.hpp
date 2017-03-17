@@ -194,6 +194,41 @@ namespace detail {
     };
 
     /**
+     * Implementation for the Search trait
+     */
+    template <typename TypesContainerOne, typename TypesContainerTwo>
+    struct EqualImpl;
+    template <typename HeadOne, typename... TailOne,
+              typename HeadTwo, typename... TailTwo>
+    struct EqualImpl<std::tuple<HeadOne, TailOne...>,
+                      std::tuple<HeadTwo, TailTwo...>> {
+        static constexpr const bool value = false;
+    };
+    template <typename HeadOne, typename... TailOne>
+    struct EqualImpl<std::tuple<HeadOne, TailOne...>, std::tuple<>> {
+        /**
+         * TODO change this to false, because the STL algorithm does not
+         * consider the first range being longer to be okay for returning
+         * true, but in this sense the true value might actually make sense
+         */
+        static constexpr const bool value = true;
+    };
+    template <typename HeadTwo, typename... TailTwo>
+    struct EqualImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
+        static constexpr const bool value = true;
+    };
+    template <>
+    struct EqualImpl<std::tuple<>, std::tuple<>> {
+        static constexpr const bool value = true;
+    };
+    template <typename HeadOne, typename... TailOne, typename... TailTwo>
+    struct EqualImpl<std::tuple<HeadOne, TailOne...>,
+                      std::tuple<HeadOne, TailTwo...>> {
+        static constexpr const bool value = true && EqualImpl<
+            std::tuple<TailOne...>, std::tuple<TailTwo...>>::value;
+    };
+
+    /**
      * Implementation for the constexpr max trait
      */
     template <int... integers>
@@ -349,6 +384,22 @@ struct Mismatch {
 };
 
 /**
+ * @class Equal
+ *
+ * A trait algorithm that helps you determine whether two ranges are equal are
+ * not, this is different from std::is_same because it helps you determine
+ * whether two ranges are equal even when they are in reality not the same
+ * length, for example some (or one) overloads (or overload) of std::equal
+ * do (or does) not check for equality of the lengths of the ranges they were
+ * passed, they simply compare
+ */
+template <typename TypesContainerOne, typename TypesContainerTwo>
+struct Equal {
+    static constexpr const bool value = detail::EqualImpl<
+        TypesContainerOne, TypesContainerTwo>::value;
+};
+
+/**
  * @class FindIf
  *
  * A trait that lets you find the first type for which the predicate returned
@@ -475,6 +526,9 @@ template <int... integers>
 constexpr const int MaxValue_v = MaxValue<integers...>::value;
 template <int... integers>
 constexpr const int MinValue_v = MinValue<integers...>::value;
+template <typename TypesContainerOne, typename TypesContainerTwo>
+constexpr const bool Equal_v = Equal<TypesContainerOne, TypesContainerTwo>
+    ::value;
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
@@ -627,6 +681,22 @@ static_assert(std::is_same<Mismatch_t<std::tuple<int, char*>,
                            std::pair<std::tuple<char*>,
                                      std::tuple<double, bool, char>>>
         ::value, "sharp::Mismatch tests failed!");
+
+/**
+ * Tests for Equal
+ */
+static_assert(Equal_v<std::tuple<int, double>, std::tuple<int, double>>,
+        "sharp::Equal tests failed!");
+static_assert(Equal_v<std::tuple<>, std::tuple<>>,
+        "sharp::Equal tests failed!");
+static_assert(Equal_v<std::tuple<int, double>, std::tuple<int, double, int>>,
+        "sharp::Equal tests failed!");
+static_assert(Equal_v<std::tuple<int, double, char>, std::tuple<int, double>>,
+        "sharp::Equal tests failed!");
+static_assert(!Equal_v<std::tuple<double, char>, std::tuple<int, double>>,
+        "sharp::Equal tests failed!");
+static_assert(!Equal_v<std::tuple<int, double, char>, std::tuple<double>>,
+        "sharp::Equal tests failed!");
 
 /**
  * Tests for FindIf
