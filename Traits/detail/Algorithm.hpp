@@ -977,6 +977,10 @@ static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
                                     std::tuple<>>,
                            std::tuple<int, double, char>>::value,
         "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, char, float>,
+                                    std::tuple<double, char>>,
+                           std::tuple<double, char, float>>::value,
+        "sharp::Search tests failed!");
 static_assert(std::is_same<Search_t<std::tuple<>,
                                     std::tuple<>>,
                            std::tuple<>>::value,
