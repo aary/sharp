@@ -68,6 +68,21 @@ namespace detail {
     struct PopFrontImpl<End> {
         using type = std::tuple<>;
     };
+
+    /**
+     * Implemenation for the ConcatenateN trait
+     */
+    template <typename TypeToRepeat, int n>
+    struct ConcatenateNImpl {
+        using type = typename ConcatenateImpl<
+            std::tuple<TypeToRepeat>,
+            typename ConcatenateNImpl<TypeToRepeat, n - 1>::type>::type;
+    };
+    template <typename TypeToRepeat>
+    struct ConcatenateNImpl<TypeToRepeat, 0> {
+        using type = std::tuple<>;
+    };
+
 }
 
 /**
@@ -80,6 +95,17 @@ template <typename TypesContainerOne, typename TypesContainerTwo>
 struct Concatenate {
     using type = typename detail::ConcatenateImpl<TypesContainerOne,
                                                   TypesContainerTwo>::type;
+};
+
+/**
+ * @class ConcatenateN
+ *
+ * Concatenates the same type n types to result in a tuple of length n with
+ * the same type repeated n times
+ */
+template <typename TypeToRepeat, int n>
+struct ConcatenateN {
+    using type = typename detail::ConcatenateNImpl<TypeToRepeat, n>::type;
 };
 
 /**
@@ -100,6 +126,8 @@ struct PopFront {
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using Concatenate_t = typename Concatenate<TypesContainerOne, TypesContainerTwo>
     ::type;
+template <typename TypeToRepeat, int n>
+using ConcatenateN_t = typename ConcatenateN<TypeToRepeat, n>::type;
 template <typename TypesContainer>
 using PopFront_t = typename PopFront<TypesContainer>::type;
 
@@ -125,4 +153,21 @@ static_assert(std::is_same<PopFront_t<std::tuple<double>>,
 static_assert(std::is_same<PopFront_t<std::tuple<>>,
                            std::tuple<>>::value,
     "sharp::PopFront tests failed!");
+
+/**
+ * Tests for ConcatenateN
+ */
+static_assert(std::is_same<ConcatenateN_t<int, 3>,
+                           std::tuple<int, int, int>>::value,
+    "sharp::detail::RepeatN tests failed");
+static_assert(std::is_same<ConcatenateN_t<int, 0>,
+                           std::tuple<>>::value,
+    "sharp::detail::RepeatN tests failed");
+
+static_assert(std::is_same<ConcatenateN_t<int, 1>,
+                           std::tuple<int>>::value,
+    "sharp::detail::RepeatN tests failed");
+
+
+
 } // namespace sharp
