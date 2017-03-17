@@ -17,19 +17,6 @@
 
 namespace sharp {
 
-/**
- * @class End
- *
- * A tag that denotes the end of a type list range, similar to std::end() this
- * marks the end of a type list range.  This is used in cases where an
- * algorithm returns past the end of a range to denote that a value could not
- * be found.
- *
- * For example if the predicate passed to FindIf returns true for none of the
- * types then the algorithm returns an End tag to denote failure
- */
-struct End {};
-
 namespace detail {
 
     /**
@@ -86,7 +73,7 @@ namespace detail {
      */
     template <template <typename...> class Predicate, typename... Types>
     struct FindIfImpl {
-        using type = End;
+        using type = std::tuple<>;
     };
     template <template <typename...> class Predicate,
               typename Head, typename... Tail>
@@ -121,14 +108,14 @@ namespace detail {
             typename FindIfImpl<
                        Bind<std::is_same, HeadOne>::template type,
                        TailTwo...>::type,
-            End>::value,
+            std::tuple<>>::value,
             std::tuple<HeadOne, TailOne...>,
             typename FindFirstOfImpl<std::tuple<TailOne...>,
                                      std::tuple<TailTwo...>>::type>;
     };
     template <typename... TailTwo>
     struct FindFirstOfImpl<std::tuple<>, std::tuple<TailTwo...>> {
-        using type = End;
+        using type = std::tuple<>;
     };
 
     /**
@@ -137,11 +124,12 @@ namespace detail {
     /**
      * Stop the iteration here, either of the below two cases should be hit in
      * most cases, when they are not hit then the default case will be this
-     * one which ends the recursion by defining the type to be the End type
+     * one which ends the recursion by defining the type to be the
+     * std::tuple<> type
      */
     template <typename... Types>
     struct AdjacentFindImpl {
-        using type = End;
+        using type = std::tuple<>;
     };
     /**
      * Keep going here, since you have not found types that are the same
@@ -174,16 +162,16 @@ namespace detail {
     template <typename HeadOne, typename... TailOne>
     struct MismatchImpl<std::tuple<HeadOne, TailOne...>, std::tuple<>> {
         using type = std::pair<std::tuple<HeadOne, TailOne...>,
-                               End>;
+                               std::tuple<>>;
     };
     template <typename HeadTwo, typename... TailTwo>
     struct MismatchImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
-        using type = std::pair<End,
+        using type = std::pair<std::tuple<>,
                                std::tuple<HeadTwo, TailTwo...>>;
     };
     template <>
     struct MismatchImpl<std::tuple<>, std::tuple<>> {
-        using type = std::pair<End, End>;
+        using type = std::pair<std::tuple<>, std::tuple<>>;
     };
     template <typename HeadOne, typename... TailOne,
               typename... TailTwo>
@@ -195,23 +183,14 @@ namespace detail {
 
     /**
      * Implementation for the Search trait
+     *
+     * TODO see if you can reduce the number of base cases here
      */
     template <typename TypesContainerOne, typename TypesContainerTwo>
     struct EqualImpl;
-    template <typename HeadOne, typename... TailOne,
-              typename HeadTwo, typename... TailTwo>
-    struct EqualImpl<std::tuple<HeadOne, TailOne...>,
-                      std::tuple<HeadTwo, TailTwo...>> {
-        static constexpr const bool value = false;
-    };
     template <typename HeadOne, typename... TailOne>
     struct EqualImpl<std::tuple<HeadOne, TailOne...>, std::tuple<>> {
-        /**
-         * TODO change this to false, because the STL algorithm does not
-         * consider the first range being longer to be okay for returning
-         * true, but in this sense the true value might actually make sense
-         */
-        static constexpr const bool value = true;
+        static constexpr const bool value = false;
     };
     template <typename HeadTwo, typename... TailTwo>
     struct EqualImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
@@ -221,9 +200,15 @@ namespace detail {
     struct EqualImpl<std::tuple<>, std::tuple<>> {
         static constexpr const bool value = true;
     };
+    template <typename HeadOne, typename... TailOne,
+              typename HeadTwo, typename... TailTwo>
+    struct EqualImpl<std::tuple<HeadOne, TailOne...>,
+                     std::tuple<HeadTwo, TailTwo...>> {
+        static constexpr const bool value = false;
+    };
     template <typename HeadOne, typename... TailOne, typename... TailTwo>
     struct EqualImpl<std::tuple<HeadOne, TailOne...>,
-                      std::tuple<HeadOne, TailTwo...>> {
+                     std::tuple<HeadOne, TailTwo...>> {
         static constexpr const bool value = true && EqualImpl<
             std::tuple<TailOne...>, std::tuple<TailTwo...>>::value;
     };
@@ -249,7 +234,7 @@ namespace detail {
      */
     template <template <typename...> class Comparator, typename... Types>
     struct MaxTypeImpl {
-        using type = End;
+        using type = std::tuple<>;
     };
     template <template <typename...> class Comparator, typename Head>
     struct MaxTypeImpl<Comparator, Head> {
@@ -284,15 +269,30 @@ namespace detail {
      */
     template <typename TypesContainerOne, typename TypesContainerTwo>
     struct SearchImpl;
-    template <typename HeadTwo, typename... TailTwo>
-    struct SearchImpl<End, std::tuple<HeadTwo, TailTwo...>> {
-        using type = End;
+    /**
+     * Define the base cases
+     */
+    template <typename... TypesTwo>
+    struct SearchImpl<std::tuple<>, std::tuple<TypesTwo...>> {
+        using type = std::tuple<>;
+    };
+    template <typename... TypesOne>
+    struct SearchImpl<std::tuple<TypesOne...>, std::tuple<>> {
+        using type = std::tuple<TypesOne...>;
     };
     template <typename HeadOne, typename... TailOne>
     struct SearchImpl<std::tuple<HeadOne, TailOne...>,
                       std::tuple<HeadOne, TailOne...>> {
         using type = std::tuple<HeadOne, TailOne...>;
     };
+    template <typename HeadTwo, typename... TailTwo>
+    struct SearchImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
+        using type = std::tuple<>;
+    };
+
+    /**
+     * The big catch all case
+     */
     template <typename HeadOne, typename... TailOne,
               typename HeadTwo, typename... TailTwo>
     struct SearchImpl<std::tuple<HeadOne, TailOne...>,
@@ -306,18 +306,41 @@ namespace detail {
                 "sharp::detail::SearchImpl");
 
         /**
-         * If found the same type, then assign the type to be the found range,
-         * if the range is not the same then there is a chance that the range
-         * will be there somewhere later, so keep finding
+         * The human readable pseudocode for the following
          *
-         * TODO replace with Equal once you write that
+         *  Given two lists A and B, find the first occurrence of the first
+         *  thing in B in A, name that list find_occurence, for example, if A
+         *  is <int, double, double, char> and B is <double, char>, then
+         *  find_occurence will be <double, double, char>
+         *
+         *  If std::equal(B.begin(), B.end(), find_occurence.begin(),
+         *                find_occurence.end())
+         *      assign the result to be find_occurence
+         *  Else if find_occurence == A.end()
+         *      assign result = A.end()
+         *  Else
+         *      // search in the subset of A (find_occurence) by reducing it
+         *      // by 1, so in the example above, you will call Search on
+         *      // <double, char> instead of <double, double, char>
+         *      result = Search(find_occurence + 1, B)
+         *
+         * If in the end Search was not called on the popped front version of
+         * the find_occurence type, then this would continue forever, because
+         * if the case was not caught by the two ifs, the last case would keep
+         * hitting and the result would be that the compiler would say that
+         * the alias type is not found in the infinite recursive call (without
+         * actually saying that there was infinite recursion)
          */
-        using type = std::conditional_t<std::is_same<
-                find_occurence,
-                std::tuple<HeadTwo, TailTwo...>>::value,
+        using type = std::conditional_t<EqualImpl<
+                std::tuple<HeadTwo, TailTwo...>,
+                find_occurence>::value,
             find_occurence,
-            typename SearchImpl<find_occurence,
-                                std::tuple<HeadTwo, TailTwo...>>::type>;
+            std::conditional_t<std::is_same<
+                    std::tuple<>,
+                    find_occurence>::value,
+                std::tuple<>,
+                typename SearchImpl<PopFront_t<find_occurence>,
+                                    std::tuple<HeadTwo, TailTwo...>>::type>>;
     };
 
 } // namespace detail
@@ -452,7 +475,7 @@ struct FindFirstOf {
  *
  * A trait that lets you find the first time a type was repeated in a type
  * list, it returns the repeated type, if no type was repeated, then this will
- * return the End type
+ * return the std::tuple<> type
  */
 template <typename... Types>
 struct AdjacentFind {
@@ -664,14 +687,14 @@ static_assert(std::is_same<Mismatch_t<std::tuple<int, double, char>,
                            std::pair<std::tuple<char>, std::tuple<char*>>>
         ::value, "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<>>,
-                           std::pair<End, End>>::value,
+                           std::pair<std::tuple<>, std::tuple<>>>::value,
         "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<int, double>, std::tuple<>>,
-                           std::pair<std::tuple<int, double>, End>>::value,
-        "sharp::Mismatch tests failed!");
+                           std::pair<std::tuple<int, double>, std::tuple<>>>
+        ::value, "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<>, std::tuple<int, double>>,
-                           std::pair<End, std::tuple<int, double>>>::value,
-        "sharp::Mismatch tests failed!");
+                           std::pair<std::tuple<>, std::tuple<int, double>>>
+        ::value, "sharp::Mismatch tests failed!");
 static_assert(std::is_same<Mismatch_t<std::tuple<int, char*>,
                                       std::tuple<int, double>>,
                            std::pair<std::tuple<char*>, std::tuple<double>>>
@@ -691,7 +714,7 @@ static_assert(Equal_v<std::tuple<>, std::tuple<>>,
         "sharp::Equal tests failed!");
 static_assert(Equal_v<std::tuple<int, double>, std::tuple<int, double, int>>,
         "sharp::Equal tests failed!");
-static_assert(Equal_v<std::tuple<int, double, char>, std::tuple<int, double>>,
+static_assert(!Equal_v<std::tuple<int, double, char>, std::tuple<int, double>>,
         "sharp::Equal tests failed!");
 static_assert(!Equal_v<std::tuple<double, char>, std::tuple<int, double>>,
         "sharp::Equal tests failed!");
@@ -701,21 +724,21 @@ static_assert(!Equal_v<std::tuple<int, double, char>, std::tuple<double>>,
 /**
  * Tests for FindIf
  */
-static_assert(std::is_same<FindIf_t<std::is_reference>, End>::value,
+static_assert(std::is_same<FindIf_t<std::is_reference>, std::tuple<>>::value,
         "sharp::FindIt tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>,
         std::tuple<int&>>::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>,
         std::tuple<int&>>::value, "sharp::FindIf tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, double, int>, End>
-        ::value, "sharp::FindIf tests failed!");
+static_assert(std::is_same<FindIf_t<std::is_reference, double, int>,
+                           std::tuple<>>::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, double&, int>,
         std::tuple<double&, int>>::value, "sharp::FindIf tests failed!");
 
 /**
  * Tests for Find
  */
-static_assert(std::is_same<Find_t<int>, End>::value,
+static_assert(std::is_same<Find_t<int>, std::tuple<>>::value,
         "sharp::FindIt tests failed!");
 static_assert(std::is_same<Find_t<int, double, int>, std::tuple<int>>::value,
         "sharp::FindIf tests failed!");
@@ -730,7 +753,7 @@ static_assert(std::is_same<Find_t<int, double*, int, bool>,
 /**
  * Tests for FindIfNot
  */
-static_assert(std::is_same<FindIfNot_t<std::is_reference>, End>::value,
+static_assert(std::is_same<FindIfNot_t<std::is_reference>, std::tuple<>>::value,
         "sharp::FindIfNot tests failed!");
 static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>,
         std::tuple<int, int&>>::value, "sharp::FindItNot tests failed!");
@@ -742,25 +765,29 @@ static_assert(std::is_same<FindIfNot_t<std::is_reference, int&, double, int>,
 /**
  * Tests for FindFirstOf
  */
-static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<>>, End>
-        ::value, "sharp::FindFirstOf tests failed!");
-static_assert(std::is_same<FindFirstOf_t<std::tuple<int>, std::tuple<>>, End>
-        ::value, "sharp::FindFirstOf tests failed!");
-static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<int>>, End>
-        ::value, "sharp::FindFirstOf tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<>>,
+                           std::tuple<>>::value,
+        "sharp::FindFirstOf tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<int>, std::tuple<>>,
+                           std::tuple<>>::value,
+        "sharp::FindFirstOf tests failed!");
+static_assert(std::is_same<FindFirstOf_t<std::tuple<>, std::tuple<int>>,
+                           std::tuple<>>::value,
+       "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
-                                         std::tuple<>>, End>
+                                         std::tuple<>>, std::tuple<>>
         ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<>,
-                                         std::tuple<int, double>>, End>
+                                         std::tuple<int, double>>, std::tuple<>>
         ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double>,
                                          std::tuple<char, double>>,
                                          std::tuple<double>>
         ::value, "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
-                                         std::tuple<char, double>>, End>
-        ::value, "sharp::FindFirstOf tests failed!");
+                                         std::tuple<char, double>>,
+                           std::tuple<>>::value,
+       "sharp::FindFirstOf tests failed!");
 static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
                                          std::tuple<int, double>>,
                                          std::tuple<int, double*>>
@@ -769,15 +796,15 @@ static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
 /**
  * Tests for AdjacentFind
  */
-static_assert(std::is_same<AdjacentFind_t<int, double, char>, End>::value,
-        "sharp::AdjacentFind tests failed!");
+static_assert(std::is_same<AdjacentFind_t<int, double, char>, std::tuple<>>
+        ::value, "sharp::AdjacentFind tests failed!");
 static_assert(std::is_same<AdjacentFind_t<int, int, char>,
         std::tuple<int, int, char>>::value,
         "sharp::AdjacentFind tests failed!");
 static_assert(std::is_same<AdjacentFind_t<char, int, int>,
         std::tuple<int, int>>::value, "sharp::AdjacentFind tests failed!");
-static_assert(std::is_same<AdjacentFind_t<int*, double&, int*>, End>::value,
-        "sharp::AdjacentFind tests failed!");
+static_assert(std::is_same<AdjacentFind_t<int*, double&, int*>, std::tuple<>>
+        ::value, "sharp::AdjacentFind tests failed!");
 
 /**
  * Tests for Search
@@ -789,6 +816,14 @@ static_assert(std::is_same<Search_t<std::tuple<double, char>,
 static_assert(std::is_same<Search_t<std::tuple<int, double, char>,
                                     std::tuple<double, char>>,
                            std::tuple<double, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<int, double, int, char>,
+                                    std::tuple<double, int>>,
+                           std::tuple<double, int, char>>::value,
+        "sharp::Search tests failed!");
+static_assert(std::is_same<Search_t<std::tuple<double>,
+                                    std::tuple<double, int>>,
+                           std::tuple<>>::value,
         "sharp::Search tests failed!");
 
 } // namespace sharp
