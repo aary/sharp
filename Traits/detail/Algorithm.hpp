@@ -395,6 +395,32 @@ namespace detail {
     };
 
     /**
+     * Implementation for the transform if trait
+     */
+    template <template <typename...> class Predicate,
+              template <typename...> class TransformFunction,
+              typename... Types>
+    struct TransformIfImpl;
+    template <template <typename...> class Predicate,
+              template <typename...> class TransformFunction,
+              typename Head>
+    struct TransformIfImpl<Predicate, TransformFunction, Head> {
+        using type = std::conditional_t<Predicate<Head>::value,
+            std::tuple<typename TransformFunction<Head>::type>,
+            std::tuple<Head>>;
+    };
+    template <template <typename...> class Predicate,
+              template <typename...> class TransformFunction,
+              typename Head, typename... Tail>
+    struct TransformIfImpl<Predicate, TransformFunction, Head, Tail...> {
+        using type = Concatenate_t<
+            typename TransformIfImpl<Predicate, TransformFunction, Head>::type,
+            typename TransformIfImpl<Predicate,
+                                     TransformFunction,
+                                     Tail...>::type>;
+    };
+
+    /**
      * Implementation for the remove if trait
      */
     template <template <typename...> class Predicate, typename... Types>
@@ -602,6 +628,22 @@ struct Transform {
 };
 
 /**
+ * @class TransformIf
+ *
+ * Transforms a range to another given by the transformation function, unlike
+ * the regular transform function this one only transforms the elements if the
+ * predicate returns a true
+ */
+template <template <typename...> class Predicate,
+          template <typename...> class TransformFunction,
+          typename... Types>
+struct TransformIf {
+    using type = typename detail::TransformIfImpl<Predicate,
+                                                  TransformFunction,
+                                                  Types...>::type;
+};
+
+/**
  * @class RemoveIf
  *
  * Removes types given in a range that match the given predicate, for example
@@ -717,6 +759,11 @@ template <template <typename...> class Predicate, typename... Types>
 using RemoveIf_t = typename RemoveIf<Predicate, Types...>::type;
 template <typename... Types>
 using Reverse_t = typename Reverse<Types...>::type;
+template <template <typename...> class Predicate,
+          template <typename...> class TransformFunction,
+          typename... Types>
+using TransformIf_t = typename TransformIf<Predicate, TransformFunction,
+                                           Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -1007,6 +1054,25 @@ static_assert(std::is_same<SearchN_t<double, 2, double, int, double, double,
 static_assert(std::is_same<SearchN_t<double, 3, double, int, int, int, double>,
                            std::tuple<>>::value,
         "sharp::SearchN tests failed");
+
+/**
+ * Tests for TransformIf
+ */
+static_assert(std::is_same<TransformIf_t<std::is_reference,
+                                         std::remove_reference,
+                                         int, double, int&, char>,
+                           std::tuple<int, double, int, char>>::value,
+        "sharp::TransformIf tests failed");
+static_assert(std::is_same<TransformIf_t<std::is_reference,
+                                         std::remove_reference,
+                                         int*, double&, int&, char*>,
+                           std::tuple<int*, double, int, char*>>::value,
+        "sharp::TransformIf tests failed");
+static_assert(std::is_same<TransformIf_t<std::is_reference,
+                                         std::remove_reference,
+                                         int>,
+                           std::tuple<int>>::value,
+        "sharp::TransformIf tests failed");
 
 /**
  * Tests for Transform
