@@ -70,6 +70,30 @@ namespace detail {
     };
 
     /**
+     * Implementation for the erase trait
+     */
+    template <int to_erase, typename TypesContainer>
+    struct EraseImpl;
+    template <int to_erase, typename... Types>
+    struct EraseImpl<to_erase, std::tuple<Types...>> {
+        using type = std::tuple<Types...>;
+    };
+    template <int to_erase, typename Head, typename... Types>
+    struct EraseImpl<to_erase, std::tuple<Head, Types...>> {
+
+        static_assert(to_erase > 0, "Something went wrong in the "
+                "implementation of the Erase trait");
+
+        using type = typename ConcatenateImpl<
+            std::tuple<Head>,
+            typename EraseImpl<to_erase - 1, std::tuple<Types...>>::type>::type;
+    };
+    template <typename Head, typename... Types>
+    struct EraseImpl<0, std::tuple<Head, Types...>> {
+        using type = std::tuple<Types...>;
+    };
+
+    /**
      * Implemenation for the ConcatenateN trait
      */
     template <typename TypeToRepeat, int n>
@@ -120,6 +144,17 @@ struct PopFront {
 };
 
 /**
+ * @class Erase
+ *
+ * Erases the element at the given index from the type list and returns the
+ * type list wrapped in a std::tuple
+ */
+template <int to_erase, typename TypesContainer>
+struct Erase {
+    using type = typename detail::EraseImpl<to_erase, TypesContainer>::type;
+};
+
+/**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -130,6 +165,8 @@ template <typename TypeToRepeat, int n>
 using ConcatenateN_t = typename ConcatenateN<TypeToRepeat, n>::type;
 template <typename TypesContainer>
 using PopFront_t = typename PopFront<TypesContainer>::type;
+template <int to_erase, typename... Types>
+using Erase_t = typename Erase<to_erase, Types...>::type;
 
 /**
  * Tests for Concatenate
@@ -153,6 +190,23 @@ static_assert(std::is_same<PopFront_t<std::tuple<double>>,
 static_assert(std::is_same<PopFront_t<std::tuple<>>,
                            std::tuple<>>::value,
     "sharp::PopFront tests failed!");
+
+/**
+ * Tests for Erase
+ */
+static_assert(std::is_same<Erase_t<0, std::tuple<int, double, char>>,
+                           std::tuple<double, char>>::value,
+    "sharp::Erase tests failed");
+static_assert(std::is_same<Erase_t<1, std::tuple<int, double, char>>,
+                           std::tuple<int, char>>::value,
+    "sharp::Erase tests failed");
+static_assert(std::is_same<Erase_t<2, std::tuple<int, double, char>>,
+                           std::tuple<int, double>>::value,
+    "sharp::Erase tests failed");
+static_assert(std::is_same<Erase_t<0, std::tuple<>>, std::tuple<>>::value,
+    "sharp::Erase tests failed");
+static_assert(std::is_same<Erase_t<1, std::tuple<>>, std::tuple<>>::value,
+    "sharp::Erase tests failed");
 
 /**
  * Tests for ConcatenateN
