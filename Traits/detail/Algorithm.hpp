@@ -415,6 +415,18 @@ namespace detail {
             typename RemoveIfImpl<Predicate, Types...>::type>;
     };
 
+    /**
+     * Implementation for the reverse trait
+     */
+    template <typename... Types>
+    struct ReverseImpl {
+        using type = std::tuple<>;
+    };
+    template <typename FirstType, typename... Types>
+    struct ReverseImpl<FirstType, Types...> {
+        using type = Concatenate_t<typename ReverseImpl<Types...>::type,
+                                   std::tuple<FirstType>>;
+    };
 } // namespace detail
 
 /**
@@ -605,6 +617,16 @@ struct RemoveIf {
 };
 
 /**
+ * @class Reverse
+ *
+ * Reverses a range of types
+ */
+template <typename... Types>
+struct Reverse {
+    using type = typename detail::ReverseImpl<Types...>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -693,6 +715,8 @@ template <template <typename...> class TransformFunction, typename... Types>
 using Transform_t = typename Transform<TransformFunction, Types...>::type;
 template <template <typename...> class Predicate, typename... Types>
 using RemoveIf_t = typename RemoveIf<Predicate, Types...>::type;
+template <typename... Types>
+using Reverse_t = typename Reverse<Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -1018,5 +1042,20 @@ static_assert(std::is_same<RemoveIf_t<std::is_pointer, int>,
 static_assert(std::is_same<RemoveIf_t<std::is_pointer>,
                            std::tuple<>>::value,
         "sharp::RemoveIf tests failed");
+
+/**
+ * Tests for reverse
+ */
+static_assert(std::is_same<Reverse_t<int, char>, std::tuple<char, int>>::value,
+        "sharp::Reverse tests failed!");
+static_assert(std::is_same<Reverse_t<>, std::tuple<>>::value,
+        "sharp::Reverse tests failed!");
+static_assert(std::is_same<Reverse_t<int, char, bool, double>,
+                           std::tuple<double, bool, char, int>>::value,
+        "sharp::Reverse tests failed!");
+static_assert(std::is_same<Reverse_t<int>, std::tuple<int>>::value,
+        "sharp::Reverse tests failed!");
+static_assert(std::is_same<Reverse_t<char, int>, std::tuple<int, char>>::value,
+        "sharp::Reverse tests failed!");
 
 } // namespace sharp
