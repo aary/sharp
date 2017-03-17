@@ -285,10 +285,6 @@ namespace detail {
                       std::tuple<HeadOne, TailOne...>> {
         using type = std::tuple<HeadOne, TailOne...>;
     };
-    template <typename HeadTwo, typename... TailTwo>
-    struct SearchImpl<std::tuple<>, std::tuple<HeadTwo, TailTwo...>> {
-        using type = std::tuple<>;
-    };
 
     /**
      * The big catch all case
