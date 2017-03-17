@@ -379,6 +379,21 @@ namespace detail {
                                          repeated_type_tuple>::type;
     };
 
+    /**
+     * Implementation for the transform trait
+     */
+    template <template <typename...> class TransformFunction, typename... Types>
+    struct TransformImpl {
+        using type = std::tuple<>;
+    };
+    template <template <typename...> class TransformFunction,
+              typename Head, typename... Tail>
+    struct TransformImpl<TransformFunction, Head, Tail...> {
+        using type = Concatenate_t<
+            std::tuple<typename TransformFunction<Head>::type>,
+            typename TransformImpl<TransformFunction, Tail...>::type>;
+    };
+
 } // namespace detail
 
 /**
@@ -542,6 +557,18 @@ struct SearchN {
 };
 
 /**
+ * @class Transform
+ *
+ * Transforms a type range by applying the function passed to the trait and
+ * returns the range wrapped in a tuple
+ */
+template <template <typename...> class TransformFunction, typename... Types>
+struct Transform {
+    using type
+        = typename detail::TransformImpl<TransformFunction, Types...>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -626,6 +653,8 @@ template <typename TypesContainerOne, typename TypesContainerTwo>
 using Search_t = typename Search<TypesContainerOne, TypesContainerTwo>::type;
 template <typename TypeToRepeat, int n, typename... Types>
 using SearchN_t = typename SearchN<TypeToRepeat, n, Types...>::type;
+template <template <typename...> class TransformFunction, typename... Types>
+using Transform_t = typename Transform<TransformFunction, Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -912,5 +941,22 @@ static_assert(std::is_same<SearchN_t<double, 2, double, int, double, double,
 static_assert(std::is_same<SearchN_t<double, 3, double, int, int, int, double>,
                            std::tuple<>>::value,
         "sharp::SearchN tests failed");
+
+/**
+ * Tests for Transform
+ */
+static_assert(std::is_same<Transform_t<std::remove_reference, int&, double&>,
+                           std::tuple<int, double>>::value,
+        "sharp::Transform tests failed");
+static_assert(std::is_same<
+        Transform_t<std::remove_pointer, std::add_pointer_t<int&>, double&>,
+        std::tuple<int, double&>>::value,
+        "sharp::Transform tests failed");
+static_assert(std::is_same<Transform_t<std::remove_reference>,
+                           std::tuple<>>::value,
+        "sharp::Transform tests failed");
+static_assert(std::is_same<Transform_t<std::decay, const int&, volatile char&>,
+                           std::tuple<int, char>>::value,
+        "sharp::Transform tests failed");
 
 } // namespace sharp
