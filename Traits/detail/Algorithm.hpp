@@ -394,6 +394,27 @@ namespace detail {
             typename TransformImpl<TransformFunction, Tail...>::type>;
     };
 
+    /**
+     * Implementation for the remove if trait
+     */
+    template <template <typename...> class Predicate, typename... Types>
+    struct RemoveIfImpl {
+        using type = std::tuple<>;
+    };
+    template <template <typename...> class Predicate,
+              typename Head, typename... Types>
+    struct RemoveIfImpl<Predicate, Head, Types...> {
+        /**
+         * Recursive pseudocode
+         *     type = (predicate(head) ? head : nullptr) | remove_if_impl(tail)
+         */
+        using type = Concatenate_t<
+            std::conditional_t<Predicate<Head>::value,
+                std::tuple<>,
+                std::tuple<Head>>,
+            typename RemoveIfImpl<Predicate, Types...>::type>;
+    };
+
 } // namespace detail
 
 /**
@@ -569,6 +590,21 @@ struct Transform {
 };
 
 /**
+ * @class RemoveIf
+ *
+ * Removes types given in a range that match the given predicate, for example
+ * if the goal was to remove all elements that are references from a type
+ * list, then one could do
+ *
+ * RemoveIf_t<std::is_reference, int&, double, bool> and get back
+ * std::tuple<double, bool>
+ */
+template <template <typename...> class Predicate, typename... Types>
+struct RemoveIf {
+    using type = typename detail::RemoveIfImpl<Predicate, Types...>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -655,6 +691,8 @@ template <typename TypeToRepeat, int n, typename... Types>
 using SearchN_t = typename SearchN<TypeToRepeat, n, Types...>::type;
 template <template <typename...> class TransformFunction, typename... Types>
 using Transform_t = typename Transform<TransformFunction, Types...>::type;
+template <template <typename...> class Predicate, typename... Types>
+using RemoveIf_t = typename RemoveIf<Predicate, Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -958,5 +996,27 @@ static_assert(std::is_same<Transform_t<std::remove_reference>,
 static_assert(std::is_same<Transform_t<std::decay, const int&, volatile char&>,
                            std::tuple<int, char>>::value,
         "sharp::Transform tests failed");
+
+/**
+ * Tests for RemoveIf
+ */
+static_assert(std::is_same<RemoveIf_t<std::is_reference, int, int&, char>,
+                           std::tuple<int, char>>::value,
+        "sharp::RemoveIf tests failed");
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, int*, int*, char>,
+                           std::tuple<char>>::value,
+        "sharp::RemoveIf tests failed");
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, int, int, char>,
+                           std::tuple<int, int, char>>::value,
+        "sharp::RemoveIf tests failed");
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, int*>,
+                           std::tuple<>>::value,
+        "sharp::RemoveIf tests failed");
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, int>,
+                           std::tuple<int>>::value,
+        "sharp::RemoveIf tests failed");
+static_assert(std::is_same<RemoveIf_t<std::is_pointer>,
+                           std::tuple<>>::value,
+        "sharp::RemoveIf tests failed");
 
 } // namespace sharp
