@@ -440,6 +440,29 @@ namespace detail {
         using type = Concatenate_t<typename ReverseImpl<Types...>::type,
                                    std::tuple<FirstType>>;
     };
+
+    /**
+     * Implementation of the unique trait
+     */
+    template <typename TypesContainer>
+    struct UniqueImpl {
+        using type = std::tuple<>;
+    };
+    template <typename Head, typename... Tail>
+    struct UniqueImpl<std::tuple<Head, Tail...>> {
+    private:
+        /**
+         * remove all occurences of the head type from the list and then get
+         * the resulting list
+         */
+        using remove_all_head_from_list_tuple
+            = typename RemoveIfImpl<Bind<std::is_same, Head>::template type,
+                                    Tail...>::type;
+    public:
+        using type = Concatenate_t<
+            std::tuple<Head>,
+            typename UniqueImpl<remove_all_head_from_list_tuple>::type>;
+    };
 } // namespace detail
 
 /**
@@ -665,6 +688,16 @@ struct Reverse {
 };
 
 /**
+ * @class Unique
+ *
+ * Removes all duplicate types from a type list
+ */
+template <typename... Types>
+struct Unique {
+    using type = typename detail::UniqueImpl<std::tuple<Types...>>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -760,6 +793,8 @@ template <template <typename...> class Predicate,
           typename... Types>
 using TransformIf_t = typename TransformIf<Predicate, TransformFunction,
                                            Types...>::type;
+template <typename... Types>
+using Unique_t = typename Unique<Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -1124,4 +1159,13 @@ static_assert(std::is_same<Reverse_t<int>, std::tuple<int>>::value,
 static_assert(std::is_same<Reverse_t<char, int>, std::tuple<int, char>>::value,
         "sharp::Reverse tests failed!");
 
+/**
+ * Tests for Unique
+ */
+static_assert(std::is_same<Unique_t<int, double, int>, std::tuple<int, double>>
+        ::value, "sharp::Unique tests failed");
+static_assert(std::is_same<Unique_t<int, int, double>, std::tuple<int, double>>
+        ::value, "sharp::Unique tests failed");
+static_assert(std::is_same<Unique_t<double, int, int>, std::tuple<double, int>>
+        ::value, "sharp::Unique tests failed");
 } // namespace sharp

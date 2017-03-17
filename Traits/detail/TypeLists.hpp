@@ -90,38 +90,6 @@ namespace detail {
     struct FindTypeImpl<ToQuery, ToQuery, TypeList...>
             : std::integral_constant<int, 0> {};
 
-    /**
-     * Implementation of the trait that helps you find whether a type list is
-     * unique or not, i.e. if it has any duplicate type then this will
-     * evaluate to a false
-     */
-    template <typename Head, typename... TypeList>
-    struct UniqueImpl {
-        /**
-         * If the type list is expanded, then each first type must not be
-         * there in the rest of the list.  If this condition is satisfied for
-         * every type in the list, then the list is unique.
-         *
-         * For example, if the type list is <int, double, char, bool>, then
-         * int will be queried against the tail, in this case
-         * <double, char, bool> to determine whether the remainder of the list
-         * contains an int, if not then good, the same must be done for double
-         * and <char, bool>.  If find returns false then good, then the same
-         * must be done for char in the list <bool>, and so on...
-         */
-        static constexpr const bool value
-            = !TypeExistsImpl<Head, TypeList...>::value
-                && UniqueImpl<TypeList...>::value;
-    };
-    template <typename Head>
-    struct UniqueImpl<Head> {
-        /**
-         * The default case when the type list has only one element, it's by
-         * default unique
-         */
-        static constexpr const bool value = true;
-    };
-
 } // namespace detail
 
 /**
@@ -177,24 +145,6 @@ struct FindType {
 };
 
 /**
- * @class Unique
- *
- * A trait that lets you determine if there is a duplicate in the list or not,
- * i.e. it lets you determine whether the list contains all elements that are
- * unique
- */
-template <typename... TypeList>
-struct Unique {
-    /**
-     * Fire dem assertions, TODO check whether these assertions are valid
-     */
-    static_assert(sizeof...(TypeList) > 0,
-            "sharp::Unique cannot be called with empty type list");
-
-    static constexpr const bool value = detail::UniqueImpl<TypeList...>::value;
-};
-
-/**
  * Convenience template for uniformity with the standard library type traits,
  * the _t is added to all type traits in the C++14 standard
  */
@@ -210,8 +160,6 @@ template <typename ToQuery, typename... TypeList>
 constexpr bool TypeExists_v = TypeExists<ToQuery, TypeList...>::value;
 template <typename ToQuery, typename... TypeList>
 constexpr int FindType_v = FindType<ToQuery, TypeList...>::value;
-template <typename... TypeList>
-constexpr bool Unique_v = Unique<TypeList...>::value;
 
 /*******************************************************************************
  * Tests
@@ -280,17 +228,4 @@ static_assert(FindType_v<int, int, double, char> == 0,
 static_assert(FindType_v<int&, int, int&, double, char> == 1,
         "sharp::FindType tests failed!");
 
-/**
- * Tests for Unique
- */
-static_assert(Unique_v<int>, "sharp::Unique tests failed!");
-static_assert(Unique_v<int, double>, "sharp::Unique tests failed!");
-static_assert(Unique_v<int, double, char>, "sharp::Unique tests failed!");
-static_assert(Unique_v<int, double, char, bool>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, int, char, bool>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, double, int, bool>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, double, char, int>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, int, char, int>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, double, int, int>, "sharp::Unique tests failed!");
-static_assert(!Unique_v<int, int, int, int>, "sharp::Unique tests failed!");
 } // namespace sharp
