@@ -380,27 +380,14 @@ namespace detail {
     };
 
     /**
-     * Implementation for the transform trait
-     */
-    template <template <typename...> class TransformFunction, typename... Types>
-    struct TransformImpl {
-        using type = std::tuple<>;
-    };
-    template <template <typename...> class TransformFunction,
-              typename Head, typename... Tail>
-    struct TransformImpl<TransformFunction, Head, Tail...> {
-        using type = Concatenate_t<
-            std::tuple<typename TransformFunction<Head>::type>,
-            typename TransformImpl<TransformFunction, Tail...>::type>;
-    };
-
-    /**
      * Implementation for the transform if trait
      */
     template <template <typename...> class Predicate,
               template <typename...> class TransformFunction,
               typename... Types>
-    struct TransformIfImpl;
+    struct TransformIfImpl {
+        using type = std::tuple<>;
+    };
     template <template <typename...> class Predicate,
               template <typename...> class TransformFunction,
               typename Head>
@@ -616,18 +603,6 @@ struct SearchN {
 };
 
 /**
- * @class Transform
- *
- * Transforms a type range by applying the function passed to the trait and
- * returns the range wrapped in a tuple
- */
-template <template <typename...> class TransformFunction, typename... Types>
-struct Transform {
-    using type
-        = typename detail::TransformImpl<TransformFunction, Types...>::type;
-};
-
-/**
  * @class TransformIf
  *
  * Transforms a range to another given by the transformation function, unlike
@@ -641,6 +616,27 @@ struct TransformIf {
     using type = typename detail::TransformIfImpl<Predicate,
                                                   TransformFunction,
                                                   Types...>::type;
+};
+
+/**
+ * @class Transform
+ *
+ * Transforms a type range by applying the function passed to the trait and
+ * returns the range wrapped in a tuple
+ */
+template <template <typename...> class TransformFunction, typename... Types>
+struct Transform {
+private:
+    /**
+     * Function that returns a true for all types so that the transformation
+     * function is applied on all the types
+     */
+    template <typename...>
+    struct ReturnTrue : std::integral_constant<bool, true> {};
+
+public:
+    using type
+        = typename TransformIf<ReturnTrue, TransformFunction, Types...>::type;
 };
 
 /**
