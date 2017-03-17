@@ -354,7 +354,7 @@ namespace detail {
                     std::tuple<>,
                     find_occurence>::value,
                 std::tuple<>,
-                typename SearchImpl<PopFront_t<find_occurence>,
+                typename SearchImpl<Erase_t<0, find_occurence>,
                                     std::tuple<HeadTwo, TailTwo...>>::type>>;
     };
 
