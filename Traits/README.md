@@ -4,7 +4,7 @@
 This module contains simple template metaprogramming classes (and traits) that
 occasionally help in writing template code.
 
-Among other things here, there is a full implementation of the <algorithm>
+Among other things here, there is a full implementation of the `<algorithm>`
 header and its functionality as it appeared pre-C++17 in the form of template
 metaprogramming and manipulations with type lists (as opposed to the
 traditional runtime value range concept).
@@ -17,4 +17,109 @@ template <typename... Types>
 struct CannotContainReferences {
     static_assert(sharp::AnyOf_v<std::is_reference, Types...>, "No refs!");
 };
+```
+
+### `std::all_of`
+```
+static_assert(sharp::AllOf_v<std::is_pointer, int*, double*>);
+```
+
+### `std::any_of`
+
+```
+static_assert(sharp::AnyOf_v<std::is_reference, int, double, int&>);
+```
+
+### `std::none_of`
+
+```
+static_assert(sharp::NoneOf_v<std::is_const, int, double, char>);
+```
+
+### `std::count_if`
+
+```
+static_assert(sharp::Countif_v<std::is_reference, int, double, int&> == 1);
+```
+
+### `std::mismatch`
+
+```
+static_assert(std::is_same<sharp::Mismatch_t<std::tuple<int, double, char>,
+                                             std::tuple<int, float, char>>,
+                           std::pair<std::tuple<double, char>,
+                                     std::tuple<float, char>>>::value);
+```
+
+### `std::equal`
+
+```
+static_assert(sharp::Equal_v<std::tuple<int, double>,
+                             std::tuple<int, double, char>>);
+```
+
+### `std::find_if`
+
+```
+static_assert(std::is_same<sharp::FindIf_t<std::is_reference, int, char&, int>,
+                           std::tuple<char&, int>>::value);
+```
+
+### `std::find_if_not`
+
+```
+static_assert(std::is_same<sharp::FindIfNot_t<std::is_reference, int&, int>,
+                           std::tuple<int>>::value);
+```
+
+### `std::find_first_of`
+
+```
+static_assert(std::is_same<sharp::FindFirstOf_t<std::tuple<int, char, bool>,
+                                                std::tuple<double, char>>,
+                           std::tuple<char, bool>>::value);
+```
+
+### `std::adjacent_find`
+
+```
+static_assert(std::is_same<sharp::AdjacentFind_t<int, double, double, int>,
+                           std::tuple<double, double, int>>::value);
+```
+
+### `std::search`
+
+```
+static_assert(std::is_same<sharp::Search_t<std::tuple<int, double, char, bool>,
+                                           std::tuple<double, char>>,
+                           std::tuple<double, char, bool>>::value);
+```
+
+### `std::search_n`
+
+```
+static_assert(std::is_same<sharp::SearchN_t<int, 2, int, bool, int, int, char>,
+                           std::tuple<int, int, char>>::value);
+```
+
+### `std::transform`
+
+```
+static_assert(std::is_same<
+    sharp::Transform_t<std::remove_volatile, volatile int, const int>,
+    std::tuple<int, const int>>::value);
+```
+
+### `std::remove_if`
+
+```
+static_assert(std::is_same<sharp::RemoveIf_t<std::is_reference, char, int&>,
+                           std::tuple<char>>::value);
+```
+
+### `std::reverse`
+
+```
+static_assert(std::is_same<sharp::Reverse_t<int, char>,
+                           std::tuple<char, int>>::value);
 ```
