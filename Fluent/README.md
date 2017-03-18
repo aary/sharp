@@ -48,7 +48,7 @@ void start_server(Args&&... args) {
 }
 ```
 
-#### Implementation notes
+### Implementation notes
 
 The module is implemented with template metaprogramming, as you would expect.
 The backend for this module comes from `sharp/Traits` which contains an entire
