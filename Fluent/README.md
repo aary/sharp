@@ -1,16 +1,14 @@
-`Fluent`
---------
+`Fluent` Named arguments in C++
+------------------------------------
 
-Compose fluent functions which can support arbitrary strongly typed named
-arguments similar to named dynamic arguments in scripting languages, for
-example to start a server in python you might do something like this
+You might do something like so to start a server in Python
 
 ```Python
 start_server(port=80, threads=4, debug=true)
 ```
 
-With this module you can expose an interface that looks like the following to
-the clients.  The function may be called like so (with any permutation of any
+With this module you can expose a similar strongly typed interface to 
+clients.  The function may be called like so (with any permutation of any
 subset of the allowed arguments)
 
 ```C++
