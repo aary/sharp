@@ -47,3 +47,10 @@ void start_server(Args&&... args) {
     cout << std::get<2>(tuple_args) << endl;
 }
 ```
+
+#### Implementation notes
+
+The module is implemented with template metaprogramming, as you would expect.
+The backend for this module comes from `sharp/Traits` which contains an entire
+implementation of the STL algorithms but at compile time with type and value
+lists
