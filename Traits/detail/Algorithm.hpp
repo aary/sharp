@@ -10,6 +10,7 @@
 
 #include <type_traits>
 #include <tuple>
+#include <cstdint>
 
 #include <sharp/Traits/detail/Functional.hpp>
 #include <sharp/Traits/detail/Utility.hpp>
@@ -463,6 +464,63 @@ namespace detail {
             std::tuple<Head>,
             typename UniqueImpl<remove_all_head_from_list_tuple>::type>;
     };
+
+    /**
+     * Implementation of the sort trait
+     */
+    template <template <typename...> class Comparator, typename TypesContainer>
+    struct SortImpl;
+    template <template <typename...> class Comparator>
+    struct SortImpl<Comparator, std::tuple<>> {
+        using type = std::tuple<>;
+    };
+    template <template <typename...> class Comparator, typename... Types>
+    struct SortImpl<Comparator, std::tuple<Types...>> {
+    private:
+        /**
+         * Get the smallest value, using the comparator and then the
+         * MinType trait to get the minimum value, after getting the min type
+         * get the location of the min type, erase it from that location and
+         * then move it to the front of the tuple to be constructed and then
+         * recurse
+         *
+         * Assert that calling find to get the minimum type is not an empty
+         * tuple, because there should always be a smallest type
+         */
+        using MinType = typename MaxTypeImpl<Negate<Comparator>::template type,
+                                             Types...>::type;
+        using TypeListWithMinTypeFirst
+            = typename FindIfImpl<Bind<std::is_same, MinType>::template type,
+                                  Types...>::type;
+        static_assert(!std::is_same<TypeListWithMinTypeFirst, std::tuple<>>
+                ::value, "Something went wrong in the  implementation of the "
+                "Sort trait");
+
+        /**
+         * The difference between the size of the current list and the size of
+         * the list that has the min type in it as the first element will be
+         * the location where the erase should be called.  For example if the
+         * original list was <int, char, float, int> and the lowest value was
+         * char, then the TypeListWithMinTypeFirst will be
+         * std::tuple<char, float, int>, and then the location to call erase
+         * from in the original list will be 1 which is 4 - 3.
+         */
+        static constexpr const int location_to_erase = sizeof...(Types)
+            - std::tuple_size<TypeListWithMinTypeFirst>::value;
+
+        /**
+         * Erase the type from the tuple and then recurse
+         */
+        using ErasedTypeToRecurseOn = Erase_t<location_to_erase,
+                                              std::tuple<Types...>>;
+
+    public:
+        using type = Concatenate_t<
+            std::tuple<MinType>,
+            typename SortImpl<Comparator,
+                              ErasedTypeToRecurseOn>::type>;
+    };
+
 } // namespace detail
 
 /**
@@ -698,6 +756,19 @@ struct Unique {
 };
 
 /**
+ * @class Sort
+ *
+ * Does what you think it does, similar to std::sort.  The implementation uses
+ * a selection sort to sort the elements in the type list according to the
+ * comparator and is therefore not stable
+ */
+template <template <typename...> class Comparator, typename... Types>
+struct Sort {
+    using type
+        = typename detail::SortImpl<Comparator, std::tuple<Types...>>::type;
+};
+
+/**
  * @class Max
  *
  * Determines the maximum of the given integral values.  If types are given
@@ -795,6 +866,8 @@ using TransformIf_t = typename TransformIf<Predicate, TransformFunction,
                                            Types...>::type;
 template <typename... Types>
 using Unique_t = typename Unique<Types...>::type;
+template <template <typename...> class Comparator, typename... Types>
+using Sort_t = typename Sort<Comparator, Types...>::type;
 
 /*******************************************************************************
  * Tests
@@ -805,6 +878,10 @@ namespace detail { namespace test {
     template <int value_one, int value_two>
     struct LessThanValueList<ValueList<value_one>, ValueList<value_two>> {
         static constexpr const bool value = value_one < value_two;
+    };
+    template <typename One, typename Two>
+    struct LessThanSize {
+        static constexpr const bool value = sizeof(One) < sizeof(Two);
     };
 }}
 
@@ -1168,4 +1245,39 @@ static_assert(std::is_same<Unique_t<int, int, double>, std::tuple<int, double>>
         ::value, "sharp::Unique tests failed");
 static_assert(std::is_same<Unique_t<double, int, int>, std::tuple<double, int>>
         ::value, "sharp::Unique tests failed");
+
+/**
+ * Tests for Sort
+ */
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint32_t, std::uint16_t, std::uint8_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint8_t, std::uint16_t, std::uint32_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint16_t, std::uint8_t, std::uint32_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint16_t, std::uint8_t, std::uint32_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint16_t, std::uint32_t, std::uint8_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
+                                  std::uint8_t, std::uint32_t, std::uint16_t>,
+                           std::tuple<std::uint8_t, std::uint16_t,
+                                      std::uint32_t>>::value,
+        "sharp::Sort tests failed");
+
 } // namespace sharp
