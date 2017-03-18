@@ -9,8 +9,44 @@ header and its functionality as it appeared pre-C++17 in the form of template
 metaprogramming and manipulations with type lists (as opposed to the
 traditional runtime value range concept).
 
-For example say you were creating a container type that was not allowed to
-contain any references.  You could do something like this
+Say you were designing a type set (i.e. a tuple that can only consist of
+distinct types, for example std::tuple<int, double, char> is a valid type set
+whereas std::tuple<int, double, int> is not valid).  You would want the types
+to be arranged in increasing order of their sizes to as to take the least
+extra alignment needed via padding, for example the following struct is more
+space optimized than the latter
+
+```
+struct ContainerOptimized {
+    uint8_t one;
+    uint32_t two;
+};
+
+struct ContainerBad {
+    uint32_t one;
+    uint8_t two;
+};
+```
+
+You can sort the type list as usual.  Make a comparator and then pass the list
+and the comparator to the sort function
+
+```
+template <typename... Types>
+struct TypeSet {
+private:
+    template <typename One, typename Two>
+    struct LessThan {
+        return sizeof(One) < sizeof(Two);
+    };
+
+public:
+    Sort_t<LessThan, Types...> space_optimized_tuple_member;
+};
+```
+
+Or if you were creating a container type that was not allowed to contain any
+references.  You could do something like this
 
 ```
 template <typename... Types>
