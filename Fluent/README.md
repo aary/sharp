@@ -7,7 +7,7 @@ You might do something like so to start a server in Python
 start_server(port=80, threads=4, debug=true)
 ```
 
-With this module you can expose a similar strongly typed interface to 
+With this module you can expose a similar strongly typed interface to
 clients.  The function may be called like so (with any permutation of any
 subset of the allowed arguments)
 
@@ -36,7 +36,7 @@ And to define the function
 ```C++
 template <typename... Args>
 void start_server(Args&&... args) {
-    auto tuple_args = fluent_get_tuple<Port, Threads, Debug>(args...);
+    auto tuple_args = sharp::fluent<Port, Threads, Debug>(args...);
 
     // the following will print out the values held in default constructed
     // versions of the types unless the user passed in a custom parameter
