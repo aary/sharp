@@ -466,7 +466,10 @@ namespace detail {
     };
 
     /**
-     * Implementation of the sort trait
+     * Implementation of the sort trait, the implementation uses a selection
+     * sort, so as a result it may not be stable, similar priority elements
+     * might be out of order in the result as compared to what was seen in the
+     * initial type list
      */
     template <template <typename...> class Comparator, typename TypesContainer>
     struct SortImpl;
