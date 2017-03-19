@@ -180,6 +180,6 @@ static_assert(std::is_same<sharp::Unique_t<int, double, int>,
 #### `std::sort`
 
 ```
-static_assert(std::is_same<Sort_t<LessThanCompare, uint32_t, uint16_t, uint8_t>,
+static_assert(std::is_same<Sort_t<SizeCompare, uint32_t, uint16_t, uint8_t>,
                            std::tuple<uint8_t, uint16_t, uint32_t>>::value);
 ```
