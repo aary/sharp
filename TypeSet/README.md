@@ -7,8 +7,8 @@ computation to get from a type to an object, all computation happens at
 compile time.  Accessing an object of a type from the container is
 instantaneous, like accessing a local variable of that type.
 
-The container is optimized to be space efficient.  The layout of the
-objects internally is done in such a manner so as to reduce unnecesary memory
+The container is optimized to be space efficient.  The layout of the objects
+internally is done in such a manner so as to reduce unnecesary memory
 consumption for alignment and padding.  For example the following two structs
 differ in their memory consumption
 
