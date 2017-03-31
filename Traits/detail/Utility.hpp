@@ -48,6 +48,21 @@ namespace detail {
     template <typename Type>
     using EnableIfTupleInstantiation = std::enable_if_t<
         sharp::IsInstantiationOf_v<std::decay_t<Type>, std::tuple>>;
+    /**
+     * Concept that verifies that the function passed in is a unary function
+     */
+    template <typename Func>
+    using EnableIfUnaryFunction = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(int{})),
+        decltype(std::declval<Func>()(int{}))>::value>;
+
+    /**
+     * Concept that verifies that the function passed in is a binary function
+     */
+    template <typename Func>
+    using EnableIfIntSecondParameter = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(int{}, int{})),
+        decltype(std::declval<Func>()(int{}, int{}))>::value>;
 
     /**
      * Implemenation for the concatenate trait
@@ -178,11 +193,21 @@ struct Erase {
  * this function
  *
  * Thie overload participates in resolution only if the passed in type is an
- * instantiation of std::tuple
+ * instantiation of std::tuple and if the function passed in is a unary
+ * function, accepting an argument that is default constructible from a
+ * reference (whatever type of reference gotten when forwarding the tuple to
+ * std::get<>) to the type in the tuple
  */
 template <typename TupleType, typename UnaryPolymorphicFunc,
+          detail::EnableIfUnaryFunction<UnaryPolymorphicFunc>* = nullptr,
           detail::EnableIfTupleInstantiation<TupleType>* = nullptr>
 UnaryPolymorphicFunc for_each_tuple(TupleType&& tup, UnaryPolymorphicFunc func);
+
+template <typename TupleType, typename BinaryPolymorphicFunc,
+          detail::EnableIfIntSecondParameter<BinaryPolymorphicFunc>* = nullptr,
+          detail::EnableIfTupleInstantiation<TupleType>* = nullptr>
+BinaryPolymorphicFunc for_each_tuple(TupleType&& tup,
+                                     BinaryPolymorphicFunc func);
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in

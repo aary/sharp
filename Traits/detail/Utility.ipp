@@ -1,11 +1,3 @@
-/**
- * @file Utility.ipp
- * @author Aaryaman Sagar (rmn100@gmail.com)
- *
- * This file contains the implementations of the functions provided in the
- * utilities module
- */
-
 #pragma once
 
 #include <tuple>
@@ -28,7 +20,7 @@ namespace detail {
         static void impl(TupleType&& tup, Func& func) {
 
             // call the object at the given index
-            func(std::get<current>(std::forward<TupleType>(tup)));
+            func(std::get<current>(std::forward<TupleType>(tup)), current);
 
             // and then recurse
             ForEachTupleImpl<current + 1, last>::impl(
@@ -46,14 +38,28 @@ namespace detail {
 } // namespace detail
 
 template <typename TupleType, typename Func,
+          detail::EnableIfIntSecondParameter<Func>*,
           detail::EnableIfTupleInstantiation<TupleType>*>
 Func for_each_tuple(TupleType&& tup, Func func) {
 
     // call the implementation function and then return the functor, similar
     // to std::for_each
-    detail::ForEachTupleImpl<
-        0, std::tuple_size<std::decay_t<TupleType>>::value>::impl(
+    detail::ForEachTupleImpl<0,
+        std::tuple_size<std::decay_t<TupleType>>::value>::impl(
                 std::forward<TupleType>(tup), func);
+
+    return func;
+}
+
+template <typename TupleType, typename Func,
+          detail::EnableIfUnaryFunction<Func>*,
+          detail::EnableIfTupleInstantiation<TupleType>*>
+Func for_each_tuple(TupleType&& tup, Func func) {
+    // call the other function by wrapping the current one in a lambda
+    sharp::for_each_tuple(std::forward<TupleType>(tup),
+            [&](auto&& element, auto) {
+        func(std::forward<decltype(element)>(element));
+    });
     return func;
 }
 
