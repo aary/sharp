@@ -79,6 +79,8 @@ template <typename Type, typename... Types>
 const Type& get(const sharp::TypeSet<Types>&);
 template <typename Type, typename... Types>
 Type&& get(sharp::TypeSet<Types>&&);
+template <typename Type, typename... Types>
+const Type&& get(const sharp::TypeSet<Types>&&);
 
 /**
  * @function collect_types Collects the arguments given into the type list
