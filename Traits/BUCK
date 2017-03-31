@@ -12,6 +12,7 @@ cxx_library(
         "detail/Algorithm.hpp",
         "detail/Functional.hpp",
         "detail/Utility.hpp",
+        "detail/Utility.ipp",
     ],
     deps = [
         "//Tags:Tags",

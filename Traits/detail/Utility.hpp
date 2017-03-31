@@ -11,6 +11,8 @@
 #include <type_traits>
 #include <tuple>
 
+#include <sharp/Traits/detail/IsInstantiationOf.hpp>
+
 namespace sharp {
 
 /**
@@ -36,6 +38,17 @@ struct ValueList {};
 struct End {};
 
 namespace detail {
+    /**
+     * Concepts
+     */
+    /**
+     * Concept that checks if the passed in type is an instantiation of a
+     * tuple
+     */
+    template <typename Type>
+    using EnableIfTupleInstantiation = std::enable_if_t<
+        sharp::IsInstantiationOf_v<std::decay_t<Type>, std::tuple>>;
+
     /**
      * Implemenation for the concatenate trait
      */
@@ -155,6 +168,23 @@ struct Erase {
 };
 
 /**
+ * @function for_each_tuple
+ *
+ * Iterates through all the values in a tuple and executes the passed in
+ * functor on each value
+ *
+ * The tuple argument is passed in by forwarding reference to reduce the code
+ * duplication that would have resulted in attempted rvalue generalization of
+ * this function
+ *
+ * Thie overload participates in resolution only if the passed in type is an
+ * instantiation of std::tuple
+ */
+template <typename TupleType, typename UnaryPolymorphicFunc,
+          detail::EnableIfTupleInstantiation<TupleType>* = nullptr>
+UnaryPolymorphicFunc for_each_tuple(TupleType&& tup, UnaryPolymorphicFunc func);
+
+/**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -225,3 +255,5 @@ static_assert(std::is_same<ConcatenateN_t<int, 1>,
 
 
 } // namespace sharp
+
+#include <sharp/Traits/detail/Utility.ipp>
