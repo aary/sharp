@@ -44,7 +44,17 @@ public:
 
 private:
 
+    /**
+     * The data item that is of type std::tuple, the Transform_t algorithm
+     * iterates through the type list provided as an argument and transforms
+     * it into a type list that contains the results of applying the
+     * transformation higher order function to each type in the input type
+     * list.  The result is returned as a std::tuple, reference
+     * sharp/Traits/detail/Algorithm.hpp
+     */
     Transform_t<detail::AlignedStorageFor, Args...> aligned_tuple;
+    static_assert(IsInstantiationOf_v<decltype(aligned_tuple), std::tuple>,
+            "sharp::Transform_t returned a non std::tuple type list");
 };
 
 /**
@@ -82,6 +92,6 @@ Type&& get(sharp::TypeSet<Types>&&);
  * type to the function
  */
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_types(Args&& args...);
+TypeSet<Types...> collect_into_type_set(Args&& args...);
 
 } // namespace sharp
