@@ -109,6 +109,33 @@ namespace detail {
         static_assert(argument_index >= 0, "Index cannot be negative");
         using type = sharp::TypeAtIndex_t<argument_index, Args...>;
     };
+
+    /**
+     * Implementation for the Arguments trait
+     */
+    template <typename Func>
+    struct ArgumentsImpl {
+
+        /**
+         * Implementation trait that will be forwarded a pointer to a member
+         * function if Func is a functor, if Func is not a fucntor then it
+         * will go to the other implementation function
+         */
+        template <typename FuncImpl>
+        struct ArgumentsImplFunctor;
+        template <typename Functor, typename ReturnType, typename... Args>
+        struct ArgumentsImplFunctor<ReturnType (Functor::*) (Args...)> {
+            using type = std::tuple<Args...>;
+        };
+
+        using type = typename ArgumentsImplFunctor<
+            decltype(&Func::operator())>::type;
+    };
+    template <typename ReturnType, typename... Args>
+    struct ArgumentsImpl<ReturnType (*) (Args...)> {
+        using type = std::tuple<Args...>;
+    };
+
 } // namespace detail
 
 /**
@@ -149,6 +176,20 @@ struct ArgumentType {
 };
 
 /**
+ * @class Arguments
+ *
+ * Trait that inspects the function type passed in and returns all the
+ * arguments to the function wrapped in a std::tuple
+ */
+template <typename Func>
+struct Arguments {
+    static_assert(sharp::IsCallable_v<Func>,
+            "Can only use sharp::Arguments with callables");
+
+    using type = typename detail::ArgumentsImpl<std::decay_t<Func>>::type;
+};
+
+/**
  * Convenience template for uniformity with the standard library type traits,
  * the _t is added to all type traits in the C++14 standard
  */
@@ -156,6 +197,8 @@ template <typename Func>
 using ReturnType_t = typename ReturnType<Func>::type;
 template <int argument_index, typename Func>
 using ArgumentType_t = typename ArgumentType<argument_index, Func>::type;
+template <typename Func>
+using Arguments_t = typename Arguments<Func>::type;
 
 /*******************************************************************************
  * Testing things
@@ -205,5 +248,18 @@ static_assert(std::is_same<sharp::ArgumentType_t<
 static_assert(std::is_same<sharp::ArgumentType_t<
         1, decltype(&detail::test::some_function)>, char>::value,
         "sharp::ArgumentType_t tests failed!");
+
+/**
+ * Tests for Arguments
+ */
+static_assert(std::is_same<Arguments_t<detail::test::Functor>,
+                           std::tuple<int, double>>::value,
+        "sharp::Arguments tests failed!");
+static_assert(std::is_same<Arguments_t<decltype(detail::test::some_function)>,
+                           std::tuple<int, char>>::value,
+        "sharp::Arguments tests failed!");
+static_assert(std::is_same<Arguments_t<decltype(&detail::test::some_function)>,
+                           std::tuple<int, char>>::value,
+        "sharp::Arguments tests failed!");
 
 } // namespace sharp
