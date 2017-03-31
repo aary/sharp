@@ -10,8 +10,26 @@
  * And all the crap object file output will go to /dev/null and you will see
  * the stderr reported.
  */
-#include <sharp/Traits/Traits.hpp>
+#include <vector>
+#include <typeindex>
+#include <tuple>
+#include <algorithm>
+#include <iostream>
 
 #include <gtest/gtest.h>
+#include <sharp/Traits/Traits.hpp>
 
-TEST(TypeTraits, Placeholder) {}
+using namespace sharp;
+
+TEST(TypeTraits, for_each_tuple) {
+    auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
+    auto tup = std::make_tuple(1, 'a');
+    auto result_vec = std::vector<std::type_index>{};
+
+    for_each_tuple(tup, [&](auto thing) {
+        std::cout << thing << std::endl;
+        result_vec.push_back(typeid(decltype(thing)));
+    });
+
+    EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
+}
