@@ -79,38 +79,6 @@ namespace detail {
     };
 
     /**
-     * Specializations for getting the type at the index specified, one
-     * specialization will handle member function pointers in the case of
-     * functors and the other one will handle the funcors case
-     */
-    template <int argument_index, typename Func>
-    struct ArgumentTypeImpl {
-        static_assert(argument_index >= 0, "Index cannot be negative");
-
-        /**
-         * Simply gets the type from the member function pointer type passed
-         * in
-         */
-        template <int argument_index_impl, typename Functor>
-        struct ArgumentTypeImplFunctor;
-        template <int argument_index_impl,
-                  typename FunctorType, typename ReturnType, typename... Args>
-        struct ArgumentTypeImplFunctor<argument_index_impl,
-                                       ReturnType (FunctorType::*) (Args...)> {
-            using type = sharp::TypeAtIndex_t<argument_index_impl, Args...>;
-        };
-
-        using type = typename ArgumentTypeImplFunctor<
-            argument_index, decltype(&Func::operator())>::type;
-    };
-
-    template <int argument_index, typename ReturnType, typename... Args>
-    struct ArgumentTypeImpl<argument_index, ReturnType (*) (Args...)> {
-        static_assert(argument_index >= 0, "Index cannot be negative");
-        using type = sharp::TypeAtIndex_t<argument_index, Args...>;
-    };
-
-    /**
      * Implementation for the Arguments trait
      */
     template <typename Func>
@@ -151,31 +119,6 @@ struct ReturnType {
 };
 
 /**
- * @class ArgumentType
- *
- * Trait that gets the argument type that the function accepts at the given
- * index.  For example given the following function
- *
- *      void func(int, double, string) { ... }
- *
- * the expression ArgumentType_t<decltype(func), 0> would evaluate to int, and
- * so on
- */
-template <int argument_index, typename Func>
-struct ArgumentType {
-    static_assert(sharp::IsCallable_v<Func>,
-            "Can only use sharp::ArgumentType with callables");
-
-    /**
-     * Get the right type of argument by calling the appropriate impl
-     * function, if constexpr if was a hing then this would have been easier
-     * maybe? ¯\_(ツ)_/¯
-     */
-    using type = typename detail::ArgumentTypeImpl<
-        argument_index, std::decay_t<Func>>::type;
-};
-
-/**
  * @class Arguments
  *
  * Trait that inspects the function type passed in and returns all the
@@ -195,8 +138,6 @@ struct Arguments {
  */
 template <typename Func>
 using ReturnType_t = typename ReturnType<Func>::type;
-template <int argument_index, typename Func>
-using ArgumentType_t = typename ArgumentType<argument_index, Func>::type;
 template <typename Func>
 using Arguments_t = typename Arguments<Func>::type;
 
@@ -227,27 +168,6 @@ static_assert(std::is_same<sharp::ReturnType_t<
 // int is not callable
 // static_assert(std::is_same<sharp::ReturnType_t<int>, double>::value,
         // "sharp::ReturnType tests failed!");
-
-/**
- * Tests for ArgumentType_t
- */
-static_assert(std::is_same<sharp::ArgumentType_t<0, detail::test::Functor>, int>
-        ::value, "sharp::ArgumentType_t tests failed!");
-static_assert(std::is_same<sharp::ArgumentType_t<
-        1, detail::test::Functor>, double>::value,
-        "sharp::ArgumentType_t tests failed!");
-static_assert(std::is_same<sharp::ArgumentType_t<
-        0, decltype(detail::test::some_function)>, int>::value,
-        "sharp::ArgumentType_t tests failed!");
-static_assert(std::is_same<sharp::ArgumentType_t<
-        0, decltype(&detail::test::some_function)>, int>::value,
-        "sharp::ArgumentType_t tests failed!");
-static_assert(std::is_same<sharp::ArgumentType_t<
-        1, decltype(detail::test::some_function)>, char>::value,
-        "sharp::ArgumentType_t tests failed!");
-static_assert(std::is_same<sharp::ArgumentType_t<
-        1, decltype(&detail::test::some_function)>, char>::value,
-        "sharp::ArgumentType_t tests failed!");
 
 /**
  * Tests for Arguments
