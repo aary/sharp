@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <tuple>
 #include <type_traits>
 
 #include <sharp/Traits/detail/IsCallable.hpp>
