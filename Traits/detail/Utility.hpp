@@ -38,37 +38,6 @@ struct ValueList {};
 struct End {};
 
 namespace detail {
-    /**
-     * Concepts
-     */
-    /**
-     * Concept that checks if the passed in type is an instantiation of a
-     * tuple
-     */
-    template <typename Type>
-    using EnableIfTupleInstantiation = std::enable_if_t<
-        sharp::IsInstantiationOf_v<std::decay_t<Type>, std::tuple>>;
-    /**
-     * Concept that verifies that the function passed in is a unary function.
-     * Passing a const reference value so that it can fit with any type of
-     * argument, be it a T, T&, T&&, const T, const T& or const T&&
-     */
-    template <typename Func>
-    using EnableIfUnaryFunction = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(std::declval<const int&>())),
-        decltype(std::declval<Func>()(std::declval<const int&>()))>::value>;
-
-    /**
-     * Concept that verifies that the function passed in is a binary function
-     * Passing a const reference value so that it can fit with any type of
-     * argument, be it a T, T&, T&&, const T, const T& or const T&&
-     */
-    template <typename Func>
-    using EnableIfIntSecondParameter = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(std::declval<const int&>(),
-                                      std::declval<const int&>())),
-        decltype(std::declval<Func>()(std::declval<const int&>(),
-                                      std::declval<const int&>()))>::value>;
 
     /**
      * Implemenation for the concatenate trait
@@ -198,22 +167,12 @@ struct Erase {
  * duplication that would have resulted in attempted rvalue generalization of
  * this function
  *
- * Thie overload participates in resolution only if the passed in type is an
- * instantiation of std::tuple and if the function passed in is a unary
- * function, accepting an argument that is default constructible from a
- * reference (whatever type of reference gotten when forwarding the tuple to
- * std::get<>) to the type in the tuple
+ * The types of functions that can be used include one having a just a
+ * polymorphic first type (i.e.  templated so that it can accept tuple type
+ * instances) and another accepting an int as the second parameter
  */
-template <typename TupleType, typename UnaryPolymorphicFunc,
-          detail::EnableIfUnaryFunction<UnaryPolymorphicFunc>* = nullptr,
-          detail::EnableIfTupleInstantiation<TupleType>* = nullptr>
-UnaryPolymorphicFunc for_each_tuple(TupleType&& tup, UnaryPolymorphicFunc func);
-
-template <typename TupleType, typename BinaryPolymorphicFunc,
-          detail::EnableIfIntSecondParameter<BinaryPolymorphicFunc>* = nullptr,
-          detail::EnableIfTupleInstantiation<TupleType>* = nullptr>
-BinaryPolymorphicFunc for_each_tuple(TupleType&& tup,
-                                     BinaryPolymorphicFunc func);
+template <typename TupleType, typename Func>
+Func for_each_tuple(TupleType&& tup, Func func);
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
