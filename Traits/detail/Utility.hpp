@@ -49,20 +49,26 @@ namespace detail {
     using EnableIfTupleInstantiation = std::enable_if_t<
         sharp::IsInstantiationOf_v<std::decay_t<Type>, std::tuple>>;
     /**
-     * Concept that verifies that the function passed in is a unary function
+     * Concept that verifies that the function passed in is a unary function.
+     * Passing a const reference value so that it can fit with any type of
+     * argument, be it a T, T&, T&&, const T, const T& or const T&&
      */
     template <typename Func>
     using EnableIfUnaryFunction = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(int{})),
-        decltype(std::declval<Func>()(int{}))>::value>;
+        decltype(std::declval<Func>()(std::declval<const int&>())),
+        decltype(std::declval<Func>()(std::declval<const int&>()))>::value>;
 
     /**
      * Concept that verifies that the function passed in is a binary function
+     * Passing a const reference value so that it can fit with any type of
+     * argument, be it a T, T&, T&&, const T, const T& or const T&&
      */
     template <typename Func>
     using EnableIfIntSecondParameter = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(int{}, int{})),
-        decltype(std::declval<Func>()(int{}, int{}))>::value>;
+        decltype(std::declval<Func>()(std::declval<const int&>(),
+                                      std::declval<const int&>())),
+        decltype(std::declval<Func>()(std::declval<const int&>(),
+                                      std::declval<const int&>()))>::value>;
 
     /**
      * Implemenation for the concatenate trait
