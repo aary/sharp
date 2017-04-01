@@ -1,0 +1,14 @@
+cxx_library(
+    name = "TypeSet",
+    header_namespace = "sharp/TypeSet",
+    exported_headers = [
+        "TypeSet.hpp",
+        "TypeSet.ipp",
+    ],
+    deps = [
+        "//Traits:Traits",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
