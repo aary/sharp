@@ -63,6 +63,18 @@ TEST(TypeTraits, for_each_tuple_simple_unary) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
+TEST(TypeTraits, for_each_tuple_simple_unary_reference) {
+    auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
+    auto tup = std::make_tuple(1, 'a');
+    auto result_vec = std::vector<std::type_index>{};
+
+    for_each_tuple(tup, [&](auto& thing) {
+        result_vec.push_back(typeid(decltype(thing)));
+    });
+
+    EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
+}
+
 TEST(TypeTraits, for_each_tuple_simple_binary) {
     auto vec = std::vector<std::pair<std::type_index, int>>{
         {typeid(int), 0},
