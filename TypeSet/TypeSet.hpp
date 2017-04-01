@@ -1,10 +1,16 @@
 /**
  * @file TypeSet.hpp
  * @author Aaryaman Sagar
+ *
+ * This file contains a type set implementation.  The key differences from
+ * std::tuple is that this container is optimized for space and also offers
+ * some additional functionality like being able to collect a subset of type
+ * instances into one type set object with a possibly larger set of types
  */
 
 #pragma once
 
+#include <tuple>
 #include <type_traits>
 
 #include <sharp/Traits/Traits.hpp>
@@ -14,12 +20,23 @@ namespace sharp {
 namespace detail {
 
     /**
+     * A wrapper around std::aligned_storage that also stores the type that it
+     * is supposed to be wrapping, this helps determine the index of a
+     * particular type in the tuple of aligned_storage values
+     */
+    template <typename Type>
+    struct AlignedStorageWrapper {
+        using type = Type;
+        std::aligned_storage_t<sizeof(Type), alignof(Type)> storage;
+    };
+
+    /**
      * Template higher order function to transform a type into its
      * corresponding untyped storage
      */
     template <typename Type>
     struct AlignedStorageFor {
-        using type = std::aligned_storage_t<sizeof(Type), alignof(Type)>;
+        using type = AlignedStorageWrapper<Type>;
     };
 
 } // namespace detail
@@ -27,9 +44,18 @@ namespace detail {
 /**
  * Forward declaration for the TypeSet class
  */
-template <typename... Args>
+template <typename... Types>
 class TypeSet {
 public:
+
+    /**
+     * Assert that the type list passed does not have any duplicate types,
+     * that would be a violation of the invariant set by this class and would
+     * cause the implementation to break
+     */
+    static_assert(std::is_same<sharp::Unique_t<Types...>, std::tuple<Types...>>
+            ::value, "TypeSet cannot be used with a type list that has "
+            "duplicate types");
 
     /**
      * Default constructs the arguments provided to the type set into the
@@ -52,7 +78,7 @@ private:
      * list.  The result is returned as a std::tuple, reference
      * sharp/Traits/detail/Algorithm.hpp
      */
-    Transform_t<detail::AlignedStorageFor, Args...> aligned_tuple;
+    Transform_t<detail::AlignedStorageFor, Types...> aligned_tuple;
     static_assert(IsInstantiationOf_v<decltype(aligned_tuple), std::tuple>,
             "sharp::Transform_t returned a non std::tuple type list");
 };
@@ -76,11 +102,11 @@ private:
 template <typename Type, typename... Types>
 Type& get(sharp::TypeSet<Types...>&);
 template <typename Type, typename... Types>
-const Type& get(const sharp::TypeSet<Types>&);
+const Type& get(const sharp::TypeSet<Types...>&);
 template <typename Type, typename... Types>
-Type&& get(sharp::TypeSet<Types>&&);
+Type&& get(sharp::TypeSet<Types...>&&);
 template <typename Type, typename... Types>
-const Type&& get(const sharp::TypeSet<Types>&&);
+const Type&& get(const sharp::TypeSet<Types...>&&);
 
 /**
  * @function collect_types Collects the arguments given into the type list
@@ -94,6 +120,8 @@ const Type&& get(const sharp::TypeSet<Types>&&);
  * type to the function
  */
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_into_type_set(Args&& args...);
+TypeSet<Types...> collect_into_type_set(Args&&... args);
 
 } // namespace sharp
+
+#include <sharp/TypeSet/TypeSet.ipp>
