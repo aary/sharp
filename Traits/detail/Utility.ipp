@@ -44,9 +44,8 @@ Func for_each_tuple(TupleType&& tup, Func func) {
 
     // call the implementation function and then return the functor, similar
     // to std::for_each
-    detail::ForEachTupleImpl<0,
-        std::tuple_size<std::decay_t<TupleType>>::value>::impl(
-                std::forward<TupleType>(tup), func);
+    detail::ForEachTupleImpl<0, std::tuple_size<std::decay_t<TupleType>>::value>
+        ::impl(std::forward<TupleType>(tup), func);
 
     return func;
 }
