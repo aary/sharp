@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <tuple>
 #include <cstdint>
+#include <utility>
 
 #include <sharp/Traits/detail/Functional.hpp>
 #include <sharp/Traits/detail/Utility.hpp>
@@ -49,6 +50,30 @@ namespace detail {
         static constexpr const bool value
             = Predicate<Head>::value
                 || detail::AnyOfImpl<Predicate, Tail...>::value;
+    };
+
+    /**
+     * Implemenatation for the ForEach trait
+     */
+    template <typename Head, typename... Tail>
+    struct ForEachImpl {
+        template <typename Type>
+        struct TypeHolder {
+            using type = Type;
+        };
+
+        template <typename Func>
+        void operator()(Func& func) {
+            func(TypeHolder<Head>{});
+            ForEachImpl<Tail...>{}(func);
+        };
+    };
+    template <typename Head>
+    struct ForEachImpl<Head> {
+        template <typename Func>
+        void operator()(Func func) {
+            func(ForEachImpl<int, double>::TypeHolder<Head>{});
+        }
     };
 
     /**
@@ -561,6 +586,28 @@ struct AnyOf {
 template <template <typename...> class Predicate, typename... Types>
 struct NoneOf {
     static constexpr const bool value = !AnyOf<Predicate, Types...>::value;
+};
+
+/**
+ * @class ForEach
+ *
+ * The class is a function object that when initialized iterates through a
+ * given range of types by calling the functor on the type and a context type,
+ * this context type is defined as an empty object that has a member typedef
+ * defined (type) that is typedef-ed to the type the iteration is on, for
+ * example
+ *
+ *      ForEach<int, double>{}([&](auto type_context) {
+ *          cout << typeid(typename decltype(context)::type) << endl;
+ *      });
+ */
+template <typename... Types>
+struct ForEach {
+    template <typename Func>
+    Func operator()(Func func) {
+        detail::ForEachImpl<Types...>{}(func);
+        return func;
+    }
 };
 
 /**
