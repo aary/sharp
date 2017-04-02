@@ -25,8 +25,8 @@ namespace detail {
      */
     template <typename Context, typename TupleType, typename Func>
     decltype(auto) execute_on_appropriate_tuple_element(Context context,
-                                              TupleType& tup,
-                                              Func&& func) {
+                                                        TupleType& tup,
+                                                        Func&& func) {
         // get the type that the current iteration is over
         using Type = typename decltype(context)::type;
         using TransformedType = typename AlignedStorageFor<Type>::type;
