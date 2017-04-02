@@ -2,7 +2,7 @@
  * @file test.cpp
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
- * Includes all the files in the TypeTraits.hpp header and runs static unit
+ * Includes all the files in the Traits.hpp header and runs static unit
  * tests on them.  To run all tests simply do the following
  *
  *  g++ -std=c++14 -Wall test.cpp -c -o /dev/null
@@ -51,7 +51,7 @@ int TestConstructionAlert<Tag>::number_move_constructs = 0;
 template <typename Tag>
 int TestConstructionAlert<Tag>::number_copy_constructs = 0;
 
-TEST(TypeTraits, for_each_tuple_simple_unary) {
+TEST(Traits, for_each_tuple_simple_unary) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
@@ -63,7 +63,7 @@ TEST(TypeTraits, for_each_tuple_simple_unary) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(TypeTraits, for_each_tuple_simple_unary_reference) {
+TEST(Traits, for_each_tuple_simple_unary_reference) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
@@ -75,7 +75,7 @@ TEST(TypeTraits, for_each_tuple_simple_unary_reference) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-// TEST(TypeTraits, for_each_tuple_simple_binary) {
+// TEST(Traits, for_each_tuple_simple_binary) {
     // auto vec = std::vector<std::pair<std::type_index, int>>{
         // {typeid(int), 0},
         // {typeid(char), 1}};
@@ -89,7 +89,7 @@ TEST(TypeTraits, for_each_tuple_simple_unary_reference) {
     // EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 // }
 
-TEST(TypeTraits, for_each_tuple_forwarding_unary) {
+TEST(Traits, for_each_tuple_forwarding_unary) {
     TestConstructionAlert<int>::reset();
     TestConstructionAlert<double>::reset();
     auto vec = std::vector<std::type_index>{
@@ -116,7 +116,7 @@ TEST(TypeTraits, for_each_tuple_forwarding_unary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 }
 
-// TEST(TypeTraits, for_each_tuple_forwarding_binary) {
+// TEST(Traits, for_each_tuple_forwarding_binary) {
     // TestConstructionAlert<int>::reset();
     // TestConstructionAlert<double>::reset();
     // auto vec = std::vector<std::pair<std::type_index, int>>{
@@ -142,3 +142,14 @@ TEST(TypeTraits, for_each_tuple_forwarding_unary) {
     // EXPECT_EQ(TestConstructionAlert<double>::number_copy_constructs, 0);
     // EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 // }
+
+TEST(Traits, ForEach) {
+    auto vec = std::vector<std::type_index>{typeid(int), typeid(double)};
+    auto result_vec = decltype(vec){};
+
+    ForEach<int, double>{}([&](auto type_context) {
+        result_vec.push_back(typeid(typename decltype(type_context)::type));
+    });
+
+    EXPECT_TRUE(std::equal(vec.begin(), vec.end(), result_vec.begin()));
+}
