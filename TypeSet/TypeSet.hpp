@@ -20,23 +20,12 @@ namespace sharp {
 namespace detail {
 
     /**
-     * A wrapper around std::aligned_storage that also stores the type that it
-     * is supposed to be wrapping, this helps determine the index of a
-     * particular type in the tuple of aligned_storage values
-     */
-    template <typename Type>
-    struct AlignedStorageWrapper {
-        using type = Type;
-        std::aligned_storage_t<sizeof(Type), alignof(Type)> storage;
-    };
-
-    /**
      * Template higher order function to transform a type into its
      * corresponding untyped storage
      */
     template <typename Type>
     struct AlignedStorageFor {
-        using type = AlignedStorageWrapper<Type>;
+        using type = std::aligned_storage_t<sizeof(Type), alignof(Type)>;
     };
 
     /**

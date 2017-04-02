@@ -29,7 +29,7 @@ namespace detail {
                                               Func&& func) {
         // get the type that the current iteration is over
         using Type = typename decltype(context)::type;
-        using TransformedType = AlignedStorageWrapper<Type>;
+        using TransformedType = typename AlignedStorageFor<Type>::type;
 
         // get the type of the tuple stored internally
         using Tuple = std::decay_t<decltype(tup)>;
@@ -43,7 +43,7 @@ namespace detail {
 
         // call the function on the storage, see header file for what the
         // storage is
-        return std::forward<Func>(func)(std::get<index_type>(tup).storage);
+        return std::forward<Func>(func)(std::get<index_type>(tup));
     }
 
 } // namespace detail
