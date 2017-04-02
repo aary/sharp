@@ -22,41 +22,55 @@ namespace sharp {
 namespace detail {
 
     /**
+     * Concepts
+     */
+    /**
+     * Enable if the type passed in is an instantiation of std::tuple
+     * This trait is used throughout all the algorithms in this module that
+     * accept type lists
+     */
+    template <typename TypeList>
+    using EnableIfTuple = std::enable_if_t<
+        sharp::IsInstantiationOf_v<TypeList, std::tuple>>;
+
+    /**
      * Implementation for the AllOf trait
      */
-    template <template <typename...> class Predicate, typename... Types>
+    template <template <typename...> class Predicate, typename TypeList>
     struct AllOfImpl {
         static constexpr const bool value = true;
     };
     template <template <typename...> class Predicate,
               typename Head, typename... Tail>
-    struct AllOfImpl<Predicate, Head, Tail...> {
+    struct AllOfImpl<Predicate, std::tuple<Head, Tail...>> {
         static constexpr const bool value
             = Predicate<Head>::value
-                && detail::AllOfImpl<Predicate, Tail...>::value;
+                && detail::AllOfImpl<Predicate, std::tuple<Tail...>>::value;
     };
 
     /**
      * Implementation for the AnyOf trait, this unlike the AllOf trait returns
      * a false when the list is empty, in line with std::any_of
      */
-    template <template <typename...> class Predicate, typename... Types>
+    template <template <typename...> class Predicate, typename TypeList>
     struct AnyOfImpl {
         static constexpr const bool value = false;
     };
     template <template <typename...> class Predicate,
               typename Head, typename... Tail>
-    struct AnyOfImpl<Predicate, Head, Tail...> {
+    struct AnyOfImpl<Predicate, std::tuple<Head, Tail...>> {
         static constexpr const bool value
             = Predicate<Head>::value
-                || detail::AnyOfImpl<Predicate, Tail...>::value;
+                || detail::AnyOfImpl<Predicate, std::tuple<Tail...>>::value;
     };
 
     /**
      * Implemenatation for the ForEach trait
      */
+    template <typename TypeList>
+    struct ForEachImpl;
     template <typename Head, typename... Tail>
-    struct ForEachImpl {
+    struct ForEachImpl<std::tuple<Head, Tail...>> {
         template <typename Type>
         struct TypeHolder {
             using type = Type;
@@ -65,49 +79,49 @@ namespace detail {
         template <typename Func>
         void operator()(Func& func) {
             func(TypeHolder<Head>{});
-            ForEachImpl<Tail...>{}(func);
+            ForEachImpl<std::tuple<Tail...>>{}(func);
         };
     };
     template <typename Head>
-    struct ForEachImpl<Head> {
+    struct ForEachImpl<std::tuple<Head>> {
         template <typename Func>
         void operator()(Func func) {
-            func(ForEachImpl<int, double>::TypeHolder<Head>{});
+            func(ForEachImpl<std::tuple<int, double>>::TypeHolder<Head>{});
         }
     };
 
     /**
      * Implementation for the count if trait
      */
-    template <template <typename...> class Predicate, typename... Types>
+    template <template <typename...> class Predicate, typename TypeList>
     struct CountIfImpl {
         static constexpr const int value = 0;
     };
     template <template <typename...> class Predicate,
               typename Head, typename... Tail>
-    struct CountIfImpl<Predicate, Head, Tail...> {
+    struct CountIfImpl<Predicate, std::tuple<Head, Tail...>> {
         /**
          * convert to an int and add recursively
          */
         static constexpr const int value
             = int(Predicate<Head>::value)
-                + CountIfImpl<Predicate, Tail...>::value;
+                + CountIfImpl<Predicate, std::tuple<Tail...>>::value;
     };
 
     /**
      * Implementation for the FindIf trait
      */
-    template <template <typename...> class Predicate, typename... Types>
+    template <template <typename...> class Predicate, typename TypeList>
     struct FindIfImpl {
         using type = std::tuple<>;
     };
     template <template <typename...> class Predicate,
               typename Head, typename... Tail>
-    struct FindIfImpl<Predicate, Head, Tail...> {
+    struct FindIfImpl<Predicate, std::tuple<Head, Tail...>> {
         using type = std::conditional_t<
             Predicate<Head>::value,
             std::tuple<Head, Tail...>,
-            typename FindIfImpl<Predicate, Tail...>::type>;
+            typename FindIfImpl<Predicate, std::tuple<Tail...>>::type>;
     };
 
     /**
@@ -133,7 +147,7 @@ namespace detail {
         using type = std::conditional_t<!std::is_same<
             typename FindIfImpl<
                        Bind<std::is_same, HeadOne>::template type,
-                       TailTwo...>::type,
+                       std::tuple<TailTwo...>>::type,
             std::tuple<>>::value,
             std::tuple<HeadOne, TailOne...>,
             typename FindFirstOfImpl<std::tuple<TailOne...>,
@@ -153,7 +167,7 @@ namespace detail {
      * one which ends the recursion by defining the type to be the
      * std::tuple<> type
      */
-    template <typename... Types>
+    template <typename TypeList>
     struct AdjacentFindImpl {
         using type = std::tuple<>;
     };
@@ -161,15 +175,16 @@ namespace detail {
      * Keep going here, since you have not found types that are the same
      */
     template <typename First, typename Second, typename... Types>
-    struct AdjacentFindImpl<First, Second, Types...> {
-        using type = typename AdjacentFindImpl<Second, Types...>::type;
+    struct AdjacentFindImpl<std::tuple<First, Second, Types...>> {
+        using type = typename AdjacentFindImpl<std::tuple<Second,
+                                                          Types...>>::type;
     };
     /**
      * Stop here because you have hit the point where you have found two of
      * the same types
      */
     template <typename First, typename... Types>
-    struct AdjacentFindImpl<First, First, Types...> {
+    struct AdjacentFindImpl<std::tuple<First, First, Types...>> {
         using type = std::tuple<First, First, Types...>;
     };
 
@@ -339,7 +354,7 @@ namespace detail {
          */
         using find_occurence = typename detail::FindIfImpl<
             Bind<std::is_same, HeadTwo>::template type,
-            HeadOne, TailOne...>::type;
+            std::tuple<HeadOne, TailOne...>>::type;
 
         static_assert(sharp::IsInstantiationOf_v<find_occurence, std::tuple>,
                 "Something went wrong in the implementation of "
@@ -387,7 +402,7 @@ namespace detail {
     /**
      * Implemenattion trait for the searchnimpl trait
      */
-    template <typename TypeToRepeat, int n, typename... Types>
+    template <typename TypeToRepeat, int n, typename TypeList>
     struct SearchNImpl {
     private:
         /**
@@ -401,7 +416,7 @@ namespace detail {
         /**
          * Find it in the type list to see if it exists
          */
-        using type = typename SearchImpl<std::tuple<Types...>,
+        using type = typename SearchImpl<TypeList,
                                          repeated_type_tuple>::type;
     };
 
@@ -410,14 +425,14 @@ namespace detail {
      */
     template <template <typename...> class Predicate,
               template <typename...> class TransformFunction,
-              typename... Types>
+              typename TypeList>
     struct TransformIfImpl {
         using type = std::tuple<>;
     };
     template <template <typename...> class Predicate,
               template <typename...> class TransformFunction,
               typename Head>
-    struct TransformIfImpl<Predicate, TransformFunction, Head> {
+    struct TransformIfImpl<Predicate, TransformFunction, std::tuple<Head>> {
         using type = std::conditional_t<Predicate<Head>::value,
             std::tuple<typename TransformFunction<Head>::type>,
             std::tuple<Head>>;
@@ -425,24 +440,27 @@ namespace detail {
     template <template <typename...> class Predicate,
               template <typename...> class TransformFunction,
               typename Head, typename... Tail>
-    struct TransformIfImpl<Predicate, TransformFunction, Head, Tail...> {
+    struct TransformIfImpl<Predicate, TransformFunction,
+                           std::tuple<Head, Tail...>> {
         using type = Concatenate_t<
-            typename TransformIfImpl<Predicate, TransformFunction, Head>::type,
             typename TransformIfImpl<Predicate,
                                      TransformFunction,
-                                     Tail...>::type>;
+                                     std::tuple<Head>>::type,
+            typename TransformIfImpl<Predicate,
+                                     TransformFunction,
+                                     std::tuple<Tail...>>::type>;
     };
 
     /**
      * Implementation for the remove if trait
      */
-    template <template <typename...> class Predicate, typename... Types>
+    template <template <typename...> class Predicate, typename TypeList>
     struct RemoveIfImpl {
         using type = std::tuple<>;
     };
     template <template <typename...> class Predicate,
-              typename Head, typename... Types>
-    struct RemoveIfImpl<Predicate, Head, Types...> {
+              typename Head, typename... Tail>
+    struct RemoveIfImpl<Predicate, std::tuple<Head, Tail...>> {
         /**
          * Recursive pseudocode
          *     type = (predicate(head) ? head : nullptr) | remove_if_impl(tail)
@@ -451,20 +469,21 @@ namespace detail {
             std::conditional_t<Predicate<Head>::value,
                 std::tuple<>,
                 std::tuple<Head>>,
-            typename RemoveIfImpl<Predicate, Types...>::type>;
+            typename RemoveIfImpl<Predicate, std::tuple<Tail...>>::type>;
     };
 
     /**
      * Implementation for the reverse trait
      */
-    template <typename... Types>
+    template <typename TypeList>
     struct ReverseImpl {
         using type = std::tuple<>;
     };
     template <typename FirstType, typename... Types>
-    struct ReverseImpl<FirstType, Types...> {
-        using type = Concatenate_t<typename ReverseImpl<Types...>::type,
-                                   std::tuple<FirstType>>;
+    struct ReverseImpl<std::tuple<FirstType, Types...>> {
+        using type = Concatenate_t<
+            typename ReverseImpl<std::tuple<Types...>>::type,
+            std::tuple<FirstType>>;
     };
 
     /**
@@ -483,7 +502,7 @@ namespace detail {
          */
         using remove_all_head_from_list_tuple
             = typename RemoveIfImpl<Bind<std::is_same, Head>::template type,
-                                    Tail...>::type;
+                                    std::tuple<Tail...>>::type;
     public:
         using type = Concatenate_t<
             std::tuple<Head>,
@@ -519,7 +538,7 @@ namespace detail {
                                              Types...>::type;
         using TypeListWithMinTypeFirst
             = typename FindIfImpl<Bind<std::is_same, MinType>::template type,
-                                  Types...>::type;
+                                  std::tuple<Types...>>::type;
         static_assert(!std::is_same<TypeListWithMinTypeFirst, std::tuple<>>
                 ::value, "Something went wrong in the  implementation of the "
                 "Sort trait");
@@ -558,10 +577,12 @@ namespace detail {
  * the type list, for example <std::is_reference, int&, double&> will return
  * true
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct AllOf {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     static constexpr const bool value
-        = detail::AllOfImpl<Predicate, Types...>::value;
+        = detail::AllOfImpl<Predicate, TypeList>::value;
 };
 
 /**
@@ -571,10 +592,12 @@ struct AllOf {
  * in the type list, for example <std::is_reference, int&, double> will
  * return true
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct AnyOf {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     static constexpr const bool value
-        = detail::AnyOfImpl<Predicate, Types...>::value;
+        = detail::AnyOfImpl<Predicate, TypeList>::value;
 };
 
 /**
@@ -583,9 +606,11 @@ struct AnyOf {
  * A trait that returns a true if the predicate returns true for none of the
  * types in the type list, this is just the negation of AnyOf
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct NoneOf {
-    static constexpr const bool value = !AnyOf<Predicate, Types...>::value;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    static constexpr const bool value = !AnyOf<Predicate, TypeList>::value;
 };
 
 /**
@@ -601,11 +626,14 @@ struct NoneOf {
  *          cout << typeid(typename decltype(context)::type) << endl;
  *      });
  */
-template <typename... Types>
+template <typename TypeList>
 struct ForEach {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+
     template <typename Func>
     Func operator()(Func func) {
-        detail::ForEachImpl<Types...>{}(func);
+        detail::ForEachImpl<TypeList>{}(func);
         return func;
     }
 };
@@ -616,10 +644,12 @@ struct ForEach {
  * A trait that counts the number of times the predicate returns true on the
  * type list
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct CountIf {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     static constexpr const int value
-        = detail::CountIfImpl<Predicate, Types...>::value;
+        = detail::CountIfImpl<Predicate, TypeList>::value;
 };
 
 /**
@@ -630,6 +660,9 @@ struct CountIf {
  */
 template <typename TypesContainerOne, typename TypesContainerTwo>
 struct Mismatch {
+    static_assert(sharp::IsInstantiationOf_v<TypesContainerOne, std::tuple> &&
+            sharp::IsInstantiationOf_v<TypesContainerTwo, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type = typename detail::MismatchImpl<TypesContainerOne,
                                                TypesContainerTwo>::type;
 };
@@ -646,6 +679,9 @@ struct Mismatch {
  */
 template <typename TypesContainerOne, typename TypesContainerTwo>
 struct Equal {
+    static_assert(sharp::IsInstantiationOf_v<TypesContainerOne, std::tuple> &&
+            sharp::IsInstantiationOf_v<TypesContainerTwo, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     static constexpr const bool value = detail::EqualImpl<
         TypesContainerOne, TypesContainerTwo>::value;
 };
@@ -656,10 +692,12 @@ struct Equal {
  * A trait that lets you find the first type for which the predicate returned
  * true, similar to std::find_if
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct FindIf {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type
-        = typename detail::FindIfImpl<Predicate, Types...>::type;
+        = typename detail::FindIfImpl<Predicate, TypeList>::type;
 };
 
 /**
@@ -668,10 +706,12 @@ struct FindIf {
  * A trait that lets you find the type passed in, this is implemented using
  * the FindIf trait and a std::is_same predicate
  */
-template <typename ToFind, typename... Types>
+template <typename ToFind, typename TypeList>
 struct Find {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type = typename FindIf<Bind<std::is_same, ToFind>::template type,
-                                 Types...>::type;
+                                 TypeList>::type;
 };
 
 /**
@@ -680,10 +720,12 @@ struct Find {
  * A trait that lets you find the first type for which the predicate returned
  * false, similar to std::find_if_not
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct FindIfNot {
-    using type
-        = typename FindIf<Negate<Predicate>::template type, Types...>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename FindIf<Negate<Predicate>::template type,
+                                 TypeList>::type;
 };
 
 /**
@@ -694,6 +736,9 @@ struct FindIfNot {
  */
 template <typename TypesContainerOne, typename TypesContainerTwo>
 struct FindFirstOf {
+    static_assert(sharp::IsInstantiationOf_v<TypesContainerOne, std::tuple> &&
+            sharp::IsInstantiationOf_v<TypesContainerTwo, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type = typename detail::FindFirstOfImpl<TypesContainerOne,
           TypesContainerTwo>::type;
 };
@@ -705,9 +750,11 @@ struct FindFirstOf {
  * list, it returns the repeated type, if no type was repeated, then this will
  * return the std::tuple<> type
  */
-template <typename... Types>
+template <typename TypeList>
 struct AdjacentFind {
-    using type = typename detail::AdjacentFindImpl<Types...>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename detail::AdjacentFindImpl<TypeList>::type;
 };
 
 /**
@@ -718,6 +765,9 @@ struct AdjacentFind {
  */
 template <typename TypesContainerOne, typename TypesContainerTwo>
 struct Search {
+    static_assert(sharp::IsInstantiationOf_v<TypesContainerOne, std::tuple> &&
+            sharp::IsInstantiationOf_v<TypesContainerTwo, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type = typename detail::SearchImpl<TypesContainerOne,
                                              TypesContainerTwo>::type;
 };
@@ -728,9 +778,11 @@ struct Search {
  * Trait that searches for n occurences of a given element, similar to
  * std::search_n
  */
-template <typename TypeToRepeat, int n, typename... Types>
+template <typename TypeToRepeat, int n, typename TypeList>
 struct SearchN {
-    using type = typename detail::SearchNImpl<TypeToRepeat, n, Types...>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename detail::SearchNImpl<TypeToRepeat, n, TypeList>::type;
 };
 
 /**
@@ -742,11 +794,11 @@ struct SearchN {
  */
 template <template <typename...> class Predicate,
           template <typename...> class TransformFunction,
-          typename... Types>
+          typename TypeList>
 struct TransformIf {
     using type = typename detail::TransformIfImpl<Predicate,
                                                   TransformFunction,
-                                                  Types...>::type;
+                                                  TypeList>::type;
 };
 
 /**
@@ -755,7 +807,7 @@ struct TransformIf {
  * Transforms a type range by applying the function passed to the trait and
  * returns the range wrapped in a tuple
  */
-template <template <typename...> class TransformFunction, typename... Types>
+template <template <typename...> class TransformFunction, typename TypeList>
 struct Transform {
 private:
     /**
@@ -766,8 +818,10 @@ private:
     struct ReturnTrue : std::integral_constant<bool, true> {};
 
 public:
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type
-        = typename TransformIf<ReturnTrue, TransformFunction, Types...>::type;
+        = typename TransformIf<ReturnTrue, TransformFunction, TypeList>::type;
 };
 
 /**
@@ -780,9 +834,11 @@ public:
  * RemoveIf_t<std::is_reference, int&, double, bool> and get back
  * std::tuple<double, bool>
  */
-template <template <typename...> class Predicate, typename... Types>
+template <template <typename...> class Predicate, typename TypeList>
 struct RemoveIf {
-    using type = typename detail::RemoveIfImpl<Predicate, Types...>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename detail::RemoveIfImpl<Predicate, TypeList>::type;
 };
 
 /**
@@ -790,9 +846,11 @@ struct RemoveIf {
  *
  * Reverses a range of types
  */
-template <typename... Types>
+template <typename TypeList>
 struct Reverse {
-    using type = typename detail::ReverseImpl<Types...>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename detail::ReverseImpl<TypeList>::type;
 };
 
 /**
@@ -800,9 +858,11 @@ struct Reverse {
  *
  * Removes all duplicate types from a type list
  */
-template <typename... Types>
+template <typename TypeList>
 struct Unique {
-    using type = typename detail::UniqueImpl<std::tuple<Types...>>::type;
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+    using type = typename detail::UniqueImpl<TypeList>::type;
 };
 
 /**
@@ -812,10 +872,12 @@ struct Unique {
  * a selection sort to sort the elements in the type list according to the
  * comparator and is therefore not stable
  */
-template <template <typename...> class Comparator, typename... Types>
+template <template <typename...> class Comparator, typename TypeList>
 struct Sort {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
     using type
-        = typename detail::SortImpl<Comparator, std::tuple<Types...>>::type;
+        = typename detail::SortImpl<Comparator, TypeList>::type;
 };
 
 /**
@@ -861,14 +923,14 @@ struct MinType {
  * Conventional value typedefs, these end in the suffix _v, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
-template <template <typename...> class Predicate, typename... Types>
-constexpr const bool AllOf_v = AllOf<Predicate, Types...>::value;
-template <template <typename...> class Predicate, typename... Types>
-constexpr const bool AnyOf_v = AnyOf<Predicate, Types...>::value;
-template <template <typename...> class Predicate, typename... Types>
-constexpr const bool NoneOf_v = NoneOf<Predicate, Types...>::value;
-template <template <typename...> class Predicate, typename... Types>
-constexpr const int CountIf_v = CountIf<Predicate, Types...>::value;
+template <template <typename...> class Predicate, typename TypeList>
+constexpr const bool AllOf_v = AllOf<Predicate, TypeList>::value;
+template <template <typename...> class Predicate, typename TypeList>
+constexpr const bool AnyOf_v = AnyOf<Predicate, TypeList>::value;
+template <template <typename...> class Predicate, typename TypeList>
+constexpr const bool NoneOf_v = NoneOf<Predicate, TypeList>::value;
+template <template <typename...> class Predicate, typename TypeList>
+constexpr const int CountIf_v = CountIf<Predicate, TypeList>::value;
 template <int... integers>
 constexpr const int MaxValue_v = MaxValue<integers...>::value;
 template <int... integers>
@@ -884,40 +946,40 @@ constexpr const bool Equal_v = Equal<TypesContainerOne, TypesContainerTwo>
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using Mismatch_t = typename Mismatch<TypesContainerOne, TypesContainerTwo>
     ::type;
-template <template <typename...> class Predicate, typename... Types>
-using FindIf_t = typename FindIf<Predicate, Types...>::type;
-template <typename ToFind, typename... Types>
-using Find_t = typename Find<ToFind, Types...>::type;
-template <template <typename...> class Predicate, typename... Types>
-using FindIfNot_t = typename FindIfNot<Predicate, Types...>::type;
+template <template <typename...> class Predicate, typename TypeList>
+using FindIf_t = typename FindIf<Predicate, TypeList>::type;
+template <typename ToFind, typename TypeList>
+using Find_t = typename Find<ToFind, TypeList>::type;
+template <template <typename...> class Predicate, typename TypeList>
+using FindIfNot_t = typename FindIfNot<Predicate, TypeList>::type;
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using FindFirstOf_t = typename FindFirstOf<
     TypesContainerOne, TypesContainerTwo>::type;
-template <typename... Types>
-using AdjacentFind_t = typename AdjacentFind<Types...>::type;
+template <typename TypeList>
+using AdjacentFind_t = typename AdjacentFind<TypeList>::type;
 template <template <typename...> class Comparator, typename... Types>
 using MaxType_t = typename MaxType<Comparator, Types...>::type;
 template <template <typename...> class Comparator, typename... Types>
 using MinType_t = typename MinType<Comparator, Types...>::type;
 template <typename TypesContainerOne, typename TypesContainerTwo>
 using Search_t = typename Search<TypesContainerOne, TypesContainerTwo>::type;
-template <typename TypeToRepeat, int n, typename... Types>
-using SearchN_t = typename SearchN<TypeToRepeat, n, Types...>::type;
-template <template <typename...> class TransformFunction, typename... Types>
-using Transform_t = typename Transform<TransformFunction, Types...>::type;
-template <template <typename...> class Predicate, typename... Types>
-using RemoveIf_t = typename RemoveIf<Predicate, Types...>::type;
-template <typename... Types>
-using Reverse_t = typename Reverse<Types...>::type;
+template <typename TypeToRepeat, int n, typename TypeList>
+using SearchN_t = typename SearchN<TypeToRepeat, n, TypeList>::type;
+template <template <typename...> class TransformFunction, typename TypeList>
+using Transform_t = typename Transform<TransformFunction, TypeList>::type;
+template <template <typename...> class Predicate, typename TypeList>
+using RemoveIf_t = typename RemoveIf<Predicate, TypeList>::type;
+template <typename TypeList>
+using Reverse_t = typename Reverse<TypeList>::type;
 template <template <typename...> class Predicate,
           template <typename...> class TransformFunction,
-          typename... Types>
+          typename TypeList>
 using TransformIf_t = typename TransformIf<Predicate, TransformFunction,
-                                           Types...>::type;
-template <typename... Types>
-using Unique_t = typename Unique<Types...>::type;
-template <template <typename...> class Comparator, typename... Types>
-using Sort_t = typename Sort<Comparator, Types...>::type;
+                                           TypeList>::type;
+template <typename TypeList>
+using Unique_t = typename Unique<TypeList>::type;
+template <template <typename...> class Comparator, typename TypeList>
+using Sort_t = typename Sort<Comparator, TypeList>::type;
 
 /*******************************************************************************
  * Tests
@@ -938,59 +1000,59 @@ namespace detail { namespace test {
 /**
  * Tests for AllOf
  */
-static_assert(AllOf_v<std::is_reference>,
+static_assert(AllOf_v<std::is_reference, std::tuple<>>,
         "sharp::AllOf tests failed!");
-static_assert(AllOf_v<std::is_reference, int&>,
+static_assert(AllOf_v<std::is_reference, std::tuple<int&>>,
         "sharp::AllOf tests failed!");
-static_assert(!AllOf_v<std::is_reference, int&, double>,
+static_assert(!AllOf_v<std::is_reference, std::tuple<int&, double>>,
         "sharp::AllOf tests failed!");
-static_assert(!AllOf_v<std::is_reference, int, double&>,
+static_assert(!AllOf_v<std::is_reference, std::tuple<int, double&>>,
         "sharp::AllOf tests failed!");
-static_assert(AllOf_v<std::is_reference, int&, double&>,
+static_assert(AllOf_v<std::is_reference, std::tuple<int&, double&>>,
         "sharp::AllOf tests failed!");
 
 /**
  * Tests for AnyOf
  */
-static_assert(!AnyOf_v<std::is_reference>,
+static_assert(!AnyOf_v<std::is_reference, std::tuple<>>,
         "sharp::AnyOf tests failed!");
-static_assert(AnyOf_v<std::is_reference, int&>,
+static_assert(AnyOf_v<std::is_reference, std::tuple<int&>>,
         "sharp::AnyOf tests failed!");
-static_assert(AnyOf_v<std::is_reference, int&, double>,
+static_assert(AnyOf_v<std::is_reference, std::tuple<int&, double>>,
         "sharp::AnyOf tests failed!");
-static_assert(AnyOf_v<std::is_reference, int, double&>,
+static_assert(AnyOf_v<std::is_reference, std::tuple<int, double&>>,
         "sharp::AnyOf tests failed!");
-static_assert(!AnyOf_v<std::is_reference, int*, double*>,
+static_assert(!AnyOf_v<std::is_reference, std::tuple<int*, double*>>,
         "sharp::AnyOf tests failed!");
-static_assert(AnyOf_v<std::is_reference, int&, double&>,
+static_assert(AnyOf_v<std::is_reference, std::tuple<int&, double&>>,
         "sharp::AnyOf tests failed!");
 
 /**
  * Tests for NoneOf
  */
-static_assert(NoneOf_v<std::is_reference>,
+static_assert(NoneOf_v<std::is_reference, std::tuple<>>,
         "sharp::NoneOf tests failed!");
-static_assert(!NoneOf_v<std::is_reference, int&>,
+static_assert(!NoneOf_v<std::is_reference, std::tuple<int&>>,
         "sharp::NoneOf tests failed!");
-static_assert(!NoneOf_v<std::is_reference, int&, double>,
+static_assert(!NoneOf_v<std::is_reference, std::tuple<int&, double>>,
         "sharp::NoneOf tests failed!");
-static_assert(!NoneOf_v<std::is_reference, int, double&>,
+static_assert(!NoneOf_v<std::is_reference, std::tuple<int, double&>>,
         "sharp::NoneOf tests failed!");
-static_assert(NoneOf_v<std::is_reference, int*, double*>,
+static_assert(NoneOf_v<std::is_reference, std::tuple<int*, double*>>,
         "sharp::NoneOf tests failed!");
-static_assert(!NoneOf_v<std::is_reference, int&, double&>,
+static_assert(!NoneOf_v<std::is_reference, std::tuple<int&, double&>>,
         "sharp::NoneOf tests failed!");
 
 /**
  * Tests for CountIf
  */
-static_assert(CountIf_v<std::is_reference> == 0,
+static_assert(CountIf_v<std::is_reference, std::tuple<>> == 0,
         "sharp::CountIf tests failed!");
-static_assert(CountIf_v<std::is_reference, int&> == 1,
+static_assert(CountIf_v<std::is_reference, std::tuple<int&>> == 1,
         "sharp::CountIf tests failed!");
-static_assert(CountIf_v<std::is_reference, int&, double> == 1,
+static_assert(CountIf_v<std::is_reference, std::tuple<int&, double>> == 1,
         "sharp::CountIf tests failed!");
-static_assert(CountIf_v<std::is_reference, int&, double&> == 2,
+static_assert(CountIf_v<std::is_reference, std::tuple<int&, double&>> == 2,
         "sharp::CountIf tests failed!");
 
 /**
@@ -1069,42 +1131,50 @@ static_assert(!Equal_v<std::tuple<int, double, char>, std::tuple<double>>,
 /**
  * Tests for FindIf
  */
-static_assert(std::is_same<FindIf_t<std::is_reference>, std::tuple<>>::value,
+static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<>>,
+                           std::tuple<>>::value,
         "sharp::FindIt tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, int, int&>,
+static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<int, int&>>,
         std::tuple<int&>>::value, "sharp::FindIf tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, int*, int&>,
+static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<int*, int&>>,
         std::tuple<int&>>::value, "sharp::FindIf tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, double, int>,
+static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<double, int>>,
                            std::tuple<>>::value, "sharp::FindIf tests failed!");
-static_assert(std::is_same<FindIf_t<std::is_reference, double&, int>,
+static_assert(std::is_same<FindIf_t<std::is_reference,
+                                    std::tuple<double&, int>>,
         std::tuple<double&, int>>::value, "sharp::FindIf tests failed!");
 
 /**
  * Tests for Find
  */
-static_assert(std::is_same<Find_t<int>, std::tuple<>>::value,
+static_assert(std::is_same<Find_t<int, std::tuple<>>, std::tuple<>>::value,
         "sharp::FindIt tests failed!");
-static_assert(std::is_same<Find_t<int, double, int>, std::tuple<int>>::value,
+static_assert(std::is_same<Find_t<int, std::tuple<double, int>>,
+                           std::tuple<int>>::value,
         "sharp::FindIf tests failed!");
-static_assert(std::is_same<Find_t<int, int, double>,
+static_assert(std::is_same<Find_t<int, std::tuple<int, double>>,
         std::tuple<int, double>>::value, "sharp::FindIf tests failed!");
-static_assert(std::is_same<Find_t<int, double*, int>, std::tuple<int>>::value,
+static_assert(std::is_same<Find_t<int, std::tuple<double*, int>>,
+                           std::tuple<int>>::value,
         "sharp::FindIf tests failed!");
-static_assert(std::is_same<Find_t<int, double*, int, bool>,
+static_assert(std::is_same<Find_t<int, std::tuple<double*, int, bool>>,
                            std::tuple<int, bool>>::value,
         "sharp::FindIf tests failed!");
 
 /**
  * Tests for FindIfNot
  */
-static_assert(std::is_same<FindIfNot_t<std::is_reference>, std::tuple<>>::value,
+static_assert(std::is_same<FindIfNot_t<std::is_reference, std::tuple<>>,
+                           std::tuple<>>::value,
         "sharp::FindIfNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, int, int&>,
+static_assert(std::is_same<FindIfNot_t<std::is_reference,
+                                       std::tuple<int, int&>>,
         std::tuple<int, int&>>::value, "sharp::FindItNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, int*, int&>,
+static_assert(std::is_same<FindIfNot_t<std::is_reference,
+                                       std::tuple<int*, int&>>,
         std::tuple<int*, int&>>::value, "sharp::FindItNot tests failed!");
-static_assert(std::is_same<FindIfNot_t<std::is_reference, int&, double, int>,
+static_assert(std::is_same<FindIfNot_t<std::is_reference,
+                                       std::tuple<int&, double, int>>,
         std::tuple<double, int>>::value, "sharp::FindIfNot tests failed!");
 
 /**
@@ -1141,14 +1211,16 @@ static_assert(std::is_same<FindFirstOf_t<std::tuple<int, double*>,
 /**
  * Tests for AdjacentFind
  */
-static_assert(std::is_same<AdjacentFind_t<int, double, char>, std::tuple<>>
+static_assert(std::is_same<AdjacentFind_t<std::tuple<int, double, char>>,
+                           std::tuple<>>
         ::value, "sharp::AdjacentFind tests failed!");
-static_assert(std::is_same<AdjacentFind_t<int, int, char>,
+static_assert(std::is_same<AdjacentFind_t<std::tuple<int, int, char>>,
         std::tuple<int, int, char>>::value,
         "sharp::AdjacentFind tests failed!");
-static_assert(std::is_same<AdjacentFind_t<char, int, int>,
+static_assert(std::is_same<AdjacentFind_t<std::tuple<char, int, int>>,
         std::tuple<int, int>>::value, "sharp::AdjacentFind tests failed!");
-static_assert(std::is_same<AdjacentFind_t<int*, double&, int*>, std::tuple<>>
+static_assert(std::is_same<AdjacentFind_t<std::tuple<int*, double&, int*>>,
+                           std::tuple<>>
         ::value, "sharp::AdjacentFind tests failed!");
 
 /**
@@ -1199,17 +1271,21 @@ static_assert(std::is_same<Search_t<std::tuple<double, int, int, int, double>,
 /**
  * Tests for SearchN
  */
-static_assert(std::is_same<SearchN_t<int, 3, double, int, int, int, double>,
+static_assert(std::is_same<SearchN_t<int, 3,
+                                     std::tuple<double, int, int, int, double>>,
                            std::tuple<int, int, int, double>>::value,
         "sharp::SearchN tests failed");
-static_assert(std::is_same<SearchN_t<int, 1, double, int, int, int, double>,
+static_assert(std::is_same<SearchN_t<int, 1,
+                                     std::tuple<double, int, int, int, double>>,
                            std::tuple<int, int, int, double>>::value,
         "sharp::SearchN tests failed");
-static_assert(std::is_same<SearchN_t<double, 2, double, int, double, double,
-                                     int>,
+static_assert(std::is_same<SearchN_t<
+                                 double, 2,
+                                 std::tuple<double, int, double, double, int>>,
                            std::tuple<double, double, int>>::value,
         "sharp::SearchN tests failed");
-static_assert(std::is_same<SearchN_t<double, 3, double, int, int, int, double>,
+static_assert(std::is_same<SearchN_t<double, 3,
+                                     std::tuple<double, int, int, int, double>>,
                            std::tuple<>>::value,
         "sharp::SearchN tests failed");
 
@@ -1218,114 +1294,131 @@ static_assert(std::is_same<SearchN_t<double, 3, double, int, int, int, double>,
  */
 static_assert(std::is_same<TransformIf_t<std::is_reference,
                                          std::remove_reference,
-                                         int, double, int&, char>,
+                                         std::tuple<int, double, int&, char>>,
                            std::tuple<int, double, int, char>>::value,
         "sharp::TransformIf tests failed");
 static_assert(std::is_same<TransformIf_t<std::is_reference,
                                          std::remove_reference,
-                                         int*, double&, int&, char*>,
-                           std::tuple<int*, double, int, char*>>::value,
+                                         std::tuple<int*, double&, int&, char>>,
+                           std::tuple<int*, double, int, char>>::value,
         "sharp::TransformIf tests failed");
 static_assert(std::is_same<TransformIf_t<std::is_reference,
                                          std::remove_reference,
-                                         int>,
+                                         std::tuple<int>>,
                            std::tuple<int>>::value,
         "sharp::TransformIf tests failed");
 
 /**
  * Tests for Transform
  */
-static_assert(std::is_same<Transform_t<std::remove_reference, int&, double&>,
+static_assert(std::is_same<Transform_t<std::remove_reference,
+                                       std::tuple<int&, double&>>,
                            std::tuple<int, double>>::value,
         "sharp::Transform tests failed");
 static_assert(std::is_same<
-        Transform_t<std::remove_pointer, std::add_pointer_t<int&>, double&>,
+        Transform_t<std::remove_pointer,
+                    std::tuple<std::add_pointer_t<int&>, double&>>,
         std::tuple<int, double&>>::value,
         "sharp::Transform tests failed");
-static_assert(std::is_same<Transform_t<std::remove_reference>,
+static_assert(std::is_same<Transform_t<std::remove_reference, std::tuple<>>,
                            std::tuple<>>::value,
         "sharp::Transform tests failed");
-static_assert(std::is_same<Transform_t<std::decay, const int&, volatile char&>,
+static_assert(std::is_same<Transform_t<std::decay,
+                                       std::tuple<const int&, volatile char&>>,
                            std::tuple<int, char>>::value,
         "sharp::Transform tests failed");
 
 /**
  * Tests for RemoveIf
  */
-static_assert(std::is_same<RemoveIf_t<std::is_reference, int, int&, char>,
+static_assert(std::is_same<RemoveIf_t<std::is_reference,
+                                      std::tuple<int, int&, char>>,
                            std::tuple<int, char>>::value,
         "sharp::RemoveIf tests failed");
-static_assert(std::is_same<RemoveIf_t<std::is_pointer, int*, int*, char>,
+static_assert(std::is_same<RemoveIf_t<std::is_pointer,
+                                      std::tuple<int*, int*, char>>,
                            std::tuple<char>>::value,
         "sharp::RemoveIf tests failed");
-static_assert(std::is_same<RemoveIf_t<std::is_pointer, int, int, char>,
+static_assert(std::is_same<RemoveIf_t<std::is_pointer,
+                                      std::tuple<int, int, char>>,
                            std::tuple<int, int, char>>::value,
         "sharp::RemoveIf tests failed");
-static_assert(std::is_same<RemoveIf_t<std::is_pointer, int*>,
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, std::tuple<int*>>,
                            std::tuple<>>::value,
         "sharp::RemoveIf tests failed");
-static_assert(std::is_same<RemoveIf_t<std::is_pointer, int>,
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, std::tuple<int>>,
                            std::tuple<int>>::value,
         "sharp::RemoveIf tests failed");
-static_assert(std::is_same<RemoveIf_t<std::is_pointer>,
+static_assert(std::is_same<RemoveIf_t<std::is_pointer, std::tuple<>>,
                            std::tuple<>>::value,
         "sharp::RemoveIf tests failed");
 
 /**
  * Tests for reverse
  */
-static_assert(std::is_same<Reverse_t<int, char>, std::tuple<char, int>>::value,
+static_assert(std::is_same<Reverse_t<std::tuple<int, char>>,
+                           std::tuple<char, int>>::value,
         "sharp::Reverse tests failed!");
-static_assert(std::is_same<Reverse_t<>, std::tuple<>>::value,
+static_assert(std::is_same<Reverse_t<std::tuple<>>, std::tuple<>>::value,
         "sharp::Reverse tests failed!");
-static_assert(std::is_same<Reverse_t<int, char, bool, double>,
+static_assert(std::is_same<Reverse_t<std::tuple<int, char, bool, double>>,
                            std::tuple<double, bool, char, int>>::value,
         "sharp::Reverse tests failed!");
-static_assert(std::is_same<Reverse_t<int>, std::tuple<int>>::value,
+static_assert(std::is_same<Reverse_t<std::tuple<int>>, std::tuple<int>>::value,
         "sharp::Reverse tests failed!");
-static_assert(std::is_same<Reverse_t<char, int>, std::tuple<int, char>>::value,
+static_assert(std::is_same<Reverse_t<std::tuple<char, int>>,
+                           std::tuple<int, char>>::value,
         "sharp::Reverse tests failed!");
 
 /**
  * Tests for Unique
  */
-static_assert(std::is_same<Unique_t<int, double, int>, std::tuple<int, double>>
+static_assert(std::is_same<Unique_t<std::tuple<int, double, int>>,
+                           std::tuple<int, double>>
         ::value, "sharp::Unique tests failed");
-static_assert(std::is_same<Unique_t<int, int, double>, std::tuple<int, double>>
+static_assert(std::is_same<Unique_t<std::tuple<int, int, double>>,
+                           std::tuple<int, double>>
         ::value, "sharp::Unique tests failed");
-static_assert(std::is_same<Unique_t<double, int, int>, std::tuple<double, int>>
+static_assert(std::is_same<Unique_t<std::tuple<double, int, int>>,
+                           std::tuple<double, int>>
         ::value, "sharp::Unique tests failed");
 
 /**
  * Tests for Sort
  */
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint32_t, std::uint16_t, std::uint8_t>,
+                                  std::tuple<std::uint32_t, std::uint16_t,
+                                             std::uint8_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint8_t, std::uint16_t, std::uint32_t>,
+                                  std::tuple<std::uint8_t, std::uint16_t,
+                                             std::uint32_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint16_t, std::uint8_t, std::uint32_t>,
+                                  std::tuple<std::uint16_t, std::uint8_t,
+                                             std::uint32_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint16_t, std::uint8_t, std::uint32_t>,
+                                  std::tuple<std::uint16_t, std::uint8_t,
+                                             std::uint32_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint16_t, std::uint32_t, std::uint8_t>,
+                                  std::tuple<std::uint16_t, std::uint32_t,
+                                             std::uint8_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");
 static_assert(std::is_same<Sort_t<detail::test::LessThanSize,
-                                  std::uint8_t, std::uint32_t, std::uint16_t>,
+                                  std::tuple<std::uint8_t, std::uint32_t,
+                                             std::uint16_t>>,
                            std::tuple<std::uint8_t, std::uint16_t,
                                       std::uint32_t>>::value,
         "sharp::Sort tests failed");

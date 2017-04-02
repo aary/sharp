@@ -147,7 +147,7 @@ TEST(Traits, ForEach) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(double)};
     auto result_vec = decltype(vec){};
 
-    ForEach<int, double>{}([&](auto type_context) {
+    ForEach<std::tuple<int, double>>{}([&](auto type_context) {
         result_vec.push_back(typeid(typename decltype(type_context)::type));
     });
 
