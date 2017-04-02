@@ -24,7 +24,7 @@ namespace detail {
      * element is passed to the function passed
      */
     template <typename Context, typename TupleType, typename Func>
-    void execute_on_appropriate_tuple_element(Context context,
+    decltype(auto) execute_on_appropriate_tuple_element(Context context,
                                               TupleType& tup,
                                               Func&& func) {
         // get the type that the current iteration is over
@@ -43,7 +43,7 @@ namespace detail {
 
         // call the function on the storage, see header file for what the
         // storage is
-        std::forward<Func>(func)(std::get<index_type>(tup).storage);
+        return std::forward<Func>(func)(std::get<index_type>(tup).storage);
     }
 
 } // namespace detail
