@@ -39,6 +39,15 @@ namespace detail {
         using type = AlignedStorageWrapper<Type>;
     };
 
+    /**
+     * Template higher order comparator that does a less than comparison of
+     * the size of two types
+     */
+    template <typename One, typename Two>
+    struct LessThanTypes {
+        static constexpr const bool value = sizeof(One) < sizeof(Two);
+    };
+
 } // namespace detail
 
 /**
@@ -53,7 +62,8 @@ public:
      * that would be a violation of the invariant set by this class and would
      * cause the implementation to break
      */
-    static_assert(std::is_same<sharp::Unique_t<Types...>, std::tuple<Types...>>
+    static_assert(std::is_same<sharp::Unique_t<std::tuple<Types...>>,
+                               std::tuple<Types...>>
             ::value, "TypeSet cannot be used with a type list that has "
             "duplicate types");
 
@@ -71,14 +81,22 @@ public:
 private:
 
     /**
-     * The data item that is of type std::tuple, the Transform_t algorithm
-     * iterates through the type list provided as an argument and transforms
-     * it into a type list that contains the results of applying the
-     * transformation higher order function to each type in the input type
-     * list.  The result is returned as a std::tuple, reference
+     * The data item that is of type std::tuple,
+     *
+     * The Sort_t algorithm sorts the data types in the order that they should
+     * appear so as to take the least amount of space if placed contiguously in
+     * memory.  Reference sharp/Traits/detail/Algorithm.hpp for implementation
+     * details
+     *
+     * The Transform_t algorithm iterates through the type list provided as an
+     * argument and transforms it into a type list that contains the results
+     * of applying the transformation higher order function to each type in
+     * the input type list.  The result is returned as a std::tuple, reference
      * sharp/Traits/detail/Algorithm.hpp
      */
-    Transform_t<detail::AlignedStorageFor, Types...> aligned_tuple;
+    using SortedList = Sort_t<detail::LessThanTypes, std::tuple<Types...>>;
+    using TransformedList = Transform_t<detail::AlignedStorageFor, SortedList>;
+    TransformedList aligned_tuple;
     static_assert(IsInstantiationOf_v<decltype(aligned_tuple), std::tuple>,
             "sharp::Transform_t returned a non std::tuple type list");
 };
