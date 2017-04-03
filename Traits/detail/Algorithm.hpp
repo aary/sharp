@@ -710,6 +710,26 @@ struct Find {
 };
 
 /**
+ * @class FindIndex
+ *
+ * A trait that lets you find the location of the type passed in the type
+ * list, which is provided as the second argument.  If the type is in the list
+ * then the index of the first matching type in the list is returned,
+ * otherwise std::tuple_size<TypeList>::value is returned
+ */
+template <typename ToFind, typename TypeList>
+struct FindIndex {
+    static_assert(sharp::IsInstantiationOf_v<TypeList, std::tuple>,
+            "Type list algorithms only work with type lists in std::tuples");
+
+    // get the result tuple from sharp::Find, and then use that to get the
+    // index where the type is found in the type list
+    using FindResultTuple = typename Find<ToFind, TypeList>::type;
+    static constexpr const int value = std::tuple_size<TypeList>::value
+        - std::tuple_size<FindResultTuple>::value;
+};
+
+/**
  * @class FindIfNot
  *
  * A trait that lets you find the first type for which the predicate returned
@@ -933,6 +953,8 @@ constexpr const int MinValue_v = MinValue<integers...>::value;
 template <typename TypesContainerOne, typename TypesContainerTwo>
 constexpr const bool Equal_v = Equal<TypesContainerOne, TypesContainerTwo>
     ::value;
+template <typename ToFind, typename TypeList>
+constexpr const int FindIndex_v = FindIndex<ToFind, TypeList>::value;
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
@@ -1128,7 +1150,7 @@ static_assert(!Equal_v<std::tuple<int, double, char>, std::tuple<double>>,
  */
 static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<>>,
                            std::tuple<>>::value,
-        "sharp::FindIt tests failed!");
+        "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<int, int&>>,
         std::tuple<int&>>::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<FindIf_t<std::is_reference, std::tuple<int*, int&>>,
@@ -1143,18 +1165,29 @@ static_assert(std::is_same<FindIf_t<std::is_reference,
  * Tests for Find
  */
 static_assert(std::is_same<Find_t<int, std::tuple<>>, std::tuple<>>::value,
-        "sharp::FindIt tests failed!");
+        "sharp::Find tests failed!");
 static_assert(std::is_same<Find_t<int, std::tuple<double, int>>,
                            std::tuple<int>>::value,
-        "sharp::FindIf tests failed!");
+        "sharp::Find tests failed!");
 static_assert(std::is_same<Find_t<int, std::tuple<int, double>>,
         std::tuple<int, double>>::value, "sharp::FindIf tests failed!");
 static_assert(std::is_same<Find_t<int, std::tuple<double*, int>>,
                            std::tuple<int>>::value,
-        "sharp::FindIf tests failed!");
+        "sharp::Find tests failed!");
 static_assert(std::is_same<Find_t<int, std::tuple<double*, int, bool>>,
                            std::tuple<int, bool>>::value,
+        "sharp::Find tests failed!");
+
+static_assert(FindIndex_v<int, std::tuple<>> == 0,
+        "sharp::FindIndex tests failed!");
+static_assert(FindIndex_v<int, std::tuple<double, int>> == 1,
+        "sharp::FindIndex tests failed!");
+static_assert(FindIndex_v<int, std::tuple<int, double>> == 0,
         "sharp::FindIf tests failed!");
+static_assert(FindIndex_v<int, std::tuple<double*, int>> == 1,
+        "sharp::FindIndex tests failed!");
+static_assert(FindIndex_v<int, std::tuple<double*, int, bool>> == 1,
+        "sharp::FindIndex tests failed!");
 
 /**
  * Tests for FindIfNot
