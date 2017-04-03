@@ -67,6 +67,18 @@ public:
      */
     ~TypeSet();
 
+    /**
+     * Make friends with all the getter functions
+     */
+    template <typename Type, typename... T>
+    friend Type& get(sharp::TypeSet<T...>&);
+    template <typename Type, typename... T>
+    friend const Type& get(const sharp::TypeSet<T...>&);
+    template <typename Type, typename... T>
+    friend Type&& get(sharp::TypeSet<T...>&&);
+    template <typename Type, typename... T>
+    friend const Type&& get(const sharp::TypeSet<T...>&&);
+
 private:
 
     /**
@@ -85,9 +97,9 @@ private:
      */
     using SortedList = Sort_t<detail::LessThanTypes, std::tuple<Types...>>;
     using TransformedList = Transform_t<detail::AlignedStorageFor, SortedList>;
-    TransformedList aligned_tuple;
-    static_assert(IsInstantiationOf_v<decltype(aligned_tuple), std::tuple>,
+    static_assert(IsInstantiationOf_v<TransformedList, std::tuple>,
             "sharp::Transform_t returned a non std::tuple type list");
+    TransformedList aligned_tuple;
 };
 
 /**

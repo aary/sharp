@@ -54,8 +54,8 @@ TypeSet<Types...>::TypeSet() {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
         // typedef) passed
-        execute_on_appropriate_tuple_element(context, this->aligned_tuple,
-        [](auto& storage) {
+        detail::execute_on_appropriate_tuple_element(context,
+                this->aligned_tuple, [&](auto& storage) {
             new (&storage) typename decltype(context)::type{};
         });
     });
@@ -67,11 +67,25 @@ TypeSet<Types...>::~TypeSet() {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
         // typedef) passed
-        execute_on_appropriate_tuple_element(context, this->aligned_tuple,
-        [](auto& storage) {
+        detail::execute_on_appropriate_tuple_element(context,
+                this->aligned_tuple, [&](auto& storage) {
             using Type = typename decltype(context)::type;
             reinterpret_cast<Type*>(&storage)->~Type();
         });
+    });
+}
+
+template <typename Type, typename... Types>
+Type& get(TypeSet<Types...>& type_set) {
+    static_assert(!std::is_same<Find_t<Type, std::tuple<Types...>>,
+                               std::tuple<>>::value,
+        "The type getting from should exist in the TypeSet");
+
+    auto context = sharp::Identity<Type>{};
+    return detail::execute_on_appropriate_tuple_element(context,
+            type_set.aligned_tuple, [&](auto& storage) {
+        using type = typename decltype(context)::type;
+        return reinterpret_cast<type*>(&storage);
     });
 }
 
