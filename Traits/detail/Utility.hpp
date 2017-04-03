@@ -110,7 +110,7 @@ namespace detail {
         using type = std::tuple<>;
     };
 
-}
+} // namespace detail
 
 /**
  * @class Concatenate
@@ -173,6 +173,19 @@ struct Erase {
  */
 template <typename TupleType, typename Func>
 Func for_each_tuple(TupleType&& tup, Func func);
+
+/**
+ * @class Identity
+ *
+ * An empty class with nothing but a member typedef, this is used to simplify
+ * passing type parameters around to lambdas, objects of this type can be
+ * passed to polymorphic lambdas as parameters and that can be used to deduce
+ * the types passed to the lambda
+ */
+template <typename Type>
+struct Identity {
+    using type = Type;
+};
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in

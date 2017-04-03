@@ -71,14 +71,9 @@ namespace detail {
     struct ForEachImpl;
     template <typename Head, typename... Tail>
     struct ForEachImpl<std::tuple<Head, Tail...>> {
-        template <typename Type>
-        struct TypeHolder {
-            using type = Type;
-        };
-
         template <typename Func>
         void operator()(Func& func) {
-            func(TypeHolder<Head>{});
+            func(sharp::Identity<Head>{});
             ForEachImpl<std::tuple<Tail...>>{}(func);
         };
     };
@@ -86,7 +81,7 @@ namespace detail {
     struct ForEachImpl<std::tuple<Head>> {
         template <typename Func>
         void operator()(Func func) {
-            func(ForEachImpl<std::tuple<int, double>>::TypeHolder<Head>{});
+            func(sharp::Identity<Head>{});
         }
     };
 
