@@ -127,7 +127,7 @@ decltype(auto) get(TypeSetType&& tup);
  * type to the function
  */
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_into_type_set(Args&&... args);
+TypeSet<Types...> collect_args(Args&&... args);
 
 } // namespace sharp
 
