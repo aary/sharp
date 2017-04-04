@@ -70,14 +70,8 @@ public:
     /**
      * Make friends with all the getter functions
      */
-    template <typename Type, typename... T>
-    friend Type& get(sharp::TypeSet<T...>&);
-    template <typename Type, typename... T>
-    friend const Type& get(const sharp::TypeSet<T...>&);
-    template <typename Type, typename... T>
-    friend Type&& get(sharp::TypeSet<T...>&&);
-    template <typename Type, typename... T>
-    friend const Type&& get(const sharp::TypeSet<T...>&&);
+    template <typename Type, typename TypeSetType>
+    friend decltype(auto) get(TypeSetType&& tup);
 
 private:
 
@@ -118,14 +112,8 @@ private:
  * template parameter, the member function would have to be prepended with the
  * "template" keyword.  Which is a nuisance.
  */
-template <typename Type, typename... Types>
-Type& get(sharp::TypeSet<Types...>&);
-template <typename Type, typename... Types>
-const Type& get(const sharp::TypeSet<Types...>&);
-template <typename Type, typename... Types>
-Type&& get(sharp::TypeSet<Types...>&&);
-template <typename Type, typename... Types>
-const Type&& get(const sharp::TypeSet<Types...>&&);
+template <typename Type, typename TypeSetType>
+decltype(auto) get(TypeSetType&& tup);
 
 /**
  * @function collect_types Collects the arguments given into the type list

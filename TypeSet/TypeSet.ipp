@@ -112,62 +112,21 @@ TypeSet<Types...>::~TypeSet() {
     });
 }
 
-template <typename Type, typename... Types>
-Type& get(TypeSet<Types...>& type_set) {
-    static_assert(!std::is_same<Find_t<Type, std::tuple<Types...>>,
-                               std::tuple<>>::value,
-        "The type getting from should exist in the TypeSet");
+template <typename Type, typename TypeSetType>
+decltype(auto) get(TypeSetType&& type_set) {
 
+    // make the type context that is going to be used to query the internal
+    // type set for the appropriate type and then the function passed to the
+    // query function execute_on_appropriate_tuple_element is going to be
+    // forwarded the internal data member of the tuple
     auto context = sharp::Identity<Type>{};
     return detail::execute_on_appropriate_tuple_element(context,
-            type_set.aligned_tuple, [&](auto& storage) {
-        using type = typename decltype(context)::type;
-        return reinterpret_cast<type*>(&storage);
+            std::forward<TypeSetType>(type_set).aligned_tuple,
+            [&](auto&& storage) -> decltype(auto) {
+        static_assert(std::is_same<std::decay_t<decltype(storage)>,
+            typename decltype(context)::type>::value, "Type mismatch");
+        return std::forward<decltype(storage)>(storage);
     });
 }
-
-template <typename Type, typename... Types>
-const Type& get(const sharp::TypeSet<Types...>& type_set) {
-    static_assert(!std::is_same<Find_t<Type, std::tuple<Types...>>,
-                               std::tuple<>>::value,
-        "The type getting from should exist in the TypeSet");
-
-    auto context = sharp::Identity<Type>{};
-    return detail::execute_on_appropriate_tuple_element(context,
-            type_set.aligned_tuple, [&](auto& storage) {
-        using type = typename decltype(context)::type;
-        return reinterpret_cast<type*>(&storage);
-    });
-}
-
-template <typename Type, typename... Types>
-Type&& get(sharp::TypeSet<Types...>&& type_set) {
-    static_assert(!std::is_same<Find_t<Type, std::tuple<Types...>>,
-                               std::tuple<>>::value,
-        "The type getting from should exist in the TypeSet");
-
-    auto context = sharp::Identity<Type>{};
-    return detail::execute_on_appropriate_tuple_element(context,
-            type_set.aligned_tuple, [&](auto& storage) {
-        using type = typename decltype(context)::type;
-        return reinterpret_cast<type*>(&storage);
-    });
-}
-
-template <typename Type, typename... Types>
-const Type&& get(const sharp::TypeSet<Types...>&& type_set) {
-    static_assert(!std::is_same<Find_t<Type, std::tuple<Types...>>,
-                               std::tuple<>>::value,
-        "The type getting from should exist in the TypeSet");
-
-     auto context = sharp::Identity<Type>{};
-     return detail::execute_on_appropriate_tuple_element(context,
-            type_set.aligned_tuple, [&](auto& storage) {
-        using type = typename decltype(context)::type;
-        return reinterpret_cast<type*>(&storage);
-     });
- }
-
-
 
 } // namespace sharp
