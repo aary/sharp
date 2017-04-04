@@ -18,30 +18,61 @@ namespace detail {
      * The ForEach trait calls a function with a context variable as the
      * argument.  This context variable stores the type of the thing the
      * iteration is on currently as a static member typedef, so it can be
-     * fetched with (typename decltype(context)::type), after that the
-     * location of this type is inspected in the tuple type and then
-     * std::get<> is called with the appropriate index in the tuple and that
-     * element is passed to the function passed
+     * fetched with (typename decltype(context)::type).  This is done instead
+     * of making the type a template parameter because this approach scales
+     * without hassle to lambdas as well (which can only deduce type contexts)
+     *
+     * After that the location of this type is inspected in the tuple type and
+     * then std::get<> is called with the appropriate index in the tuple and
+     * that element is passed to the function passed
+     *
+     * This function matches the reference type of the tuple when passing the
+     * argument to the functor passed.  For example if the tuple is an rvalue
+     * (which would correspond tup being an rvalue reference, either to an
+     * xvalue or to a prvalue) then the parameter if passed to func as if
+     * moved by std::move().  Otherwise if tup is an lvalue referencem then
+     * the object within tup is passed as an lvalue to the functor
      */
     template <typename Context, typename TupleType, typename Func>
     decltype(auto) execute_on_appropriate_tuple_element(Context context,
-                                                        TupleType& tup,
+                                                        TupleType&& tup,
                                                         Func&& func) {
         // get the type that the current iteration is over
-        using Type = typename decltype(context)::type;
+        using Type = std::decay_t<typename decltype(context)::type>;
         using TransformedType = typename AlignedStorageFor<Type>::type;
 
         // get the type of the tuple stored internally
-        using Tuple = std::decay_t<decltype(tup)>;
+        using Tuple = std::decay_t<TupleType>;
 
         // then get the index of that type in the current tuple
         constexpr auto index_type = sharp::FindIndex_v<TransformedType, Tuple>;
         static_assert(index_type < std::tuple_size<Tuple>::value,
             "index_type out of bounds");
 
-        // call the function on the storage, see header file for what the
-        // storage is
-        return std::forward<Func>(func)(std::get<index_type>(tup));
+        // get the storage, this will be an lvalue reference
+        // return std::forward<Func>(func)(
+        auto& storage = *reinterpret_cast<Type*>(&std::get<index_type>(tup));
+
+        // get the type that you need to static_cast the object to, this would
+        // be either an rvalue reference type or an lvalue reference type,
+        // following the template deduction rules, if a template parameter is
+        // a forwarding reference, then its type will be & and if it is an
+        // rvalue reference then its type will be &&, therefore TupleType can
+        // either be qualified with a single & meaning that tup is an lvalue
+        // reference or it can be qualified with nothing meaning that it is an
+        // rvalue reference.  Therefore if TupleType is an lvalue reference
+        // then cast the type to an lvalue reference
+        using TypeToCastTo = std::conditional_t<
+            std::is_lvalue_reference<TupleType>::value, Type&, Type&&>;
+
+        // then conditionally cast the storage to the right type, and store
+        // that in a forwarding reference, to forward in the next line
+        auto&& storage_qualified = static_cast<TypeToCastTo>(storage);
+
+        // call the functor after forwarding it to create an instance and then
+        // pass the parameter after forwarding it into the function
+        return std::forward<Func>(func)(
+                std::forward<decltype(storage_qualified)>(storage_qualified));
     }
 
 } // namespace detail
@@ -53,7 +84,11 @@ TypeSet<Types...>::TypeSet() {
         // item will match the type context (which contains the type as a
         // typedef) passed
         detail::execute_on_appropriate_tuple_element(context,
-                this->aligned_tuple, [&](auto& storage) {
+                this->aligned_tuple, [&](auto&& storage) {
+            static_assert(std::is_lvalue_reference<decltype(storage)>::value,
+                "Wrong reference qualifiers were passed");
+            static_assert(std::is_same<std::decay_t<decltype(storage)>,
+                typename decltype(context)::type>::value, "Type mismatch");
             new (&storage) typename decltype(context)::type{};
         });
     });
@@ -68,7 +103,11 @@ TypeSet<Types...>::~TypeSet() {
         detail::execute_on_appropriate_tuple_element(context,
                 this->aligned_tuple, [&](auto& storage) {
             using Type = typename decltype(context)::type;
-            reinterpret_cast<Type*>(&storage)->~Type();
+            static_assert(std::is_lvalue_reference<decltype(storage)>::value,
+                "Wrong reference qualifiers were passed");
+            static_assert(std::is_same<std::decay_t<decltype(storage)>,
+                typename decltype(context)::type>::value, "Type mismatch");
+            (&storage)->~Type();
         });
     });
 }
@@ -121,12 +160,14 @@ const Type&& get(const sharp::TypeSet<Types...>&& type_set) {
                                std::tuple<>>::value,
         "The type getting from should exist in the TypeSet");
 
-    auto context = sharp::Identity<Type>{};
-    return detail::execute_on_appropriate_tuple_element(context,
+     auto context = sharp::Identity<Type>{};
+     return detail::execute_on_appropriate_tuple_element(context,
             type_set.aligned_tuple, [&](auto& storage) {
         using type = typename decltype(context)::type;
         return reinterpret_cast<type*>(&storage);
-    });
-}
+     });
+ }
+
+
 
 } // namespace sharp
