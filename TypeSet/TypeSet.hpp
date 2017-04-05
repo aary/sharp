@@ -37,6 +37,20 @@ namespace detail {
         static constexpr const bool value = sizeof(One) < sizeof(Two);
     };
 
+    /**
+     * Assertions documenting the invariants of the type list that can be used
+     * to instantiate a type list.
+     *
+     * This checks to make sure tha tthe type list does not contain any
+     * duplicate types and also makes sure ha tthe type list does not contain
+     * any references
+     */
+    template <typename... Types>
+    constexpr bool type_list_check = std::is_same<
+        sharp::Unique_t<std::tuple<Types...>>,
+        std::tuple<Types...>>::value
+            && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>;
+
 } // namespace detail
 
 /**
@@ -51,12 +65,7 @@ public:
      * that would be a violation of the invariant set by this class and would
      * cause the implementation to break
      */
-    static_assert(std::is_same<sharp::Unique_t<std::tuple<Types...>>,
-                               std::tuple<Types...>>
-            ::value, "TypeSet cannot be used with a type list that has "
-            "duplicate types");
-    static_assert(sharp::AnyOf_v<std::is_reference, std::tuple<types...>>,
-            "TypeSet cannot contain references");
+    static_assert(detail::type_list_check<Types...>, "Type list malformed");
 
     /**
      * Default constructs the arguments provided to the type set into the
