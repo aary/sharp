@@ -128,3 +128,41 @@ TEST(TypeSet, get_right_type) {
     EXPECT_EQ(TestConstruct<double>::number_move_assigns, 1);
     EXPECT_EQ(TestConstruct<double>::number_destructs, 2);
 }
+
+TEST(TypeSet, get_lvalue_forward) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> one;
+    static_assert(std::is_same<decltype(sharp::get<TestConstruct<int>>(one)),
+                               TestConstruct<int>&>::value, "Failed!");
+    static_assert(std::is_same<decltype(sharp::get<TestConstruct<double>>(one)),
+                               TestConstruct<double>&>::value, "Failed!");
+
+    const TypeSet<TestConstruct<int>, TestConstruct<double>> two;
+    static_assert(std::is_same<decltype(sharp::get<TestConstruct<int>>(two)),
+                               const TestConstruct<int>&>::value, "Failed!");
+    static_assert(std::is_same<decltype(sharp::get<TestConstruct<double>>(two)),
+                             const TestConstruct<double>&>::value, "Failed!");
+}
+
+TEST(TypeSet, get_rvalue_forward) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> one;
+    static_assert(std::is_same<
+            decltype(sharp::get<TestConstruct<int>>(std::move(one))),
+            TestConstruct<int>&&>::value, "Failed!");
+    static_assert(std::is_same<
+            decltype(sharp::get<TestConstruct<double>>(std::move(one))),
+            TestConstruct<double>&&>::value, "Failed!");
+
+    const TypeSet<TestConstruct<int>, TestConstruct<double>> two;
+    static_assert(std::is_same<
+            decltype(sharp::get<TestConstruct<int>>(std::move(two))),
+            const TestConstruct<int>&&>::value, "Failed!");
+    static_assert(std::is_same<
+            decltype(sharp::get<TestConstruct<double>>(std::move(two))),
+            const TestConstruct<double>&&>::value, "Failed!");
+}
