@@ -11,6 +11,44 @@ namespace sharp {
 namespace detail {
 
     /**
+     * Returns a reference to the instance of the right type as represented by
+     * the context.  This reference is an lvalue reference, this function does
+     * not forward the return type.  That should be done in the
+     * execute_on_appropriate_tuple_element function
+     *
+     * If you strip out the template metaprogramming in this function.  All it
+     * does is reinterpret_cast the aligned storage in the tuple to the type
+     * passed in the context
+     */
+    template <typename Context, typename TupleType>
+    auto& get_reference(Context, TupleType& tup) {
+
+        // get the type that the current iteration is over, match constness
+        using TypeWithoutConst = std::decay_t<typename Context::type>;
+        using Type = std::conditional_t<
+            std::is_const<TupleType>::value,
+            std::add_const_t<TypeWithoutConst>,
+            TypeWithoutConst>;
+
+        // get the type that the tuple would be of, this would not include
+        // const qualifiers if the original type is not const so don't bother
+        // with the type that has the const added to match the constness of
+        // the reference to the tuple
+        using TransformedType = typename AlignedStorageFor<TypeWithoutConst>
+            ::type;
+
+        // get the type of the tuple stored internally
+        using Tuple = std::decay_t<TupleType>;
+
+        // then get the index of that type in the current tuple
+        constexpr auto index_type = sharp::FindIndex_v<TransformedType, Tuple>;
+        static_assert(index_type < std::tuple_size<Tuple>::value,
+            "index_type out of bounds");
+
+        return *reinterpret_cast<Type*>(&std::get<index_type>(tup));
+    }
+
+    /**
      * Executes the passed in function on the appropriate element in the
      * tuple.  This is determined by the context passed to the function in
      * combination with the type of the tuple.
@@ -37,21 +75,8 @@ namespace detail {
     decltype(auto) execute_on_appropriate_tuple_element(Context context,
                                                         TupleType&& tup,
                                                         Func&& func) {
-        // get the type that the current iteration is over
-        using Type = std::decay_t<typename decltype(context)::type>;
-        using TransformedType = typename AlignedStorageFor<Type>::type;
-
-        // get the type of the tuple stored internally
-        using Tuple = std::decay_t<TupleType>;
-
-        // then get the index of that type in the current tuple
-        constexpr auto index_type = sharp::FindIndex_v<TransformedType, Tuple>;
-        static_assert(index_type < std::tuple_size<Tuple>::value,
-            "index_type out of bounds");
-
         // get the storage, this will be an lvalue reference
-        // return std::forward<Func>(func)(
-        auto& storage = *reinterpret_cast<Type*>(&std::get<index_type>(tup));
+        auto& storage = get_reference(context, tup);
 
         // get the type that you need to static_cast the object to, this would
         // be either an rvalue reference type or an lvalue reference type,
@@ -62,8 +87,8 @@ namespace detail {
         // reference or it can be qualified with nothing meaning that it is an
         // rvalue reference.  Therefore if TupleType is an lvalue reference
         // then cast the type to an lvalue reference
-        using TypeToCastTo = std::conditional_t<
-            std::is_lvalue_reference<TupleType>::value, Type&, Type&&>;
+        using Type = std::decay_t<typename Context::type>;
+        using TypeToCastTo = MatchForwardingReference_t<TupleType&&, Type>;
 
         // then conditionally cast the storage to the right type, and store
         // that in a forwarding reference, to forward in the next line
@@ -113,7 +138,7 @@ TypeSet<Types...>::~TypeSet() {
 }
 
 template <typename Type, typename TypeSetType>
-decltype(auto) get(TypeSetType&& type_set) {
+MatchForwardingReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
 
     // make the type context that is going to be used to query the internal
     // type set for the appropriate type and then the function passed to the
