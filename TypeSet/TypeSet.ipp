@@ -176,4 +176,11 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
     });
 }
 
+template <typename... Types>
+template <typename Type>
+constexpr bool TypeSet<Types...>::exists() {
+    return !std::is_same<sharp::Find<Type, std::tuple<Types...>>,
+                         std::tuple<>>::value;
+}
+
 } // namespace sharp

@@ -77,6 +77,12 @@ public:
     ~TypeSet();
 
     /**
+     * Query the type set to see if a type is in the type set or not
+     */
+    template <typename Type>
+    static constexpr bool exists();
+
+    /**
      * Make friends with all the getter functions
      *
      * TODO MatchReference_t here because of CLANG BUG, I would use
