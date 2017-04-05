@@ -173,3 +173,31 @@ TEST(TypeSet, type_exists) {
     EXPECT_TRUE(decltype(ts)::exists<double>());
     EXPECT_TRUE(decltype(ts)::exists<float>());
 }
+
+TEST(TypeSet, test_collect_args_explicit_types) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    // try with another function
+    auto func = [](auto&&... args) {
+        auto args_set = sharp::collect_args<int, double>(
+                std::forward<decltype(args)>(args)...);
+        static_assert(std::is_same<decltype(args_set),
+                                   sharp::TypeSet<int, double>>::value, "Bad!");
+    };
+    func(1, 1.2);
+
+    sharp::collect_args<TestConstruct<int>, TestConstruct<double>>(
+            TestConstruct<int>{}, TestConstruct<double>{});
+
+    auto vec_expected_move_constructs = std::vector<type_index>{typeid(int),
+                                                                typeid(double)};
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<int>::number_destructs, 2);
+    EXPECT_EQ(TestConstruct<int>::number_move_constructs, 1);
+    EXPECT_TRUE(std::equal(order_move_constructs.begin(),
+            order_move_constructs.end(), vec_expected_move_constructs.begin()));
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<double>::number_destructs, 2);
+    EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
+}
