@@ -21,7 +21,7 @@ namespace detail {
      * passed in the context
      */
     template <typename Context, typename TupleType>
-    MatchReference_t<TupleType&, typename Context::type>
+    sharp::MatchReference_t<TupleType&, typename Context::type>
     get_reference(Context, TupleType& tup) {
 
         // get the type that the current iteration is over, match constness
@@ -91,7 +91,7 @@ namespace detail {
         using Type = std::decay_t<typename Context::type>;
         static_assert(std::is_same<Type, std::decay_t<decltype(storage)>>
                 ::value, "Type mismatch in internal implementation");
-        using TypeToCastTo = MatchReference_t<TupleType&&, Type>;
+        using TypeToCastTo = sharp::MatchReference_t<TupleType&&, Type>;
 
         // then conditionally cast the storage to the right type, and store
         // that in a forwarding reference, to forward in the next line
@@ -107,12 +107,12 @@ namespace detail {
 
 template <typename... Types>
 TypeSet<Types...>::TypeSet() {
-    sharp::ForEach<std::tuple<Types...>>{}([&](auto context) mutable {
+    sharp::ForEach<std::tuple<Types...>>{}([this](auto context) {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
         // typedef) passed
         detail::execute_on_appropriate_tuple_element(context,
-                this->aligned_tuple, [&](auto&& storage) {
+                this->aligned_tuple, [context](auto&& storage) {
             static_assert(std::is_lvalue_reference<decltype(storage)>::value,
                 "Wrong reference qualifiers were passed");
             static_assert(std::is_same<std::decay_t<decltype(storage)>,
@@ -123,13 +123,35 @@ TypeSet<Types...>::TypeSet() {
 }
 
 template <typename... Types>
+TypeSet<Types...>::TypeSet(const TypeSet& other) {
+    sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
+        // execute a copy operation on the other type
+        using Type = typename decltype(context)::type;
+        auto& other_element = sharp::get<Type>(other.aligned_tuple);
+        auto& this_element = sharp::get<Type>(this->aligned_tuple);
+        new (&this_element) Type{other_element};
+    });
+}
+
+template <typename... Types>
+TypeSet<Types...>::TypeSet(TypeSet&& other) {
+    sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
+        // execute a copy operation on the other type
+        using Type = typename decltype(context)::type;
+        auto&& other_element = sharp::get<Type>(std::move(other).aligned_tuple);
+        auto& this_element = sharp::get<Type>(this->aligned_tuple);
+        new (&this_element) Type{std::move(other_element)};
+    });
+}
+
+template <typename... Types>
 TypeSet<Types...>::~TypeSet() {
-    sharp::ForEach<std::tuple<Types...>>{}([&](auto context) mutable {
+    sharp::ForEach<std::tuple<Types...>>{}([this](auto context) {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
         // typedef) passed
         detail::execute_on_appropriate_tuple_element(context,
-                this->aligned_tuple, [&](auto& storage) {
+                this->aligned_tuple, [context](auto& storage) {
             using Type = typename decltype(context)::type;
             static_assert(std::is_lvalue_reference<decltype(storage)>::value,
                 "Wrong reference qualifiers were passed");
@@ -141,7 +163,7 @@ TypeSet<Types...>::~TypeSet() {
 }
 
 template <typename Type, typename TypeSetType>
-MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
+sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
 
     // make the type context that is going to be used to query the internal
     // type set for the appropriate type and then the function passed to the
@@ -150,7 +172,7 @@ MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
     auto context = sharp::Identity<Type>{};
     return detail::execute_on_appropriate_tuple_element(context,
             std::forward<TypeSetType>(type_set).aligned_tuple,
-            [&](auto&& storage) -> decltype(auto) {
+            [context](auto&& storage) -> decltype(auto) {
         static_assert(std::is_same<std::decay_t<decltype(storage)>,
             typename decltype(context)::type>::value, "Type mismatch");
         return std::forward<decltype(storage)>(storage);
