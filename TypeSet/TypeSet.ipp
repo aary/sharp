@@ -25,18 +25,15 @@ namespace detail {
     get_reference(Context, TupleType& tup) {
 
         // get the type that the current iteration is over, match constness
-        using TypeWithoutConst = typename Context::type;
-        using Type = std::conditional_t<
-            std::is_const<TupleType>::value,
-            std::add_const_t<TypeWithoutConst>,
-            TypeWithoutConst>;
+        using Type = typename Context::type;
+        using TypeMatched = std::conditional_t<
+            std::is_const<TupleType>::value, std::add_const_t<Type>, Type>;
 
         // get the type that the tuple would be of, this would not include
         // const qualifiers if the original type is not const so don't bother
         // with the type that has the const added to match the constness of
         // the reference to the tuple
-        using TransformedType = typename AlignedStorageFor<TypeWithoutConst>
-            ::type;
+        using TransformedType = typename AlignedStorageFor<Type>::type;
 
         // get the type of the tuple stored internally
         using Tuple = std::decay_t<TupleType>;
@@ -46,7 +43,7 @@ namespace detail {
         static_assert(index_type < std::tuple_size<Tuple>::value,
             "index_type out of bounds");
 
-        return *reinterpret_cast<Type*>(&std::get<index_type>(tup));
+        return *reinterpret_cast<TypeMatched*>(&std::get<index_type>(tup));
     }
 
     /**
