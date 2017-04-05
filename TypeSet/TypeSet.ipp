@@ -21,7 +21,8 @@ namespace detail {
      * passed in the context
      */
     template <typename Context, typename TupleType>
-    auto& get_reference(Context, TupleType& tup) {
+    MatchReference_t<TupleType&, typename Context::type>
+    get_reference(Context, TupleType& tup) {
 
         // get the type that the current iteration is over, match constness
         using TypeWithoutConst = std::decay_t<typename Context::type>;
@@ -88,6 +89,8 @@ namespace detail {
         // rvalue reference.  Therefore if TupleType is an lvalue reference
         // then cast the type to an lvalue reference
         using Type = std::decay_t<typename Context::type>;
+        static_assert(std::is_same<Type, std::decay_t<decltype(storage)>>
+                ::value, "Type mismatch in internal implementation");
         using TypeToCastTo = MatchReference_t<TupleType&&, Type>;
 
         // then conditionally cast the storage to the right type, and store
