@@ -242,4 +242,14 @@ class preferred_dispatch : public preferred_dispatch<priority - 1> {
 template <>
 class preferred_dispatch<0> {};
 
+/**
+ * @class empty
+ *
+ * This tag is used to disambiguate constructors or factory functions that
+ * create an empty instance of a type.  This empty type is then used by a non
+ * constructor function to give state to the instance.  This is useful in
+ * cases like factory functions, etc
+ */
+class empty : public GeneralizedTag<empty> {};
+
 } // namespace sharp
