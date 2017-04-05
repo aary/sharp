@@ -110,6 +110,28 @@ namespace detail {
         using type = std::tuple<>;
     };
 
+    /**
+     * Implementation for the MatchForwardingReference trait
+     */
+    template <typename TypeToMatch, typename Type>
+    struct MatchForwardingReferenceImpl;
+    template <typename TypeToMatch, typename Type>
+    struct MatchForwardingReferenceImpl<TypeToMatch&, Type> {
+        using type = Type&;
+    };
+    template <typename TypeToMatch, typename Type>
+    struct MatchForwardingReferenceImpl<const TypeToMatch&, Type> {
+        using type = const Type&;
+    };
+    template <typename TypeToMatch, typename Type>
+    struct MatchForwardingReferenceImpl<TypeToMatch&&, Type> {
+        using type = Type&&;
+    };
+    template <typename TypeToMatch, typename Type>
+    struct MatchForwardingReferenceImpl<const TypeToMatch&&, Type> {
+        using type = const Type&&;
+    };
+
 } // namespace detail
 
 /**
@@ -188,6 +210,22 @@ struct Identity {
 };
 
 /**
+ * @class MatchForwardingReference
+ *
+ * This class can be used to match the reference-ness of a forwarding
+ * reference on another type.  For example if the tuple is && and you want to
+ * return the tuple's member, you would want the && to match in std::get()'s
+ * return value, as a result, this has slightly different usage semantics as
+ * compared to std::forward.  For safety.  You should only call this with
+ * with the full type of the forwarding reference, and include the two &&
+ */
+template <typename TypeToMatch, typename Type>
+struct MatchForwardingReference {
+    using type = typename detail::MatchForwardingReferenceImpl<TypeToMatch,
+                                                               Type>::type;
+};
+
+/**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
@@ -200,6 +238,9 @@ template <typename TypesContainer>
 using PopFront_t = typename PopFront<TypesContainer>::type;
 template <int to_erase, typename... Types>
 using Erase_t = typename Erase<to_erase, Types...>::type;
+template <typename TypeToMatch, typename Type>
+using MatchForwardingReference_t = typename MatchForwardingReference<
+    TypeToMatch, Type>::type;
 
 /**
  * Tests for Concatenate
@@ -255,6 +296,19 @@ static_assert(std::is_same<ConcatenateN_t<int, 1>,
                            std::tuple<int>>::value,
     "sharp::detail::RepeatN tests failed");
 
+/**
+ * Tests for MatchForwardingReference
+ */
+static_assert(std::is_same<MatchForwardingReference_t<int&, double>, double&>
+        ::value, "sharp::MatchForwardingReference tests failed");
+static_assert(std::is_same<MatchForwardingReference_t<const int&, double>,
+                           const double&>
+        ::value, "sharp::MatchForwardingReference tests failed");
+static_assert(std::is_same<MatchForwardingReference_t<int&&, double>, double&&>
+        ::value, "sharp::MatchForwardingReference tests failed");
+static_assert(std::is_same<MatchForwardingReference_t<const int&&, double>,
+                           const double&&>
+        ::value, "sharp::MatchForwardingReference tests failed");
 
 
 } // namespace sharp
