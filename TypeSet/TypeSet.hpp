@@ -107,9 +107,11 @@ private:
 };
 
 /**
- * @function get returns the instance of the given type from the TypeSet, this
- * function is similar in functionality to std::get<> that operates on a
- * std::tuple and returns a type from that tuple
+ * @function get
+ *
+ * returns the instance of the given type from the TypeSet, this function is
+ * similar in functionality to std::get<> that operates on a std::tuple and
+ * returns a type from that tuple
  *
  * This function only participates in overload resolution if the type passed
  * to the function is an instantiation of type TypeSet
@@ -126,10 +128,12 @@ template <typename Type, typename TypeSetType>
 sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
 
 /**
- * @function collect_types Collects the arguments given into the type list
- * provided to the function, if there are missing arguments in the type list
- * provided as arguments they are default constructed into the type set.  The
- * others are moved into the type set
+ * @function collect_types
+ *
+ * Collects the arguments given into the type list provided to the function,
+ * if there are missing arguments in the type list provided as arguments they
+ * are default constructed into the type set.  The others are moved into the
+ * type set
  *
  * A consequence of the above description is that the objects used with the
  * type set must be move constructible and are required to be default
