@@ -88,7 +88,7 @@ namespace detail {
         // rvalue reference.  Therefore if TupleType is an lvalue reference
         // then cast the type to an lvalue reference
         using Type = std::decay_t<typename Context::type>;
-        using TypeToCastTo = MatchForwardingReference_t<TupleType&&, Type>;
+        using TypeToCastTo = MatchReference_t<TupleType&&, Type>;
 
         // then conditionally cast the storage to the right type, and store
         // that in a forwarding reference, to forward in the next line
@@ -138,7 +138,7 @@ TypeSet<Types...>::~TypeSet() {
 }
 
 template <typename Type, typename TypeSetType>
-MatchForwardingReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
+MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set) {
 
     // make the type context that is going to be used to query the internal
     // type set for the appropriate type and then the function passed to the

@@ -111,24 +111,24 @@ namespace detail {
     };
 
     /**
-     * Implementation for the MatchForwardingReference trait
+     * Implementation for the MatchReference trait
      */
     template <typename TypeToMatch, typename Type>
-    struct MatchForwardingReferenceImpl;
+    struct MatchReferenceImpl;
     template <typename TypeToMatch, typename Type>
-    struct MatchForwardingReferenceImpl<TypeToMatch&, Type> {
+    struct MatchReferenceImpl<TypeToMatch&, Type> {
         using type = Type&;
     };
     template <typename TypeToMatch, typename Type>
-    struct MatchForwardingReferenceImpl<const TypeToMatch&, Type> {
+    struct MatchReferenceImpl<const TypeToMatch&, Type> {
         using type = const Type&;
     };
     template <typename TypeToMatch, typename Type>
-    struct MatchForwardingReferenceImpl<TypeToMatch&&, Type> {
+    struct MatchReferenceImpl<TypeToMatch&&, Type> {
         using type = Type&&;
     };
     template <typename TypeToMatch, typename Type>
-    struct MatchForwardingReferenceImpl<const TypeToMatch&&, Type> {
+    struct MatchReferenceImpl<const TypeToMatch&&, Type> {
         using type = const Type&&;
     };
 
@@ -210,7 +210,7 @@ struct Identity {
 };
 
 /**
- * @class MatchForwardingReference
+ * @class MatchReference
  *
  * This class can be used to match the reference-ness of a forwarding
  * reference on another type.  For example if the tuple is && and you want to
@@ -220,9 +220,8 @@ struct Identity {
  * with the full type of the forwarding reference, and include the two &&
  */
 template <typename TypeToMatch, typename Type>
-struct MatchForwardingReference {
-    using type = typename detail::MatchForwardingReferenceImpl<TypeToMatch,
-                                                               Type>::type;
+struct MatchReference {
+    using type = typename detail::MatchReferenceImpl<TypeToMatch, Type>::type;
 };
 
 /**
@@ -239,8 +238,7 @@ using PopFront_t = typename PopFront<TypesContainer>::type;
 template <int to_erase, typename... Types>
 using Erase_t = typename Erase<to_erase, Types...>::type;
 template <typename TypeToMatch, typename Type>
-using MatchForwardingReference_t = typename MatchForwardingReference<
-    TypeToMatch, Type>::type;
+using MatchReference_t = typename MatchReference<TypeToMatch, Type>::type;
 
 /**
  * Tests for Concatenate
@@ -297,18 +295,18 @@ static_assert(std::is_same<ConcatenateN_t<int, 1>,
     "sharp::detail::RepeatN tests failed");
 
 /**
- * Tests for MatchForwardingReference
+ * Tests for MatchReference
  */
-static_assert(std::is_same<MatchForwardingReference_t<int&, double>, double&>
-        ::value, "sharp::MatchForwardingReference tests failed");
-static_assert(std::is_same<MatchForwardingReference_t<const int&, double>,
+static_assert(std::is_same<MatchReference_t<int&, double>, double&>
+        ::value, "sharp::MatchReference tests failed");
+static_assert(std::is_same<MatchReference_t<const int&, double>,
                            const double&>
-        ::value, "sharp::MatchForwardingReference tests failed");
-static_assert(std::is_same<MatchForwardingReference_t<int&&, double>, double&&>
-        ::value, "sharp::MatchForwardingReference tests failed");
-static_assert(std::is_same<MatchForwardingReference_t<const int&&, double>,
+        ::value, "sharp::MatchReference tests failed");
+static_assert(std::is_same<MatchReference_t<int&&, double>, double&&>
+        ::value, "sharp::MatchReference tests failed");
+static_assert(std::is_same<MatchReference_t<const int&&, double>,
                            const double&&>
-        ::value, "sharp::MatchForwardingReference tests failed");
+        ::value, "sharp::MatchReference tests failed");
 
 
 } // namespace sharp

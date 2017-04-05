@@ -70,11 +70,11 @@ public:
     /**
      * Make friends with all the getter functions
      *
-     * TODO MatchForwardingReference_t here because of CLANG BUG, I would use
+     * TODO MatchReference_t here because of CLANG BUG, I would use
      * decltype(auto) but it does not seem to work, try it goo.gl/kNmJIr
      */
     template <typename Type, typename TypeSetType>
-    friend MatchForwardingReference_t<TypeSetType&&, Type> get(TypeSetType&&);
+    friend MatchReference_t<TypeSetType&&, Type> get(TypeSetType&&);
 
 private:
 
@@ -116,7 +116,7 @@ private:
  * "template" keyword.  Which is a nuisance.
  */
 template <typename Type, typename TypeSetType>
-MatchForwardingReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
+MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
 
 /**
  * @function collect_types Collects the arguments given into the type list
