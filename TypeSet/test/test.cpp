@@ -166,3 +166,10 @@ TEST(TypeSet, get_rvalue_forward) {
             decltype(sharp::get<TestConstruct<double>>(std::move(two))),
             const TestConstruct<double>&&>::value, "Failed!");
 }
+
+TEST(TypeSet, type_exists) {
+    TypeSet<int, double> ts;
+    EXPECT_TRUE(decltype(ts)::exists<int>());
+    EXPECT_TRUE(decltype(ts)::exists<double>());
+    EXPECT_TRUE(decltype(ts)::exists<float>());
+}
