@@ -201,3 +201,22 @@ TEST(TypeSet, test_collect_args_explicit_types) {
     EXPECT_EQ(TestConstruct<double>::number_destructs, 2);
     EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
 }
+
+TEST(TypeSet, test_collect_args_explicit_types_out_of_order) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    sharp::collect_args<TestConstruct<int>, TestConstruct<double>>(
+            TestConstruct<double>{}, TestConstruct<int>{});
+
+    auto vec_expected_move_constructs = std::vector<type_index>{typeid(int),
+                                                                typeid(double)};
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<int>::number_destructs, 2);
+    EXPECT_EQ(TestConstruct<int>::number_move_constructs, 1);
+    EXPECT_TRUE(std::equal(order_move_constructs.begin(),
+            order_move_constructs.end(), vec_expected_move_constructs.begin()));
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<double>::number_destructs, 2);
+    EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
+}
