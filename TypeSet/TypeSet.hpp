@@ -99,8 +99,16 @@ public:
      */
     template <typename Type, typename TypeSetType>
     friend sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&&);
+    template <typename... OtherTypes, typename... Args>
+    friend TypeSet<OtherTypes...> collect_args(Args&&... args);
 
 private:
+
+    /**
+     * Constructs a type set that does not have any element within it
+     * constructed
+     */
+    TypeSet(sharp::empty::tag_t);
 
     /**
      * The data item that is of type std::tuple,
@@ -159,6 +167,8 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
  */
 template <typename... Types, typename... Args>
 TypeSet<Types...> collect_args(Args&&... args);
+// template <typename... Args>
+// TypeSet<Args...> collect_args(Args&&... args);
 
 } // namespace sharp
 

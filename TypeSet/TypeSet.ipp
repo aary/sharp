@@ -120,12 +120,15 @@ TypeSet<Types...>::TypeSet() {
 }
 
 template <typename... Types>
+TypeSet<Types...>::TypeSet(sharp::empty::tag_t) {}
+
+template <typename... Types>
 TypeSet<Types...>::TypeSet(const TypeSet& other) {
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
         // execute a copy operation on the other type
         using Type = typename decltype(context)::type;
-        auto& other_element = sharp::get<Type>(other.aligned_tuple);
-        auto& this_element = sharp::get<Type>(this->aligned_tuple);
+        auto& other_element = sharp::get<Type>(other);
+        auto& this_element = sharp::get<Type>(*this);
         new (&this_element) Type{other_element};
     });
 }
@@ -135,8 +138,8 @@ TypeSet<Types...>::TypeSet(TypeSet&& other) {
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
         // execute a copy operation on the other type
         using Type = typename decltype(context)::type;
-        auto&& other_element = sharp::get<Type>(std::move(other).aligned_tuple);
-        auto& this_element = sharp::get<Type>(this->aligned_tuple);
+        auto&& other_element = sharp::get<Type>(std::move(other));
+        auto& this_element = sharp::get<Type>(*this);
         new (&this_element) Type{std::move(other_element)};
     });
 }
@@ -181,6 +184,51 @@ template <typename Type>
 constexpr bool TypeSet<Types...>::exists() {
     return !std::is_same<sharp::Find<Type, std::tuple<Types...>>,
                          std::tuple<>>::value;
+}
+
+template <typename... Types, typename... Args>
+TypeSet<Types...> collect_args(Args&&... args) {
+
+    // assert the type list invariants
+    static_assert(detail::type_list_check<Types...>, "Type list malformed");
+
+    // create the empty type instance and also store the function arguments
+    // in a tuple ready to be forwarded
+    TypeSet<Types...> instance{sharp::empty::tag};
+    auto tup = std::forward_as_tuple(std::forward<Args>(args)...);
+    using ArgumentTypes = sharp::Transform_t<std::decay, std::tuple<Args...>>;
+
+    // then iterate through the types
+    sharp::ForEach<std::tuple<Types...>>{}([&tup, &instance](auto context) {
+
+        // if the type is in the argument list of arguments then get the
+        // argument out of the arguments and use that to construct the element
+        // in the typeset
+        using CurrentType = typename decltype(context)::type;
+
+        // get the instance that needs to be constructed
+        auto& storage = sharp::get<CurrentType>(instance);
+
+        // would use constexpr if but can't, anyway most compilers should
+        // optimize this away since the thing in the if is evaluated at
+        // compile time
+        constexpr auto index_in_type_set = sharp::FindIndex_v<CurrentType,
+                                                              ArgumentTypes>;
+        if (index_in_type_set < std::tuple_size<ArgumentTypes>::value) {
+
+            // get the reference qualified version of the tuple element at
+            // which the current type resides
+            using TupleElement = std::tuple_element_t<
+                index_in_type_set,
+                std::decay_t<decltype(tup)>>;
+            new (&storage) CurrentType{std::forward<TupleElement>(
+                std::get<index_in_type_set>(tup))};
+        } else {
+            new (&storage) CurrentType{};
+        }
+    });
+
+    return instance;
 }
 
 } // namespace sharp
