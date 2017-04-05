@@ -55,6 +55,8 @@ public:
                                std::tuple<Types...>>
             ::value, "TypeSet cannot be used with a type list that has "
             "duplicate types");
+    static_assert(sharp::AnyOf_v<std::is_reference, std::tuple<types...>>,
+            "TypeSet cannot contain references");
 
     /**
      * Default constructs the arguments provided to the type set into the
