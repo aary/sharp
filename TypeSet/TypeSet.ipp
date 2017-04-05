@@ -25,7 +25,7 @@ namespace detail {
     get_reference(Context, TupleType& tup) {
 
         // get the type that the current iteration is over, match constness
-        using TypeWithoutConst = std::decay_t<typename Context::type>;
+        using TypeWithoutConst = typename Context::type;
         using Type = std::conditional_t<
             std::is_const<TupleType>::value,
             std::add_const_t<TypeWithoutConst>,
