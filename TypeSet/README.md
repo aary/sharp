@@ -51,7 +51,7 @@ void start_server(Args&&... args) {
     auto args = sharp::collect_args<Port, Debug>(std::forward<Args>(args)...);
 
     // set the port to run on
-    this->set_port(sharp::get<Port>(port));
+    this->set_port(sharp::get<Port>(args));
 
     // make debug configurations
     if (sharp::get<Debug>(args).is_set()) { ... }
