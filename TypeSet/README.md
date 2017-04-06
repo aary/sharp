@@ -51,7 +51,7 @@ void start_server(Args&&... args) {
     this->set_port(sharp::get<Port>(port));
 
     // make debug configurations
-    if (sharp::get<Debug>(args)) { ... }
+    if (sharp::get<Debug>(args).is_set()) { ... }
 }
 
 start_server(Port{8000}, Debug{true});
