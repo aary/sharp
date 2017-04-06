@@ -45,6 +45,9 @@ imitate named arguments to functions,  for example
  */
 template <typename... Args>
 void start_server(Args&&... args) {
+
+    // collect the arguments into a type set, those not passed will be default
+    // constructed
     auto args = sharp::collect_args<Port, Debug>(std::forward<Args>(args)...);
 
     // set the port to run on
@@ -54,5 +57,12 @@ void start_server(Args&&... args) {
     if (sharp::get<Debug>(args).is_set()) { ... }
 }
 
+// start server on port 8000 and in debug mode
 start_server(Port{8000}, Debug{true});
+
+// start server on the default port and in debug mode
+start_server(Debug{true});
+
+// start server on port 8000 and in the default debug mode
+start_server(Port{8000});
 ```
