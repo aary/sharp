@@ -194,6 +194,12 @@ TypeSet<Types...> collect_args(Args&&... args) {
 
     // create the empty type instance and also store the function arguments
     // in a tuple ready to be forwarded
+    //
+    // until mandatory copy elision is a thing, a library should not rely on
+    // that for correct behavior, therefore none of the following
+    //
+    //  auto instance = TypeSet<Types...>{sharp::empty::tag};
+    //
     TypeSet<Types...> instance{sharp::empty::tag};
     auto tup = std::forward_as_tuple(std::forward<Args>(args)...);
     using ArgumentTypes = sharp::Transform_t<std::decay, std::tuple<Args...>>;
@@ -229,6 +235,33 @@ TypeSet<Types...> collect_args(Args&&... args) {
     });
 
     return instance;
+}
+
+template <typename... Types>
+TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
+    sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
+        using Type = typename decltype(context)::type;
+        sharp::get<Type>(*this) = sharp::get<Type>(other);
+    });
+
+    return *this;
+}
+
+template <typename... Types>
+TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) {
+    sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
+
+        // assert that calling get<> on an rvalue type returns an rvalue
+        // reference
+        using Type = typename decltype(context)::type;
+        static_assert(std::is_rvalue_reference<
+            decltype(sharp::get<Type>(std::move(other)))>::value,
+            "Wrong value category");
+
+        sharp::get<Type>(*this) = sharp::get<Type>(std::move(other));
+    });
+
+    return *this;
 }
 
 } // namespace sharp

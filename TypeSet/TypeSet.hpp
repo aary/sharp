@@ -81,6 +81,12 @@ public:
     TypeSet(TypeSet&&);
 
     /**
+     * Move and copy assignment operators
+     */
+    TypeSet& operator=(const TypeSet&);
+    TypeSet& operator=(TypeSet&&);
+
+    /**
      * Destroys all the objects stored in the type set
      */
     ~TypeSet();
