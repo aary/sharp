@@ -29,3 +29,30 @@ struct B {
 The first takes 16 bytes on my system and the second takes 24 bytes.  If you
 make a type set with a double, int and char it will automatically be arranged
 so that the object is as space efficient as possible.
+
+### Using `TypeSet` to imitate named arguments
+
+Similar to named argument passing in many languages, `TypeSet` can be used to
+imitate named arguments to functions,  for example
+
+```C++
+/**
+ * @function start_server
+ * @param Port a port instance can be passed that will determine the port
+ * @param Debug whether or not the server should run in debug mode
+ *
+ * Starts a server with the passed arguments
+ */
+template <typename... Args>
+void start_server(Args&&... args) {
+    auto args = collect_args<Port, Debug>(std::forward<Args>(args)...);
+
+    // set the port to run on
+    this->set_port(sharp::get<Port>(port));
+
+    // make debug configurations
+    if (sharp::get<Debug>(args)) { ... }
+}
+
+start_server(Port{8000}, Debug{true});
+```
