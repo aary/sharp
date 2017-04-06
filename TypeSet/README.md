@@ -59,6 +59,7 @@ void start_server(Args&&... args) {
 
 // start server on port 8000 and in debug mode
 start_server(Port{8000}, Debug{true});
+start_server(Debug{true}, Port{8000});
 
 // start server on the default port and in debug mode
 start_server(Debug{true});
