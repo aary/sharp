@@ -30,6 +30,8 @@ public:
         number_default_constructs = 0;
         number_move_constructs = 0;
         number_copy_constructs = 0;
+        number_move_assigns = 0;
+        number_copy_assigns = 0;
         number_destructs = 0;
         order_default_constructs.clear();
         order_move_constructs.clear();
@@ -219,4 +221,26 @@ TEST(TypeSet, test_collect_args_explicit_types_out_of_order) {
     EXPECT_EQ(TestConstruct<double>::number_default_constructs, 1);
     EXPECT_EQ(TestConstruct<double>::number_destructs, 2);
     EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
+}
+
+TEST(TypeSet, test_copy_construct) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> ts;
+    sharp::get<TestConstruct<int>>(ts) = TestConstruct<int>{};
+    sharp::get<TestConstruct<double>>(ts) = TestConstruct<double>{};
+
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 2);
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 2);
+    EXPECT_EQ(TestConstruct<int>::number_move_assigns, 1);
+    EXPECT_EQ(TestConstruct<double>::number_move_assigns, 1);
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> ts_two;
+    ts = ts_two;
+
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 3);
+    EXPECT_EQ(TestConstruct<int>::number_copy_assigns, 1);
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 3);
+    EXPECT_EQ(TestConstruct<double>::number_copy_assigns, 1);
 }
