@@ -45,7 +45,7 @@ imitate named arguments to functions,  for example
  */
 template <typename... Args>
 void start_server(Args&&... args) {
-    auto args = collect_args<Port, Debug>(std::forward<Args>(args)...);
+    auto args = sharp::collect_args<Port, Debug>(std::forward<Args>(args)...);
 
     // set the port to run on
     this->set_port(sharp::get<Port>(port));
