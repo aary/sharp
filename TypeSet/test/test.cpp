@@ -223,7 +223,7 @@ TEST(TypeSet, test_collect_args_explicit_types_out_of_order) {
     EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
 }
 
-TEST(TypeSet, test_copy_construct) {
+TEST(TypeSet, test_copy_assign) {
     TestConstruct<int>::reset();
     TestConstruct<double>::reset();
 
@@ -243,4 +243,19 @@ TEST(TypeSet, test_copy_construct) {
     EXPECT_EQ(TestConstruct<int>::number_copy_assigns, 1);
     EXPECT_EQ(TestConstruct<double>::number_default_constructs, 3);
     EXPECT_EQ(TestConstruct<double>::number_copy_assigns, 1);
+}
+
+TEST(TypeSet, test_move_assign) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> one;
+    TypeSet<TestConstruct<int>, TestConstruct<double>> two;
+
+    one = std::move(two);
+
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 2);
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 2);
+    EXPECT_EQ(TestConstruct<int>::number_move_assigns, 1);
+    EXPECT_EQ(TestConstruct<double>::number_move_assigns, 1);
 }
