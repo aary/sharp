@@ -9,8 +9,10 @@ instantaneous, like accessing a local variable of that type.
 
 ## Using `TypeSet` to imitate named arguments
 
-Similar to named argument passing in many languages, `TypeSet` can be used to
-imitate named arguments to functions,  for example
+The motivation behind building this was to allow users to call functions in a
+manner that conveyed its behavior clearly.  Similar to named argument passing
+in many languages, `TypeSet` can be used to imitate named arguments to
+functions, for example
 
 ```C++
 /**
