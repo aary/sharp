@@ -1,0 +1,14 @@
+cxx_library(
+    name = "Defer",
+    header_namespace = "sharp/Defer",
+    exported_headers = [
+        "Defer.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Defer/test:test",
+    ],
+)
