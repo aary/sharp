@@ -78,7 +78,8 @@ public:
      * type set
      */
     TypeSet(const TypeSet&);
-    TypeSet(TypeSet&&);
+    TypeSet(TypeSet&&) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_constructible, std::tuple<Types...>>);
 
     /**
      * Move and copy assignment operators
@@ -173,8 +174,6 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
  */
 template <typename... Types, typename... Args>
 TypeSet<Types...> collect_args(Args&&... args);
-// template <typename... Args>
-// TypeSet<Args...> collect_args(Args&&... args);
 
 } // namespace sharp
 

@@ -104,6 +104,7 @@ namespace detail {
 
 template <typename... Types>
 TypeSet<Types...>::TypeSet() {
+
     sharp::ForEach<std::tuple<Types...>>{}([this](auto context) {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
@@ -124,6 +125,7 @@ TypeSet<Types...>::TypeSet(sharp::empty::tag_t) {}
 
 template <typename... Types>
 TypeSet<Types...>::TypeSet(const TypeSet& other) {
+
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
         // execute a copy operation on the other type
         using Type = typename decltype(context)::type;
@@ -134,7 +136,10 @@ TypeSet<Types...>::TypeSet(const TypeSet& other) {
 }
 
 template <typename... Types>
-TypeSet<Types...>::TypeSet(TypeSet&& other) {
+TypeSet<Types...>::TypeSet(TypeSet&& other) noexcept(
+        sharp::AllOf_v<std::is_nothrow_move_constructible,
+                       std::tuple<Types...>>) {
+
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
         // execute a copy operation on the other type
         using Type = typename decltype(context)::type;
@@ -146,6 +151,7 @@ TypeSet<Types...>::TypeSet(TypeSet&& other) {
 
 template <typename... Types>
 TypeSet<Types...>::~TypeSet() {
+
     sharp::ForEach<std::tuple<Types...>>{}([this](auto context) {
         // execute the function below on the right storage item, this storage
         // item will match the type context (which contains the type as a
@@ -239,6 +245,7 @@ TypeSet<Types...> collect_args(Args&&... args) {
 
 template <typename... Types>
 TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
+
     sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
         using Type = typename decltype(context)::type;
         sharp::get<Type>(*this) = sharp::get<Type>(other);
@@ -249,8 +256,8 @@ TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
 
 template <typename... Types>
 TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) {
-    sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
 
+    sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
         // assert that calling get<> on an rvalue type returns an rvalue
         // reference
         using Type = typename decltype(context)::type;
