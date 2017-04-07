@@ -193,7 +193,9 @@ constexpr bool TypeSet<Types...>::exists() {
 }
 
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_args(Args&&... args) {
+TypeSet<Types...> collect_args(Args&&... args) /* noexcept( */
+        // sharp::AllOf_v<detail::IsNothrowConstructibleAllWays,
+                       /* std::tuple<Types...>>) */ {
 
     // assert the type list invariants
     static_assert(detail::type_list_check<Types...>, "Type list malformed");
@@ -255,7 +257,8 @@ TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
 }
 
 template <typename... Types>
-TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) {
+TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) noexcept(
+        sharp::AllOf_v<std::is_nothrow_move_assignable, std::tuple<Types...>>) {
 
     sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
         // assert that calling get<> on an rvalue type returns an rvalue

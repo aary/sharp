@@ -38,6 +38,19 @@ namespace detail {
     };
 
     /**
+     * Template meta function to check and make sure that the type is nothrow
+     * move constructible, nothrow default constructible and nothrow copy
+     * constructible
+     */
+    template <typename Type>
+    struct IsNothrowConstructibleAllWays {
+        static constexpr const bool value =
+            std::is_nothrow_default_constructible<Type>::value
+            && std::is_nothrow_move_constructible<Type>::value
+            && std::is_nothrow_copy_constructible<Type>::value;
+    };
+
+    /**
      * Assertions documenting the invariants of the type list that can be used
      * to instantiate a type list.
      *
@@ -85,7 +98,8 @@ public:
      * Move and copy assignment operators
      */
     TypeSet& operator=(const TypeSet&);
-    TypeSet& operator=(TypeSet&&);
+    TypeSet& operator=(TypeSet&&) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_assignable, std::tuple<Types...>>);
 
     /**
      * Destroys all the objects stored in the type set
@@ -107,7 +121,9 @@ public:
     template <typename Type, typename TypeSetType>
     friend sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&&);
     template <typename... OtherTypes, typename... Args>
-    friend TypeSet<OtherTypes...> collect_args(Args&&... args);
+    friend TypeSet<OtherTypes...> collect_args(Args&&... args) /* noexcept( */
+            // sharp::AllOf_v<detail::IsNothrowConstructibleAllWays,
+                           /* std::tuple<Types...>>) */;
 
 private:
 
@@ -173,7 +189,8 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
  * type to the function
  */
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_args(Args&&... args);
+TypeSet<Types...> collect_args(Args&&... args) /* noexcept(sharp::AllOf_v< */
+        /* detail::IsNothrowConstructibleAllWays, std::tuple<Types...>>) */;
 
 } // namespace sharp
 
