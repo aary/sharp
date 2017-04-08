@@ -47,7 +47,7 @@ public:
         ++number_copy_constructs;
         order_copy_constructs.push_back(typeid(Tag));
     }
-    TestConstruct(TestConstruct&&) {
+    TestConstruct(TestConstruct&&) noexcept {
         ++number_move_constructs;
         order_move_constructs.push_back(typeid(Tag));
     }
@@ -56,7 +56,7 @@ public:
         order_copy_assigns.push_back(typeid(Tag));
         return *this;
     }
-    TestConstruct& operator=(TestConstruct&&) {
+    TestConstruct& operator=(TestConstruct&&) noexcept {
         ++number_move_assigns;
         order_move_assigns.push_back(typeid(Tag));
         return *this;

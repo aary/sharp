@@ -141,13 +141,22 @@ TypeSet<Types...>::TypeSet(TypeSet&& other) noexcept(
         sharp::AllOf_v<std::is_nothrow_move_constructible,
                        std::tuple<Types...>>) {
 
+    // move if this is true otherwise copy all the elements over to provide
+    // strong exception guarantees
+    constexpr auto should_move = sharp::AllOf_v<
+        std::is_nothrow_move_constructible, std::tuple<Types...>>;
+
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
         // execute a move operation on the other type if the type is move
         // constructible without throwing, otherwise copy the element
         using Type = typename decltype(context)::type;
-        auto&& other_element = sharp::get<Type>(std::move(other));
+        auto& other_element = sharp::get<Type>(other);
         auto& this_element = sharp::get<Type>(*this);
-        new (&this_element) Type{std::move_if_noexcept(other_element)};
+        if (should_move) {
+            new (&this_element) Type{std::move(other_element)};
+        } else {
+            new (&this_element) Type{other_element};
+        }
     });
 }
 
@@ -262,15 +271,24 @@ template <typename... Types>
 TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) noexcept(
         sharp::AllOf_v<std::is_nothrow_move_assignable, std::tuple<Types...>>) {
 
+    // move if this is true otherwise copy all the elements over to provide
+    // strong exception guarantees
+    constexpr auto should_move = sharp::AllOf_v<
+        std::is_nothrow_move_constructible, std::tuple<Types...>>;
+
     sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
         // assert that calling get<> on an rvalue type returns an rvalue
         // reference
         using Type = typename decltype(context)::type;
-        static_assert(std::is_rvalue_reference<
-            decltype(sharp::get<Type>(std::move(other)))>::value,
-            "Wrong value category");
+        static_assert(std::is_same<
+            decltype(sharp::get<Type>(std::move(other))), Type&&>::value,
+            "sharp::get<> evaluated to the wrong value category");
 
-        sharp::get<Type>(*this) = sharp::get<Type>(std::move(other));
+        if (should_move) {
+            sharp::get<Type>(*this) = sharp::get<Type>(std::move(other));
+        } else {
+            sharp::get<Type>(*this) = sharp::get<Type>(other);
+        }
     });
 
     return *this;
