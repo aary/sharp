@@ -59,7 +59,7 @@ namespace detail {
      * any references
      */
     template <typename... Types>
-    constexpr bool type_list_check = std::is_same<
+    constexpr bool check_type_list_invariants = std::is_same<
         sharp::Unique_t<std::tuple<Types...>>,
         std::tuple<Types...>>::value
             && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>;
@@ -78,7 +78,8 @@ public:
      * that would be a violation of the invariant set by this class and would
      * cause the implementation to break
      */
-    static_assert(detail::type_list_check<Types...>, "Type list malformed");
+    static_assert(detail::check_type_list_invariants<Types...>,
+            "Type list malformed");
 
     /**
      * Default constructs the arguments provided to the type set into the

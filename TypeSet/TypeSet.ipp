@@ -209,7 +209,8 @@ TypeSet<Types...> collect_args(Args&&... args) /* noexcept( */
                        /* std::tuple<Types...>>) */ {
 
     // assert the type list invariants
-    static_assert(detail::type_list_check<Types...>, "Type list malformed");
+    static_assert(detail::check_type_list_invariants<Types...>,
+            "Type list malformed");
 
     // create the empty type instance and also store the function arguments
     // in a tuple ready to be forwarded
