@@ -274,7 +274,7 @@ TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) noexcept(
     // move if this is true otherwise copy all the elements over to provide
     // strong exception guarantees
     constexpr auto should_move = sharp::AllOf_v<
-        std::is_nothrow_move_constructible, std::tuple<Types...>>;
+        std::is_nothrow_move_assignable, std::tuple<Types...>>;
 
     sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
         // assert that calling get<> on an rvalue type returns an rvalue
