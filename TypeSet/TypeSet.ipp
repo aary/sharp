@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <utility>
 #include <type_traits>
 
 #include <sharp/Traits/Traits.hpp>
@@ -141,11 +142,12 @@ TypeSet<Types...>::TypeSet(TypeSet&& other) noexcept(
                        std::tuple<Types...>>) {
 
     sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
-        // execute a copy operation on the other type
+        // execute a move operation on the other type if the type is move
+        // constructible without throwing, otherwise copy the element
         using Type = typename decltype(context)::type;
         auto&& other_element = sharp::get<Type>(std::move(other));
         auto& this_element = sharp::get<Type>(*this);
-        new (&this_element) Type{std::move(other_element)};
+        new (&this_element) Type{std::move_if_noexcept(other_element)};
     });
 }
 
