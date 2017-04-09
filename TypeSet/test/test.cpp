@@ -176,6 +176,19 @@ TEST(TypeSet, type_exists) {
     EXPECT_TRUE(decltype(ts)::exists<float>());
 }
 
+TEST(TypeSet, test_move_constructor) {
+    TestConstruct<int>::reset();
+    TestConstruct<double>::reset();
+
+    TypeSet<TestConstruct<int>, TestConstruct<double>> ts;
+    TypeSet<TestConstruct<double>, TestConstruct<int>> ts_two{std::move(ts)};
+
+    EXPECT_EQ(TestConstruct<int>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<int>::number_move_constructs, 1);
+    EXPECT_EQ(TestConstruct<double>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstruct<double>::number_move_constructs, 1);
+}
+
 TEST(TypeSet, test_collect_args_explicit_types) {
     TestConstruct<int>::reset();
     TestConstruct<double>::reset();
