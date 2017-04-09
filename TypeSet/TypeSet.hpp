@@ -17,7 +17,23 @@
 
 namespace sharp {
 
+/**
+ * Forward declaration of the TypeSet class
+ */
+template <typename... Types>
+class TypeSet;
+
 namespace detail {
+
+    /**
+     * Template higher order function that checks if the second type is
+     * contained in the type list from the first type
+     */
+    template <typename TypeList, typename Type>
+    struct IsContainedIn {
+        static constexpr const bool value = !std::is_same<
+            sharp::Find_t<Type, TypeList>, std::tuple<>>::value;
+    };
 
     /**
      * Template higher order function to transform a type into its
@@ -64,6 +80,24 @@ namespace detail {
         std::tuple<Types...>>::value
             && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>;
 
+    /**
+     * Concepts
+     */
+    /**
+     * Concept that checks to make sure that the other type is a type set type
+     * and has the same elements as the first type set
+     */
+    template <typename TypeSetOne, typename TypeSetTwo>
+    using EnableIfAreTypeSets = std::enable_if_t<
+        sharp::IsInstantiationOf_v<TypeSetOne, sharp::TypeSet>
+        && sharp::IsInstantiationOf_v<TypeSetTwo, sharp::TypeSet>
+        && std::tuple_size<typename TypeSetOne::types>::value
+            == std::tuple_size<typename TypeSetTwo::types>::value
+        && sharp::AllOf_v<
+            sharp::Bind<IsContainedIn,
+                        typename TypeSetOne::types>::template type,
+            typename TypeSetTwo::types>>;
+
 } // namespace detail
 
 /**
@@ -82,6 +116,11 @@ public:
             "Type list malformed");
 
     /**
+     * Traits
+     */
+    using types = std::tuple<Types...>;
+
+    /**
      * Default constructs the arguments provided to the type set into the
      * aligned storage, one by one
      */
@@ -92,14 +131,20 @@ public:
      * type set
      */
     TypeSet(const TypeSet&);
-    TypeSet(TypeSet&&) noexcept(sharp::AllOf_v<
+    template <typename TypeSetType,
+              detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                          TypeSetType>* = nullptr>
+    TypeSet(TypeSetType&&) noexcept(sharp::AllOf_v<
             std::is_nothrow_move_constructible, std::tuple<Types...>>);
 
     /**
      * Move and copy assignment operators
      */
     TypeSet& operator=(const TypeSet&);
-    TypeSet& operator=(TypeSet&&) noexcept(sharp::AllOf_v<
+    template <typename TypeSetType,
+              detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                          TypeSetType>* = nullptr>
+    TypeSet& operator=(TypeSetType&&) noexcept(sharp::AllOf_v<
             std::is_nothrow_move_assignable, std::tuple<Types...>>);
 
     /**

@@ -137,7 +137,10 @@ TypeSet<Types...>::TypeSet(const TypeSet& other) {
 }
 
 template <typename... Types>
-TypeSet<Types...>::TypeSet(TypeSet&& other) noexcept(
+template <typename TypeSetType,
+          detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                      TypeSetType>*>
+TypeSet<Types...>::TypeSet(TypeSetType&& other) noexcept(
         sharp::AllOf_v<std::is_nothrow_move_constructible,
                        std::tuple<Types...>>) {
 
@@ -269,7 +272,10 @@ TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
 }
 
 template <typename... Types>
-TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other) noexcept(
+template <typename TypeSetType,
+          detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                      TypeSetType>*>
+TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSetType&& other) noexcept(
         sharp::AllOf_v<std::is_nothrow_move_assignable, std::tuple<Types...>>) {
 
     // move if this is true otherwise copy all the elements over to provide
