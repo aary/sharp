@@ -204,7 +204,7 @@ constexpr bool TypeSet<Types...>::exists() {
 }
 
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_args(Args&&... args) /* noexcept( */
+TypeSet<Types...> collect_args(Args&&... args_list) /* noexcept( */
         // sharp::AllOf_v<detail::IsNothrowConstructibleAllWays,
                        /* std::tuple<Types...>>) */ {
 
@@ -221,11 +221,11 @@ TypeSet<Types...> collect_args(Args&&... args) /* noexcept( */
     //  auto instance = TypeSet<Types...>{sharp::empty::tag};
     //
     TypeSet<Types...> instance{sharp::empty::tag};
-    auto tup = std::forward_as_tuple(std::forward<Args>(args)...);
+    auto args = std::forward_as_tuple(std::forward<Args>(args_list)...);
     using ArgumentTypes = sharp::Transform_t<std::decay, std::tuple<Args...>>;
 
     // then iterate through the types
-    sharp::ForEach<std::tuple<Types...>>{}([&tup, &instance](auto context) {
+    sharp::ForEach<std::tuple<Types...>>{}([&args, &instance](auto context) {
 
         // if the type is in the argument list of arguments then get the
         // argument out of the arguments and use that to construct the element
@@ -246,9 +246,9 @@ TypeSet<Types...> collect_args(Args&&... args) /* noexcept( */
             // which the current type resides
             using TupleElement = std::tuple_element_t<
                 index_in_type_set,
-                std::decay_t<decltype(tup)>>;
+                std::decay_t<decltype(args)>>;
             new (&storage) CurrentType{std::forward<TupleElement>(
-                std::get<index_in_type_set>(tup))};
+                std::get<index_in_type_set>(args))};
         } else {
             new (&storage) CurrentType{};
         }
