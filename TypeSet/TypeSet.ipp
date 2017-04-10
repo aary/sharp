@@ -27,9 +27,8 @@ namespace detail {
 
         // get the type that the current iteration is over, match constness
         using Type = typename Context::type;
-        using TypeMatched = std::conditional_t<
-            std::is_const<std::remove_reference_t<TupleType>>::value,
-            std::add_const_t<Type>, Type>;
+        using TypeMatched = std::remove_reference_t<sharp::MatchReference_t<
+            TupleType&, Type>>;
 
         // get the type that the tuple would be of, this would not include
         // const qualifiers if the original type is not const so don't bother
