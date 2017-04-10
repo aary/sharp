@@ -125,24 +125,30 @@ template <typename... Types>
 TypeSet<Types...>::TypeSet(sharp::empty::tag_t) {}
 
 template <typename... Types>
-TypeSet<Types...>::TypeSet(const TypeSet& other) {
+TypeSet<Types...>::TypeSet(const TypeSet& other)
+        : TypeSet{other, sharp::implementation::tag} {}
 
-    sharp::ForEach<std::tuple<Types...>>{}([this, &other](auto context) {
-        // execute a copy operation on the other type
-        using Type = typename decltype(context)::type;
-        auto& other_element = sharp::get<Type>(other);
-        auto& this_element = sharp::get<Type>(*this);
-        new (&this_element) Type{other_element};
-    });
-}
+template <typename... Types>
+TypeSet<Types...>::TypeSet(TypeSet&& other) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_constructible, std::tuple<Types...>>)
+        : TypeSet{std::move(other), sharp::implementation::tag} {}
+
+template <typename... Types>
+template <typename TypeSetType,
+          detail::EnableIfArentSame<TypeSet<Types...>,
+                                    TypeSetType>*>
+TypeSet<Types...>::TypeSet(TypeSetType&& other) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_constructible, std::tuple<Types...>>)
+        : TypeSet{std::forward<TypeSetType>(other), sharp::implementation::tag}
+{}
 
 template <typename... Types>
 template <typename TypeSetType,
           detail::EnableIfAreTypeSets<TypeSet<Types...>,
-                                      TypeSetType>*>
-TypeSet<Types...>::TypeSet(TypeSetType&& other) noexcept(
-        sharp::AllOf_v<std::is_nothrow_move_constructible,
-                       std::tuple<Types...>>) {
+                                      std::decay_t<TypeSetType>>*>
+TypeSet<Types...>::TypeSet(TypeSetType&& other, sharp::implementation::tag_t)
+        noexcept(sharp::AllOf_v<std::is_nothrow_move_constructible,
+                                std::tuple<Types...>>) {
 
     // move if this is true otherwise copy all the elements over to provide
     // strong exception guarantees
@@ -262,20 +268,31 @@ TypeSet<Types...> collect_args(Args&&... args_list) /* noexcept( */
 
 template <typename... Types>
 TypeSet<Types...>& TypeSet<Types...>::operator=(const TypeSet& other) {
+    return this->assign(other);
+}
 
-    sharp::ForEach<std::tuple<Types...>>{}([&other, this](auto context) {
-        using Type = typename decltype(context)::type;
-        sharp::get<Type>(*this) = sharp::get<Type>(other);
-    });
+template <typename... Types>
+TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSet&& other)
+        noexcept(sharp::AllOf_v<std::is_nothrow_move_assignable,
+                                std::tuple<Types...>>) {
+    return this->assign(std::move(other));
+}
 
-    return *this;
+template <typename... Types>
+template <typename TypeSetType,
+          detail::EnableIfArentSame<TypeSet<Types...>,
+                                    TypeSetType>*>
+TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSetType&& other)
+        noexcept(sharp::AllOf_v<std::is_nothrow_move_assignable,
+                                std::tuple<Types...>>) {
+    return this->assign(std::forward<TypeSetType>(other));
 }
 
 template <typename... Types>
 template <typename TypeSetType,
           detail::EnableIfAreTypeSets<TypeSet<Types...>,
-                                      TypeSetType>*>
-TypeSet<Types...>& TypeSet<Types...>::operator=(TypeSetType&& other) noexcept(
+                                      std::decay_t<TypeSetType>>*>
+TypeSet<Types...>& TypeSet<Types...>::assign(TypeSetType&& other) noexcept(
         sharp::AllOf_v<std::is_nothrow_move_assignable, std::tuple<Types...>>) {
 
     // move if this is true otherwise copy all the elements over to provide

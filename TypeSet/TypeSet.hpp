@@ -15,93 +15,61 @@
 
 #include <sharp/Traits/Traits.hpp>
 
+#include <sharp/TypeSet/TypeSet-pre.hpp>
+
 namespace sharp {
 
 /**
- * Forward declaration of the TypeSet class
- */
-template <typename... Types>
-class TypeSet;
-
-namespace detail {
-
-    /**
-     * Template higher order function that checks if the second type is
-     * contained in the type list from the first type
-     */
-    template <typename TypeList, typename Type>
-    struct IsContainedIn {
-        static constexpr const bool value = !std::is_same<
-            sharp::Find_t<Type, TypeList>, std::tuple<>>::value;
-    };
-
-    /**
-     * Template higher order function to transform a type into its
-     * corresponding untyped storage
-     */
-    template <typename Type>
-    struct AlignedStorageFor {
-        using type = std::aligned_storage_t<sizeof(Type), alignof(Type)>;
-    };
-
-    /**
-     * Template higher order comparator that does a less than comparison of
-     * the size of two types
-     */
-    template <typename One, typename Two>
-    struct LessThanTypes {
-        static constexpr const bool value = sizeof(One) < sizeof(Two);
-    };
-
-    /**
-     * Template meta function to check and make sure that the type is nothrow
-     * move constructible, nothrow default constructible and nothrow copy
-     * constructible
-     */
-    template <typename Type>
-    struct IsNothrowConstructibleAllWays {
-        static constexpr const bool value =
-            std::is_nothrow_default_constructible<Type>::value
-            && std::is_nothrow_move_constructible<Type>::value
-            && std::is_nothrow_copy_constructible<Type>::value;
-    };
-
-    /**
-     * Assertions documenting the invariants of the type list that can be used
-     * to instantiate a type list.
-     *
-     * This checks to make sure tha tthe type list does not contain any
-     * duplicate types and also makes sure ha tthe type list does not contain
-     * any references
-     */
-    template <typename... Types>
-    constexpr bool check_type_list_invariants = std::is_same<
-        sharp::Unique_t<std::tuple<Types...>>,
-        std::tuple<Types...>>::value
-            && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>;
-
-    /**
-     * Concepts
-     */
-    /**
-     * Concept that checks to make sure that the other type is a type set type
-     * and has the same elements as the first type set
-     */
-    template <typename TypeSetOne, typename TypeSetTwo>
-    using EnableIfAreTypeSets = std::enable_if_t<
-        sharp::IsInstantiationOf_v<TypeSetOne, sharp::TypeSet>
-        && sharp::IsInstantiationOf_v<TypeSetTwo, sharp::TypeSet>
-        && std::tuple_size<typename TypeSetOne::types>::value
-            == std::tuple_size<typename TypeSetTwo::types>::value
-        && sharp::AllOf_v<
-            sharp::Bind<IsContainedIn,
-                        typename TypeSetOne::types>::template type,
-            typename TypeSetTwo::types>>;
-
-} // namespace detail
-
-/**
- * Forward declaration for the TypeSet class
+ * @class TypeSet
+ *
+ * A tuple-like class that acts as a container for instances of a set of given
+ * types
+ *
+ *  auto type_set = TypeSet<int, double, char>{};
+ *  cout << sharp::get<int>(type_set) << endl;
+ *
+ * Why not just use a std::tuple?  This allows for more fine control over the
+ * lifetimes of the instances that are contained in the type set.  If a
+ * similar utility were built around a strongly typed std::tuple, then it
+ * would definitely either involve more constructions than the following
+ * offers or it would eventually degrade to a loosely typed tuple
+ * implementation like this class contains
+ *
+ * The reason this was built in the first place was to allow features like
+ * named argument passing to functions.  For example if you have the following
+ * function
+ *
+ *  template <typename... Args>
+ *  void start_server(Args&&... args);
+ *
+ * You might be able to call it like so
+ *
+ *  start_server(Port{80}, debug{true});
+ *  start_server(debug{true}, Port{8000});
+ *  start_server(Port{80});
+ *
+ * All you would need to do in the implementation of start_server is to call a
+ * factory function that returns an instance of a type set like so
+ *
+ *  template <typename... Args>
+ *  void start_server(Args&&... args) {
+ *      auto args = collect_args<Port, Debug>(std::forward<Args>(args)...)
+ *      cout << sharp::get<Port>(args).get_port_number() << endl;
+ *      cout << sharp::get<Debug>(args).is_debug << endl;
+ *  }
+ *
+ * The effort in this class' interface was to create a type like structure
+ * that would resemble an aggregate type as much as possible in its value
+ * semantics.  Most of the functions that access or modify the instances of
+ * this class have been written so that they can forward the value category
+ * that the type set instance occurred in to the member accesses.  For example
+ *
+ *  sharp::get<Something>(TypeSet<Something>{})
+ *
+ * will return an rvalue
+ *
+ * All of the template metaprogramming used in this class is present in either
+ * the private modules of the class or in the sharp/Traits module
  */
 template <typename... Types>
 class TypeSet {
@@ -122,33 +90,99 @@ public:
 
     /**
      * Default constructs the arguments provided to the type set into the
-     * aligned storage, one by one
+     * aligned storage, one by one.
+     *
+     * The order of construction is determined by the order in which the types
+     * appear in the type list passed to the template arguments for this class
      */
     TypeSet();
 
     /**
-     * Move constructor and copy constructor copy the type set into the other
-     * type set
+     * The copy constructor for the class just copy constructs each element
+     * from the other type set over into the current one.  The copy
+     * construction is done in the order the types appear in the type list
+     * that this class was instantiated with
      */
     TypeSet(const TypeSet&);
+
+    /**
+     * The move constructor for this class move constructs each element from
+     * the other type set into the current one.  The move construction is done
+     * in the order that the type appear in the type list that this class was
+     * instantiated with
+     *
+     * The move constructor is marked conditionally noexcept when all the move
+     * constructors of the instances that are present in the type set have
+     * move constructors that are marked noexcept
+     */
+    TypeSet(TypeSet&&) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_constructible, std::tuple<Types...>>);
+
+    /**
+     * The forwarding reference constructor either resolves to a move or a
+     * copy constructor based on the value category of the type set passed.
+     *
+     * To prevent ambiguities, and unexpected function calls, this function
+     * only participates in overload resolution when the type set is not the
+     * exact same as the current type set.  Although it should not make a
+     * difference in what the function does
+     */
     template <typename TypeSetType,
-              detail::EnableIfAreTypeSets<TypeSet<Types...>,
-                                          TypeSetType>* = nullptr>
+              detail::EnableIfArentSame<TypeSet<Types...>, TypeSetType>*
+                  = nullptr>
     TypeSet(TypeSetType&&) noexcept(sharp::AllOf_v<
             std::is_nothrow_move_constructible, std::tuple<Types...>>);
 
     /**
-     * Move and copy assignment operators
+     * Move and copy assignment operators, one for the same types and one that
+     * accepts a forwarding reference to any type, disabled here from overload
+     * resolution to avoid confusion
+     *
+     * Three overloads for assignment operators are needed because the
+     * forwarding reference assignment operator by itself would not be enough.
+     * If I had just the forwarding reference assignment operator then the
+     * rest of the assignment operators would be implicitly defined and that
+     * would lead to surprising behavior
+     */
+    /**
+     * The copy assignment operator copy assigns the instances from the other
+     * type set into the current one.  Copying of elements is done in the
+     * order that their types appeared in the type list that was used to
+     * instantiate this class
      */
     TypeSet& operator=(const TypeSet&);
+
+    /**
+     * The move assignment operator move assigns the instances from the other
+     * type set into the current one.  Moving of elements is done in the order
+     * that their types appeared in the type list that was used to instantiate
+     * this class
+     */
+    TypeSet& operator=(TypeSet&&) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_assignable, std::tuple<Types...>>);
+
+    /**
+     * The forwarding reference assignment operator assigns elements from the
+     * other type into the current one in the order that they appeared in the
+     * type list that was used to instantiate the current class.
+     *
+     * To prevent ambiguities, this only participates in overload resolution
+     * when the other type set is not the exact type as the current one.
+     * Although it should not make a difference with respect to the behavior
+     * of the class
+     */
     template <typename TypeSetType,
-              detail::EnableIfAreTypeSets<TypeSet<Types...>,
-                                          TypeSetType>* = nullptr>
+              detail::EnableIfArentSame<TypeSet<Types...>, TypeSetType>*
+                  = nullptr>
     TypeSet& operator=(TypeSetType&&) noexcept(sharp::AllOf_v<
             std::is_nothrow_move_assignable, std::tuple<Types...>>);
 
     /**
-     * Destroys all the objects stored in the type set
+     * Destroys all the objects stored in the type set, this will destroy the
+     * objects in the order that they were created.
+     *
+     * The order of creation corresponds to the order in which the elements
+     * were given to the template parameters
      */
     ~TypeSet();
 
@@ -161,15 +195,17 @@ public:
     /**
      * Make friends with all the getter functions
      *
-     * TODO MatchReference_t here because of CLANG BUG, I would use
+     * MatchReference_t here because of CLANG BUG, I would use
      * decltype(auto) but it does not seem to work, try it goo.gl/kNmJIr
+     *
+     * Adding a noexcept specification to this function makes the current
+     * version of clang that I am running quit with a segmentation fault,
+     * sharp::AllOf_v<detail::IsNothrowConstructibleAllWays, tuple<Types...>>
      */
     template <typename Type, typename TypeSetType>
     friend sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&&);
     template <typename... OtherTypes, typename... Args>
-    friend TypeSet<OtherTypes...> collect_args(Args&&... args) /* noexcept( */
-            // sharp::AllOf_v<detail::IsNothrowConstructibleAllWays,
-                           /* std::tuple<Types...>>) */;
+    friend TypeSet<OtherTypes...> collect_args(Args&&... args);
 
 private:
 
@@ -178,6 +214,27 @@ private:
      * constructed
      */
     TypeSet(sharp::empty::tag_t);
+
+    /**
+     * Implementation constructor, this will be used by all the constructors
+     * to provide default behavior
+     */
+    template <typename TypeSetType,
+              detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                          std::decay_t<TypeSetType>>* = nullptr>
+    TypeSet(TypeSetType&&, sharp::implementation::tag_t) noexcept(
+            sharp::AllOf_v<std::is_nothrow_move_constructible,
+                           std::tuple<Types...>>);
+
+    /**
+     * Implementation assignment operator, this will be used by all the
+     * assignment operators to provide default behavior
+     */
+    template <typename TypeSetType,
+              detail::EnableIfAreTypeSets<TypeSet<Types...>,
+                                          std::decay_t<TypeSetType>>* = nullptr>
+    TypeSet& assign(TypeSetType&&) noexcept(sharp::AllOf_v<
+            std::is_nothrow_move_assignable, std::tuple<Types...>>);
 
     /**
      * The data item that is of type std::tuple,
@@ -195,8 +252,7 @@ private:
      */
     using SortedList = Sort_t<detail::LessThanTypes, std::tuple<Types...>>;
     using TransformedList = Transform_t<detail::AlignedStorageFor, SortedList>;
-    static_assert(IsInstantiationOf_v<TransformedList, std::tuple>,
-            "sharp::Transform_t returned a non std::tuple type list");
+    static_assert(IsInstantiationOf_v<TransformedList, std::tuple>, "");
     TransformedList aligned_tuple;
 };
 
@@ -235,8 +291,7 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
  * type to the function
  */
 template <typename... Types, typename... Args>
-TypeSet<Types...> collect_args(Args&&... args) /* noexcept(sharp::AllOf_v< */
-        /* detail::IsNothrowConstructibleAllWays, std::tuple<Types...>>) */;
+TypeSet<Types...> collect_args(Args&&... args);
 
 } // namespace sharp
 

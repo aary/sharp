@@ -3,6 +3,7 @@ cxx_library(
     header_namespace = "sharp/TypeSet",
     exported_headers = [
         "TypeSet.hpp",
+        "TypeSet-pre.hpp",
         "TypeSet.ipp",
     ],
     deps = [
