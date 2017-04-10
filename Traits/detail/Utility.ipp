@@ -50,4 +50,48 @@ Func for_each_tuple(TupleType&& tup, Func func) {
     return func;
 }
 
+template <typename TypeToMatch, typename Type>
+decltype(auto) match_forward(std::remove_reference_t<Type>& instance) {
+
+
+    // is the type TypeToMatch a const reference (or just const) type?
+    constexpr auto is_const = std::is_const<
+        std::remove_reference_t<TypeToMatch>>::value;
+
+    // get the type to cast to based on the reference category of the
+    // TypeToMatch
+    using TypeToCast = std::conditional_t<
+        std::is_lvalue_reference<TypeToMatch>::value,
+        std::conditional_t<
+            is_const,
+            const std::remove_reference_t<Type>&,
+            std::remove_reference_t<Type>&>,
+        std::conditional_t<
+            is_const,
+            const std::remove_reference_t<Type>&&,
+            std::remove_reference_t<Type>&&>>;
+
+    // then cast to that type and then return
+    return static_cast<TypeToCast>(instance);
+}
+
+template <typename TypeToMatch, typename Type>
+decltype(auto) match_forward(std::remove_reference_t<Type>&& instance) {
+
+    // if the instance is an rvalue reference then casting that to an lvalue
+    // might cause a dangling reference based on the value category of the
+    // original expression so assert against that
+    static_assert(!std::is_lvalue_reference<TypeToMatch>::value,
+            "Can not forward an rvalue as an lvalue");
+
+    // get the type to cast to with the right const-ness
+    using TypeToCast = std::conditional_t<
+        std::is_const<std::remove_reference_t<TypeToMatch>>::value,
+        const std::remove_reference_t<Type>&&,
+        std::remove_reference_t<Type>&&>;
+
+    // then cast the expression to an rvalue and return
+    return static_cast<TypeToCast>(instance);
+}
+
 } // namespace sharp

@@ -225,6 +225,58 @@ struct MatchReference {
 };
 
 /**
+ * @function match_forward
+ *
+ * A function that very much like std::forward just forward the object passed
+ * to it with the right value category as determined by the type passed to
+ * match_forward.  This can be used to forward another object by considering
+ * the value category of somethin different but related
+ *
+ * This is to be used in scenarios where you get a variable of unknown
+ * referenceness and you want to forward another object, maybe related to the
+ * first one with the same reference-ness as the one with unknown
+ * reference-ness.  The usage for this function is illustrated below
+ *
+ *  template <typename Something>
+ *  decltype(auto) forward_another_thing(Something&& something) {
+ *      auto&& another = something.get_another();
+ *      return sharp::match_forward<Something, decltype(another)>(another);
+ *  }
+ *
+ * With respect to the implementation of this function, there are several
+ * possible cases, each corresponding to a combination of reference-ness of
+ * the first template parameter of this function with that of the second,
+ *
+ *  TypeToMatch -> &   Type -> &
+ *  TypeToMatch -> &   Type -> &&
+ *  TypeToMatch -> &   Type ->
+ *
+ *  TypeToMatch ->     Type -> &
+ *  TypeToMatch ->     Type -> &&
+ *  TypeToMatch ->     Type ->
+ *
+ *  TypeToMatch -> &&  Type -> &
+ *  TypeToMatch -> &&  Type -> &&
+ *  TypeToMatch -> &&  Type ->
+ *
+ * Of these cases the following cases are invalid and should throw errors
+ *
+ *  TypeToMatch -> &   Type -> &&
+ *  TypeToMatch -> &   Type ->
+ *
+ * Since these two cases will result in the function forwarding an lvalue as
+ * an rvalue, which can lead to dangling referneces and the like.  In these
+ * cases the implementation fails to compile
+ *
+ * In all other cases other than the error ones mentioned above, a reference
+ * is returned that matches the reference-ness of the type on the left
+ */
+template <typename TypeToMatch, typename Type>
+decltype(auto) match_forward(std::remove_reference_t<Type>&);
+template <typename TypeToMatch, typename Type>
+decltype(auto) match_forward(std::remove_reference_t<Type>&&);
+
+/**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
