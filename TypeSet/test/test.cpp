@@ -248,13 +248,17 @@ TEST(TypeSet, test_copy_assign) {
     EXPECT_EQ(TestConstruct<double>::number_default_constructs, 2);
     EXPECT_EQ(TestConstruct<int>::number_move_assigns, 1);
     EXPECT_EQ(TestConstruct<double>::number_move_assigns, 1);
+    EXPECT_EQ(TestConstruct<int>::number_copy_assigns, 0);
+    EXPECT_EQ(TestConstruct<double>::number_copy_assigns, 0);
 
     TypeSet<TestConstruct<int>, TestConstruct<double>> ts_two;
     ts = ts_two;
 
     EXPECT_EQ(TestConstruct<int>::number_default_constructs, 3);
-    EXPECT_EQ(TestConstruct<int>::number_copy_assigns, 1);
     EXPECT_EQ(TestConstruct<double>::number_default_constructs, 3);
+    EXPECT_EQ(TestConstruct<int>::number_move_assigns, 1);
+    EXPECT_EQ(TestConstruct<double>::number_move_assigns, 1);
+    EXPECT_EQ(TestConstruct<int>::number_copy_assigns, 1);
     EXPECT_EQ(TestConstruct<double>::number_copy_assigns, 1);
 }
 
