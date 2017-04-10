@@ -73,6 +73,14 @@ static_assert(sharp::AnyOf_v<std::is_reference, int, double, int&>);
 static_assert(sharp::NoneOf_v<std::is_const, int, double, char>);
 ```
 
+### `std::for_each`
+
+```
+sharp::ForEach<std::tuple<int, double>>{}([](auto identity) {
+    cout << typeid(typename decltype(context)::type).name() << endl;
+}
+```
+
 #### `std::count_if`
 
 ```
