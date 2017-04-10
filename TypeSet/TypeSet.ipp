@@ -28,7 +28,8 @@ namespace detail {
         // get the type that the current iteration is over, match constness
         using Type = typename Context::type;
         using TypeMatched = std::conditional_t<
-            std::is_const<TupleType>::value, std::add_const_t<Type>, Type>;
+            std::is_const<std::remove_reference_t<TupleType>>::value,
+            std::add_const_t<Type>, Type>;
 
         // get the type that the tuple would be of, this would not include
         // const qualifiers if the original type is not const so don't bother
@@ -162,7 +163,8 @@ TypeSet<Types...>::TypeSet(TypeSetType&& other, sharp::implementation::tag_t)
         auto& other_element = sharp::get<Type>(other);
         auto& this_element = sharp::get<Type>(*this);
         if (should_move) {
-            new (&this_element) Type{std::move(other_element)};
+            new (&this_element) Type{sharp::match_forward<
+                TypeSetType, decltype(other_element)>(other_element)};
         } else {
             new (&this_element) Type{other_element};
         }
@@ -309,7 +311,8 @@ TypeSet<Types...>& TypeSet<Types...>::assign(TypeSetType&& other) noexcept(
             "sharp::get<> evaluated to the wrong value category");
 
         if (should_move) {
-            sharp::get<Type>(*this) = sharp::get<Type>(std::move(other));
+            sharp::get<Type>(*this) = sharp::get<Type>(sharp::match_forward<
+                TypeSetType, decltype(other)>(other));
         } else {
             sharp::get<Type>(*this) = sharp::get<Type>(other);
         }
