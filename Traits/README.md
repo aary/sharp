@@ -9,22 +9,22 @@ header and its functionality as it appeared pre-C++17 in the form of template
 metaprogramming and manipulations with type lists (as opposed to the
 traditional runtime value range concept).
 
-Say you were designing a type set (i.e. a tuple that can only consist of
-distinct types, for example std::tuple<int, double, char> is a valid type set
-whereas std::tuple<int, double, int> is not valid).  You would want the types
-to be arranged in increasing order of their sizes to as to take the least
-extra alignment needed via padding, for example the following struct is more
-space optimized than the latter
+Say you were designing a type set.  You would want the types to be arranged in
+increasing order of their sizes to as to take the least extra alignment needed
+via padding, for example the following struct is more space optimized than the
+latter
 
 ```
-struct ContainerOptimized {
-    uint8_t one;
-    uint32_t two;
+struct A {
+    double d;
+    int i;
+    char c;
 };
 
-struct ContainerBad {
-    uint32_t one;
-    uint8_t two;
+struct B {
+    char c;
+    double d;
+    int i;
 };
 ```
 
@@ -217,3 +217,104 @@ static_assert(MinValue_v<1, 4, 0> == 0);
 ```
 
 
+## Function traits
+
+#### `sharp::ReturnType`
+
+```
+int foo(char, double, float);
+static_assert(std::is_same<ReturnType_t<decltype(foo)>, int>::value);
+```
+
+#### `sharp::Arguments`
+
+```
+int foo(char, double, float);
+static_assert(std::is_same<Arguments_t<decltype(foo)>,
+                           std::tuple<char, double, float>>::value);
+```
+
+#### `sharp::IsCallable`
+
+```
+int foo(char, double, float);
+static_assert(IsCallable_v<decltype(foo)>);
+```
+
+## Functional traits
+
+#### `sharp::Bind`
+
+```
+static_assert(NoneOf_v<Bind<std::is_same, int>::template type,
+                       std::tuple<double, char, float>>);
+```
+
+#### `sharp::Negate`
+
+```
+static_assert(
+    NoneOf_v<Negate<Bind<std::is_same, int>::template type>::template type
+    std::tuple<double, char, float>>);
+```
+
+
+## Utility traits
+
+#### `sharp::IsInstantiationOf`
+
+```
+static_assert(sharp::IsInstantiationOf_v<std::vector<int>, std::vector>);
+```
+
+#### `sharp::Concatenate_t`
+
+```
+static_assert(std::is_same<Concatenate_t<std::tuple<int>, std::tuple<double>>,
+                           std::tuple<int, double>>::value);
+```
+
+#### `sharp::ConcatenateN`
+
+```
+static_assert(std::is_same<ConcatenateN_t<double, 2>,
+                           std::tuple<double, double>>::value);
+```
+
+#### `sharp::PopFront`
+
+```
+static_assert(std::is_same<PopFront_t<std::tuple<int, double>>,
+                           std::tuple<double>>::value);
+```
+
+#### `sharp::Erase`
+
+```
+static_assert(std::is_same<Erase_t<1, std::tuple<int, char, double>>,
+                           std::tuple<int, double>>::value);
+```
+
+#### `sharp::for_each_tuple`
+
+```
+auto tup = make_tuple(1, "1.0");
+for_each_tuple(tup, [](auto& member) {
+    cout << member << endl;
+}
+```
+
+#### `sharp::MatchReference`
+
+```
+static_assert(std::is_same<MatchReference_t<int&&, double>, double&&>::value);
+```
+
+#### `sharp::match_forward`
+
+```
+template <typename Something, typename Else>
+void foo(Something&&, Else&& else) {
+    bar(sharp::match_forward<Something, Else>(else));
+}
+```
