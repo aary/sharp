@@ -28,7 +28,7 @@ struct ContainerBad {
 };
 ```
 
-You can sort the type list as usual.  Make a comparator and then pass the list
+You can sort the type list.  Make a comparator as usual and then pass the list
 and the comparator to the sort function
 
 ```
@@ -37,7 +37,7 @@ struct TypeSet {
 private:
     template <typename One, typename Two>
     struct LessThan {
-        return sizeof(One) < sizeof(Two);
+        static constexpr const bool value = sizeof(One) < sizeof(Two);
     };
 
 public:
@@ -51,7 +51,7 @@ references.  You could do something like this
 ```
 template <typename... Types>
 struct CannotContainReferences {
-    static_assert(sharp::AnyOf_v<std::is_reference, Types...>, "No refs!");
+    static_assert(!sharp::AnyOf_v<std::is_reference, Types...>, "No refs!");
 };
 ```
 
