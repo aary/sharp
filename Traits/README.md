@@ -1,4 +1,4 @@
-`Traits.hpp`
+`Traits`
 ----------------
 
 This module contains simple template metaprogramming classes (and traits) that
