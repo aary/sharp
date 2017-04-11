@@ -55,6 +55,7 @@ struct CannotContainReferences {
 };
 ```
 
+## Algorithms
 
 #### `std::all_of`
 ```
@@ -108,6 +109,13 @@ static_assert(sharp::Equal_v<std::tuple<int, double>,
 ```
 static_assert(std::is_same<sharp::FindIf_t<std::is_reference, int, char&, int>,
                            std::tuple<char&, int>>::value);
+```
+
+#### `std::find`
+
+```
+static_assert(std::is_same<sharp::Find_t<int, std::tuple<double, int, char>>,
+                           std::tuple<int, char>>::value);
 ```
 
 #### `std::find_if_not`
@@ -191,3 +199,21 @@ static_assert(std::is_same<sharp::Unique_t<int, double, int>,
 static_assert(std::is_same<Sort_t<SizeCompare, uint32_t, uint16_t, uint8_t>,
                            std::tuple<uint8_t, uint16_t, uint32_t>>::value);
 ```
+
+#### `std::max`
+
+```
+static_assert(std::is_same<MaxType_t<SizeCompare, uint8_t, uint16_t>,
+                                     uint16_t>::value);
+static_assert(MaxValue_v<1, 4, 0> == 4);
+```
+
+#### `std::min`
+
+```
+static_assert(std::is_same<MinType_t<SizeCompare, uint8_t, uint16_t>,
+                                     uint8_t>::value);
+static_assert(MinValue_v<1, 4, 0> == 0);
+```
+
+
