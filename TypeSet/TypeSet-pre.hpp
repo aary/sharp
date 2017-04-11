@@ -73,7 +73,8 @@ namespace detail {
     constexpr bool check_type_list_invariants = std::is_same<
         sharp::Unique_t<std::tuple<Types...>>,
         std::tuple<Types...>>::value
-            && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>;
+            && !sharp::AnyOf_v<std::is_reference, std::tuple<Types...>>
+            && !sharp::AnyOf_v<std::is_const, std::tuple<Types...>>;;
 
     /**
      * Concepts
@@ -92,6 +93,7 @@ namespace detail {
             sharp::Bind<IsContainedIn,
                         typename TypeSetOne::types>::template type,
             typename TypeSetTwo::types>>;
+
     /**
      * Concept that checks whether the type is an instantiation of TypeSet,
      * this is used to disable the forwarding reference constructor from

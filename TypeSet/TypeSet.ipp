@@ -86,7 +86,7 @@ namespace detail {
         // reference or it can be qualified with nothing meaning that it is an
         // rvalue reference.  Therefore if TupleType is an lvalue reference
         // then cast the type to an lvalue reference
-        using Type = std::decay_t<typename Context::type>;
+        using Type = typename Context::type;
         static_assert(std::is_same<Type, std::decay_t<decltype(storage)>>
                 ::value, "Type mismatch in internal implementation");
         using TypeToCastTo = sharp::MatchReference_t<TupleType&&, Type>;
@@ -178,7 +178,7 @@ TypeSet<Types...>::~TypeSet() {
         // item will match the type context (which contains the type as a
         // typedef) passed
         detail::execute_on_appropriate_tuple_element(context,
-                this->aligned_tuple, [context](auto& storage) {
+                this->aligned_tuple, [context](auto&& storage) {
             using Type = typename decltype(context)::type;
             static_assert(std::is_lvalue_reference<decltype(storage)>::value,
                 "Wrong reference qualifiers were passed");
