@@ -10,7 +10,7 @@ implementation because C++ offers a different, and more efficient alternative
 The following is an example of how you would go about using defer to force
 close a database connection in an RAII manner
 
-```
+```C++
 void something() {
     auto database_connection_ptr = connect_db();
 
@@ -27,7 +27,7 @@ Similarly defer calls can be chained and each deferable function call is
 pushed onto a stack and when stack is collapsed the functions are ran in the
 reverse order of registration
 
-```
+```C++
 void top_level() {
     auto database_connection_ptr = connect_db();
 
