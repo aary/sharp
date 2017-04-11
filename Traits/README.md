@@ -77,7 +77,7 @@ static_assert(sharp::NoneOf_v<std::is_const, int, double, char>);
 
 ```
 sharp::ForEach<std::tuple<int, double>>{}([](auto identity) {
-    cout << typeid(typename decltype(context)::type).name() << endl;
+    cout << typeid(typename decltype(identity)::type).name() << endl;
 }
 ```
 
