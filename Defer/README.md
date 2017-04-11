@@ -31,26 +31,24 @@ reverse order of registration
 void top_level() {
     auto database_connection_ptr = connect_db();
 
-    auto deferred = defer([&]() {
-        cout << "Closing the database connection" << endl;
+    // close the database connection before this scope finishes
+    auto deferred_one = defer([&]() {
         database_connection_ptr->close();
     });
 
-    if (database_connection_ptr.is_under_heavy_load()) {
-        database_connection_ptr->spawn_threads_for_low_latency();
-        auto deferred = defer([&]() {
-            database_connection_ptr->join_threads_for_low_latency();
-            cout << "Destroying threads before closing" << endl;
-        });
-    }
+    // wait for any threads that the database has running to finish before
+    // exiting
+    //
+    // the difference between defer_guard and defer is analagous to the
+    // difference between unique_lock and lock_guard, defer_guard does not
+    // branch when executing the destructor, in case the user has reset() the
+    // deferred state
+    auto deferred_two = defer_guard([&]() {
+        if (database_connection_ptr->has_running_threads()) {
+            database_connection_ptr->join_threads();
+        }
+    });
 
     // use database
 }
-```
-
-And this will output the following when the second if block executes
-
-```
-Destroying threads before closing
-Closing the database connection
 ```
