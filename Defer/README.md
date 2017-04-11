@@ -28,7 +28,7 @@ pushed onto a stack and when stack is collapsed the functions are ran in the
 reverse order of registration
 
 ```C++
-void top_level() {
+void something() {
     auto database_connection_ptr = connect_db();
 
     // close the database connection before this scope finishes
