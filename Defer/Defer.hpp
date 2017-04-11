@@ -21,56 +21,14 @@
 template <typename Func>
 auto defer(Func&& func_in);
 
+/**
+ * @function defer_guard
+ *
+ * Analagous to the difference between unique_lock and lock_guard; this
+ * function is an optimization over the last one in the case where you don't
+ * want the ability to reset a deferred function to a no-op
+ */
 template <typename Func>
-class Defer {
-public:
+auto defer_guard(Func&& func_in);
 
-    /**
-     * constructors for the class just initialize the member variable that
-     * stores the function with the passed in function
-     */
-    Defer(const Func& func_in) noexcept(
-            std::is_nothrow_copy_constructible<Func>::value)
-        : should_execute{true}, func{func_in} {}
-    Defer(Func&& func_in) noexcept(
-            std::is_nothrow_move_constructible<Func>::value)
-        : should_execute{true}, func{std::move(func_in)} {}
-
-    /**
-     * Destructor just executes the function on return and nothing else
-     */
-    ~Defer() {
-        if (should_execute) {
-            func();
-        }
-    }
-
-    /**
-     * @function reset
-     *
-     * This method resets the internal state of the deferred function so that
-     * it will no longer be executed on destruction or when the scope finishes
-     */
-    void reset() const noexcept {
-        this->should_execute = false;
-    }
-
-private:
-
-    /**
-     * Whether or not the function should execute the function stored within
-     * it on return
-     */
-    bool should_execute;
-
-    /**
-     * The function instance that will be called unless the deferred function
-     * is reset
-     */
-    Func func;
-};
-
-template <typename Func>
-auto defer(Func&& func_in) {
-    return Defer<Func>{std::forward<Func>(func_in)};
-}
+#include <sharp/Defer/Defer.ipp>

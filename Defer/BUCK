@@ -3,6 +3,7 @@ cxx_library(
     header_namespace = "sharp/Defer",
     exported_headers = [
         "Defer.hpp",
+        "Defer.ipp",
     ],
     visibility = [
         "PUBLIC",
