@@ -12,6 +12,19 @@
 
 #pragma once
 
+#include <memory>
+
+namespace sharp {
+
+/**
+ * A forward declaration for the class that represents the shared state of the
+ * future.  The definition for this class will be shared by code in Future.cpp
+ * as well as in Promise.cpp
+ *
+ * It contains almost all of the synchronization logic required.
+ */
+class FutureImpl;
+
 template <typename Type>
 class Future {
 
@@ -91,4 +104,18 @@ class Future {
      * a call to std::rethrow_exception()
      */
     Type get();
+
+private:
+
+    /**
+     * A pointer to the implementation for the future.  This implementation
+     * code is shared by both futures and promises and contains all the main
+     * functionality for futures
+     *
+     * Both futures and promises hook into methods in this class for
+     * functionality.  Both are thin wrappers around FutureImpl
+     */
+    std::shared_ptr<FutureImpl> impl;
 };
+
+} // namespace sharp
