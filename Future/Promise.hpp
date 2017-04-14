@@ -106,4 +106,11 @@ class Promise {
      * already a value or exception in the shared state.
      */
     void set_exception(std::exception_ptr ptr);
+
+private:
+
+    /**
+     * The shared state for the promise
+     */
+    std::shared_ptr<FutureImpl> shared_state;
 };

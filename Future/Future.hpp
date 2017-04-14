@@ -115,7 +115,8 @@ private:
      * Both futures and promises hook into methods in this class for
      * functionality.  Both are thin wrappers around FutureImpl
      */
-    std::shared_ptr<FutureImpl> impl;
+    std::shared_ptr<FutureImpl> shared_state;
 };
 
 } // namespace sharp
+
