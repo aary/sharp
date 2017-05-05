@@ -15,7 +15,7 @@
 
 #include <sharp/Traits/Traits.hpp>
 
-#include <sharp/TypeSet/TypeSet-pre.hpp>
+#include <sharp/TypeSet/detail/TypeSet-pre.hpp>
 
 namespace sharp {
 
