@@ -16,14 +16,18 @@
 
 namespace sharp {
 
-/**
- * A forward declaration for the class that represents the shared state of the
- * future.  The definition for this class will be shared by code in Future.cpp
- * as well as in Promise.cpp
- *
- * It contains almost all of the synchronization logic required.
- */
-class FutureImpl;
+namespace detail {
+
+    /**
+     * A forward declaration for the class that represents the shared state of
+     * the future.  The definition for this class will be shared by code in
+     * Future.cpp as well as in Promise.cpp
+     *
+     * It contains almost all of the synchronization logic required.
+     */
+    class FutureImpl;
+
+} // namespace detail
 
 template <typename Type>
 class Future {
@@ -68,6 +72,13 @@ class Future {
      */
     Future& operator=(Future&&) noexcept;
     Future& operator=(const Future&) = delete;
+
+    /**
+     * The destructor for futures releases a reference count on the shared
+     * state, so if there are no promises with a reference count to the shared
+     * state then it will be destroyed
+     */
+    ~Future();
 
     /**
      * Waits till the future has state constructed in the shared state, this

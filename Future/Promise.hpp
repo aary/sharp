@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <exception>
 #include <memory>
 
@@ -97,6 +98,9 @@ class Promise {
     void set_value(Type&& value);
     template <typename... Args>
     void set_value(sharp::emplace_construct::tag_t, Args&&... args);
+    template <typename U, typename... Args>
+    void set_value(sharp::emplace_construct::tag_t, std::initializer_list<U> il,
+                   Args&&... args);
 
     /**
      * Atomically stores an exception in the future associated with this
