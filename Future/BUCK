@@ -1,0 +1,20 @@
+cxx_library(
+    name = "Future",
+    header_namespace = "sharp/Future",
+    deps = [
+        "//Tags:Tags",
+    ],
+    exported_headers = [
+        "Future.hpp",
+        "Future.ipp",
+        "Promise.hpp",
+        "Promise.ipp",
+        "detail/FutureImpl.hpp",
+        "detail/FutureImpl.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    tests = [
+    ],
+)
