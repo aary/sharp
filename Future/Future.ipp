@@ -36,7 +36,8 @@ bool Future<Type>::valid() const noexcept {
 
 template <typename Type>
 Type Future<Type>::get() {
-    return this->shared_state->wait_and_get();
+    this->shared_state->wait();
+    return this->shared_state->get();
 }
 
 } // namespace sharp
