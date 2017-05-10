@@ -35,7 +35,7 @@ namespace detail {
     void FutureImpl<Type>::set_value(Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        auto lck = std::unique_lock<std::mutex>{this->mtx};
+        auto lck = std::lock_guard<std::mutex>{this->mtx};
         auto* ptr_type = reinterpret_cast<Type*>(&this->storage);
         new (ptr_type) Type{std::forward<Args>(args)...};
 
@@ -51,7 +51,7 @@ namespace detail {
                                      Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        auto lck = std::unique_lock<std::mutex>{this->mtx};
+        auto lck = std::lock_guard<std::mutex>{this->mtx};
         auto* ptr_type = reinterpret_cast<Type*>(&this->storage);
         new (ptr_type) Type{il, std::forward<Args>(args)...};
 
@@ -65,7 +65,7 @@ namespace detail {
     void FutureImpl<Type>::set_exception(std::exception_ptr ptr) {
 
         // acquire the lock and then set the exception
-        auto lck = std::unique_lock<std::mutex>{this->mtx};
+        auto lck = std::lock_guard<std::mutex>{this->mtx};
         auto* ptr_exception = reinterpret_cast<std::exception_ptr*>(
                 &this->storage);
         *ptr_exception = ptr;
