@@ -15,6 +15,7 @@
 #include <exception>
 #include <memory>
 
+#include <sharp/Tags/Tags.hpp>
 #include <sharp/Future/Future.hpp>
 
 namespace sharp {
@@ -46,7 +47,7 @@ class Promise {
      *
      * Promise objects are not copy constructible so delete that
      */
-    Promise(Promise&& other) noexcept;
+    Promise(Promise&& other) = default;
     Promise(const Promise&) = delete;
 
     /**
@@ -118,3 +119,7 @@ private:
      */
     std::shared_ptr<FutureImpl> shared_state;
 };
+
+} // namespace sharp
+
+#include <sharp/Future/Promise.ipp>
