@@ -1,6 +1,9 @@
 /**
  * @file FutureError.hpp
  * @author Aaryaman Sagar
+ *
+ * This file contains the error abstractions that are used by the Future
+ * module
  */
 
 namespace sharp {

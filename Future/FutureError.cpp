@@ -2,7 +2,7 @@
 #include <string>
 #include <cassert>
 
-#include "FutureError.hpp"
+#include <sharp/Future/FutureError.hpp>
 
 namespace sharp {
 
