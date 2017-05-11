@@ -1,0 +1,9 @@
+cxx_test(
+    name = "test",
+    deps = [
+        "//Future:Future",
+    ],
+    srcs = [
+        "test.cpp",
+    ]
+)
