@@ -118,6 +118,12 @@ private:
      * The shared state for the promise
      */
     std::shared_ptr<FutureImpl> shared_state;
+
+    /**
+     * Checks if the shared state exists, and if it doesn't then this function
+     * throws the appropriate exception
+     */
+    void check_shared_state() const;
 };
 
 } // namespace sharp
