@@ -20,7 +20,7 @@ namespace sharp {
  * no_state attempt to access future or promise methods when there is no
  *          shared state
  */
-enum class FutureErrorCode {
+enum class FutureErrorCode : int {
     broken_promise,
     future_already_retrieved,
     promise_already_satisfied,
@@ -50,11 +50,13 @@ namespace std {
      * every custom error class
      */
     inline error_code make_error_code(sharp::FutureErrorCode err) noexcept {
-        return std::error_code{static_cast<int>(err), future_error_category()};
+        return std::error_code{static_cast<int>(err),
+            sharp::future_error_category()};
     }
     inline error_condition make_error_condition(sharp::FutureErrorCode err)
             noexcept {
-        return error_condition{static_cast<int>(err), future_error_category()};
+        return error_condition{static_cast<int>(err),
+            sharp::future_error_category()};
     }
 } // namespace std
 
@@ -63,17 +65,18 @@ namespace sharp {
 class FutureError : std::logic_error {
 public:
     explicit FutureError(FutureErrorCode err)
-        : std::logic_error{"sharp::FutureError: " + err.message()},
-        code{err} {}
+        : std::logic_error{"sharp::FutureError: "
+            + std::make_error_code(err).message()},
+        code_object{std::make_error_code(err)} {}
     const std::error_code& code() const {
-        return this->code;
+        return this->code_object;
     }
-    const char* what() const override {
+    const char* what() const noexcept override {
         return "Future error";
     }
 
 private:
-    std::error_code code;
+    std::error_code code_object;
 };
 
 } // namespace sharp

@@ -1,7 +1,8 @@
 #include <system_error>
 #include <string>
+#include <cassert>
 
-#include <sharp/Future/Future.hpp>
+#include "FutureError.hpp"
 
 namespace sharp {
 
@@ -18,18 +19,23 @@ namespace detail {
  * The class that is the representative error category for future related
  * errors
  */
-class FutureErrorCategory : std::error_category {
+class FutureErrorCategory : public std::error_category {
 public:
-    const char* name() noexcept const override;
+    FutureErrorCategory() : std::error_category{} {}
+    const char* name() const noexcept override;
     std::string message(int value) const override;
 };
 
-const char* FutureErrorCategory::name() noexcept const override {
+const char* FutureErrorCategory::name() const noexcept {
     return "Future::FutureErrorCategory";
 }
 
-std::string FutureErrorCategory::message(int value) const override {
-    switch (FutureErrorCode{value}) {
+std::string FutureErrorCategory::message(int value) const {
+
+    // assert that the integer passed to FutureErrorCategory is within the
+    // range of the enumeration, otherwise there will be undefined behavior
+    assert(value <= static_cast<int>(FutureErrorCode::no_state));
+    switch (static_cast<FutureErrorCode>(value)) {
         case FutureErrorCode::broken_promise:
             return detail::BROKEN_PROMISE;
             break;
@@ -46,7 +52,7 @@ std::string FutureErrorCategory::message(int value) const override {
 }
 
 const std::error_category& future_error_category() {
-    const static FutureErrorCategory FUTURE_ERROR_CATEGORY;
+    static const FutureErrorCategory FUTURE_ERROR_CATEGORY;
     return FUTURE_ERROR_CATEGORY;
 }
 
