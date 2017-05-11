@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <initializer_list>
+#include <system_error>
 
 namespace sharp {
 
@@ -60,13 +61,27 @@ namespace detail {
          */
         void set_exception(std::exception_ptr ptr);
 
+        /**
+         * Returns true if the future contains either a value or an exception
+         */
+        bool contains_value_or_exception() const noexcept;
+
     private:
+
+        /**
+         * The states the future can have, these should be self explanatory
+         */
+        enum class FutureState : int {
+            NotFulfilled,
+            ContainsValue,
+            ContainsException,
+            Fulfilled
+        };
 
         /**
          * Synchronizy locking things
          */
-        mutable std::atomic<bool> is_set{false};
-        bool contains_exception{false};
+        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
         mutable std::mutex mtx;
         mutable std::condition_variable cv;
 
@@ -76,6 +91,25 @@ namespace detail {
          * standardized and most compilers support that
          */
         std::aligned_union_t<0, std::exception_ptr, Type> storage;
+
+        /**
+         * Return the storage cast to the right type, this should be used for
+         * all accesses to the internal object storage
+         */
+        Type* get_object_storage();
+
+        /**
+         * Returns the internal storage cast to an exception_ptr pointer type,
+         * this should then be used to construct or rethrow the exception
+         */
+        std::exception_ptr* get_exception_storage();
+
+        /**
+         * Checking functions that make sure everything is okay in the future
+         * and if something is wrong they throw the appropriate exception
+         */
+        void check_get() const;
+        void check_set_value() const;
     };
 
 } // namespace detail
