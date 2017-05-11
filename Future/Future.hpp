@@ -25,12 +25,20 @@ namespace detail {
      *
      * It contains almost all of the synchronization logic required.
      */
+    template <typename Type>
     class FutureImpl;
 
 } // namespace detail
 
+/**
+ * Forward declaration of the Promise class for friendship
+ */
+template <typename Type>
+class Promise;
+
 template <typename Type>
 class Future {
+public:
 
     /**
      * Constructor for the future constructs the future object without any
@@ -42,7 +50,7 @@ class Future {
      * a value is set into the future with a call to set_value() in a
      * corresponding promise object
      */
-    Future() noexcept;
+    Future();
 
     /**
      * Move constructor move constructs a future from another one.  After a
@@ -119,7 +127,8 @@ class Future {
     /**
      * Make friends with the promise class
      */
-    friend class sharp::Promise<Type>;
+    template <typename T>
+    friend class sharp::Promise;
 
 private:
 
@@ -127,7 +136,7 @@ private:
      * Construct the future with the shared state passed in.  This should only
      * be called from the Promise class
      */
-    Future(std::shared_ptr<FutureImpl> shared_state_in);
+    Future(std::shared_ptr<detail::FutureImpl<Type>> shared_state_in);
 
     /**
      * A pointer to the implementation for the future.  This implementation
@@ -137,7 +146,7 @@ private:
      * Both futures and promises hook into methods in this class for
      * functionality.  Both are thin wrappers around FutureImpl
      */
-    std::shared_ptr<FutureImpl> shared_state;
+    std::shared_ptr<detail::FutureImpl<Type>> shared_state;
 
     /**
      * Check if the shared state exists and if it does not then throw an
@@ -148,3 +157,5 @@ private:
 
 } // namespace sharp
 
+#include <sharp/Future/Future.ipp>
+#include <sharp/Future/Promise.hpp>

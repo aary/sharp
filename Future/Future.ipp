@@ -13,15 +13,15 @@ template <typename Type>
 Future<Type>::Future() {}
 
 template <typename Type>
-Future<Type>::Future(std::shared_ptr<FutureImpl> shared_state_in)
+Future<Type>::Future(std::shared_ptr<detail::FutureImpl<Type>> shared_state_in)
         : shared_state{std::move(shared_state_in)} {}
 
 template <typename Type>
-Future<Type>::Future(Future&& other)
+Future<Type>::Future(Future&& other) noexcept
         : shared_state{std::move(other.shared_state)} {}
 
 template <typename Type>
-Future<Type>& Future<Type>::operator=(Future&& other) {
+Future<Type>& Future<Type>::operator=(Future&& other) noexcept {
     this->shared_state = std::move(other.shared_state);
 }
 
@@ -36,7 +36,7 @@ bool Future<Type>::valid() const noexcept {
 }
 
 template <typename Type>
-void Future<Type>::wait() {
+void Future<Type>::wait() const {
     this->check_shared_state();
     this->shared_state->wait();
 }

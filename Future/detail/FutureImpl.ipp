@@ -36,7 +36,7 @@ namespace detail {
     void FutureImpl<Type>::set_value(Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        auto lck = std::lock_guard<std::mutex>{this->mtx};
+        std::lock_guard<std::mutex> lck{this->mtx};
 
         // construct the object into place and change the value of the state
         // variable
@@ -46,12 +46,12 @@ namespace detail {
     }
 
     template <typename Type>
-    template <typename... Args>
+    template <typename U, typename... Args>
     void FutureImpl<Type>::set_value(std::initializer_list<U> il,
                                      Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        auto lck = std::lock_guard<std::mutex>{this->mtx};
+        std::lock_guard<std::mutex> lck{this->mtx};
 
         // construct the object into place and change the value of the state
         // variable
@@ -64,7 +64,7 @@ namespace detail {
     void FutureImpl<Type>::set_exception(std::exception_ptr ptr) {
 
         // acquire the lock and then set the exception
-        auto lck = std::lock_guard<std::mutex>{this->mtx};
+        std::lock_guard<std::mutex> lck{this->mtx};
 
         // construct the exception into place and change the value of the
         // booleans
@@ -74,20 +74,20 @@ namespace detail {
     }
 
     template <typename Type>
-    Type FutureImpl<Type>::get() const {
+    Type FutureImpl<Type>::get() {
 
         // first wait for the result to be ready, and then cast and return the
         // value
         this->wait();
 
         // grab a lock and then do stuff
-        auto lck = std::lock_guard<std::mutex>(this->mtx);
+        std::lock_guard<std::mutex> lck(this->mtx);
 
         // check and throw an exception if the future has already been
         // fulfilled, and then if not store state and return the moved value
         this->check_get();
         this->state.store(FutureState::Fulfilled);
-        return std::move(*this->get_object_storage);
+        return std::move(*this->get_object_storage());
     }
 
     template <typename Type>
@@ -113,13 +113,18 @@ namespace detail {
     }
 
     template <typename Type>
-    void FutureImpl<Type>::get_object_storage() {
+    Type* FutureImpl<Type>::get_object_storage() {
         return reinterpret_cast<Type*>(&this->storage);
     }
 
     template <typename Type>
-    void FutureImpl<Type>::get_exception_storage() {
+    std::exception_ptr* FutureImpl<Type>::get_exception_storage() {
         return reinterpret_cast<std::exception_ptr*>(&this->storage);
+    }
+
+    template <typename Type>
+    const std::exception_ptr* FutureImpl<Type>::get_exception_storage() const {
+        return reinterpret_cast<const std::exception_ptr*>(&this->storage);
     }
 
     template <typename Type>

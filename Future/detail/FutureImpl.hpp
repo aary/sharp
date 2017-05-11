@@ -34,6 +34,7 @@ namespace detail {
      */
     template <typename Type>
     class FutureImpl {
+    public:
 
         /**
          * The wait function blocks until there is a value or an exception in
@@ -46,7 +47,7 @@ namespace detail {
          * ready and then returns the object in the shared state as if by
          * std::move(instance)
          */
-        Type get() const;
+        Type get();
 
         /**
          * Forwarding reference implementations of the set_value function
@@ -103,6 +104,7 @@ namespace detail {
          * this should then be used to construct or rethrow the exception
          */
         std::exception_ptr* get_exception_storage();
+        const std::exception_ptr* get_exception_storage() const;
 
         /**
          * Checking functions that make sure everything is okay in the future

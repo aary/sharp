@@ -11,14 +11,15 @@
 namespace sharp {
 
 template <typename Type>
-Promise<Type>::Promise() : shared_state{std::make_shared<FutureImpl>()} {}
+Promise<Type>::Promise()
+        : shared_state{std::make_shared<detail::FutureImpl<Type>>()} {}
 
 template <typename Type>
 Promise<Type>::~Promise() {
     if (this->shared_state) {
         if (!shared_state->contains_value_or_exception()) {
-            shared_state->set_exception(
-                    FutureError{FutureErrorCode::broken_promise});
+            auto exc = FutureError{FutureErrorCode::broken_promise};
+            shared_state->set_exception(std::make_exception_ptr(exc));
         }
     }
 }
@@ -43,7 +44,7 @@ void Promise<Type>::set_value(Type&& value) {
 template <typename Type>
 template <typename... Args>
 void Promise<Type>::set_value(sharp::emplace_construct::tag_t,
-                              Args&&... value) {
+                              Args&&... args) {
     this->check_shared_state();
     this->shared_state->set_value(std::forward<Args>(args)...);
 }

@@ -31,6 +31,7 @@ class FutureImpl;
 
 template <typename Type>
 class Promise {
+public:
 
     /**
      * Default constructor for a promise, constructs the promise with an empty
@@ -117,7 +118,7 @@ private:
     /**
      * The shared state for the promise
      */
-    std::shared_ptr<FutureImpl> shared_state;
+    std::shared_ptr<detail::FutureImpl<Type>> shared_state;
 
     /**
      * Checks if the shared state exists, and if it doesn't then this function
