@@ -9,12 +9,17 @@ cxx_library(
         "Future.ipp",
         "Promise.hpp",
         "Promise.ipp",
+        "FutureError.hpp",
         "detail/FutureImpl.hpp",
         "detail/FutureImpl.ipp",
+    ],
+    srcs = [
+        "FutureError.cpp",
     ],
     visibility = [
         "PUBLIC",
     ],
     tests = [
+        "//Future/test:test",
     ],
 )
