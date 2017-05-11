@@ -65,7 +65,7 @@ namespace detail {
         /**
          * Returns true if the future contains either a value or an exception
          */
-        bool contains_value_or_exception() const noexcept;
+        bool is_ready() const noexcept;
 
     private:
 

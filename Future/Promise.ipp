@@ -17,7 +17,7 @@ Promise<Type>::Promise()
 template <typename Type>
 Promise<Type>::~Promise() {
     if (this->shared_state) {
-        if (!shared_state->contains_value_or_exception()) {
+        if (!shared_state->is_ready()) {
             auto exc = FutureError{FutureErrorCode::broken_promise};
             shared_state->set_exception(std::make_exception_ptr(exc));
         }

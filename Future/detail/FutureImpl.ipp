@@ -128,7 +128,7 @@ namespace detail {
     }
 
     template <typename Type>
-    bool FutureImpl<Type>::contains_value_or_exception() const noexcept {
+    bool FutureImpl<Type>::is_ready() const noexcept {
         auto state = this->state.load();
         return (state == FutureState::ContainsValue)
             || (state == FutureState::ContainsException);
