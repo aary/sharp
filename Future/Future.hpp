@@ -116,7 +116,18 @@ class Future {
      */
     Type get();
 
+    /**
+     * Make friends with the promise class
+     */
+    friend class sharp::Promise<Type>;
+
 private:
+
+    /**
+     * Construct the future with the shared state passed in.  This should only
+     * be called from the Promise class
+     */
+    Future(std::shared_ptr<FutureImpl> shared_state_in);
 
     /**
      * A pointer to the implementation for the future.  This implementation
@@ -127,6 +138,12 @@ private:
      * functionality.  Both are thin wrappers around FutureImpl
      */
     std::shared_ptr<FutureImpl> shared_state;
+
+    /**
+     * Check if the shared state exists and if it does not then throw an
+     * exception
+     */
+    void check_shared_state() const;
 };
 
 } // namespace sharp
