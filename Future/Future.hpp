@@ -158,4 +158,5 @@ private:
 } // namespace sharp
 
 #include <sharp/Future/Future.ipp>
+#include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/Promise.hpp>
