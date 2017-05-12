@@ -2,6 +2,7 @@ cxx_test(
     name = "test",
     deps = [
         "//Future:Future",
+        "//Threads:Threads",
     ],
     srcs = [
         "test.cpp",
