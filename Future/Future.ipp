@@ -47,11 +47,14 @@ void Future<Type>::wait() const {
 
 template <typename Type>
 Type Future<Type>::get() {
+
     this->check_shared_state();
-    this->shared_state->wait();
+
+    // reset the shared state after a successful get()
     auto deferred = defer([this]() {
         this->shared_state.reset();
     });
+    this->shared_state->wait();
     return this->shared_state->get();
 }
 
