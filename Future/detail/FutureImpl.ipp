@@ -42,7 +42,7 @@ namespace detail {
         // variable
         this->check_set_value();
         new (this->get_object_storage()) Type{std::forward<Args>(args)...};
-        this->state.store(FutureState::ContainsValue);
+        this->after_set_value();
     }
 
     template <typename Type>
@@ -57,7 +57,7 @@ namespace detail {
         // variable
         this->check_set_value();
         new (this->get_object_storage()) Type{il, std::forward<Args>(args)...};
-        this->state.store(FutureState::ContainsValue);
+        this->after_set_value();
     }
 
     template <typename Type>
@@ -70,7 +70,7 @@ namespace detail {
         // booleans
         this->check_set_value();
         new (this->get_exception_storage()) std::exception_ptr(ptr);
-        this->state.store(FutureState::ContainsException);
+        this->after_set_exception();
     }
 
     template <typename Type>
@@ -86,8 +86,14 @@ namespace detail {
         // check and throw an exception if the future has already been
         // fulfilled, and then if not store state and return the moved value
         this->check_get();
-        this->state.store(FutureState::Fulfilled);
         return std::move(*this->get_object_storage());
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::test_and_set_retrieved_flag() {
+        if (this->retrieved.test_and_set()) {
+            throw FutureError{FutureErrorCode::future_already_retrieved};
+        }
     }
 
     template <typename Type>
@@ -96,9 +102,6 @@ namespace detail {
         auto state = this->state.load();
         if (state == FutureState::ContainsException) {
             std::rethrow_exception(*this->get_exception_storage());
-        }
-        else if (state == FutureState::Fulfilled) {
-            throw FutureError{FutureErrorCode::future_already_retrieved};
         }
     }
 
@@ -110,6 +113,18 @@ namespace detail {
                 || state == FutureState::ContainsValue) {
             throw FutureError{FutureErrorCode::promise_already_satisfied};
         }
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::after_set_value() const {
+        this->state.store(FutureState::ContainsValue);
+        this->cv.notify_one();
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::after_set_exception() const {
+        this->state.store(FutureState::ContainsException);
+        this->cv.notify_one();
     }
 
     template <typename Type>

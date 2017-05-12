@@ -67,6 +67,14 @@ namespace detail {
          */
         bool is_ready() const noexcept;
 
+        /**
+         * Sets the atomic flag to be set to indicate that a future has
+         * already been retrieved from the promise, if the flag had been set
+         * before this a future exception with the error code
+         * future_already_retrieved is thrown
+         */
+        void test_and_set_retrieved_flag();
+
     private:
 
         /**
@@ -76,12 +84,12 @@ namespace detail {
             NotFulfilled,
             ContainsValue,
             ContainsException,
-            Fulfilled
         };
 
         /**
          * Synchronizy locking things
          */
+        std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
         mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
         mutable std::mutex mtx;
         mutable std::condition_variable cv;
@@ -92,6 +100,14 @@ namespace detail {
          * standardized and most compilers support that
          */
         std::aligned_union_t<0, std::exception_ptr, Type> storage;
+
+        /**
+         * fixes the internal bookkeeping for the future, including setting
+         * the state variable to the appropriate value and signalling any
+         * waiting threads to wake up
+         */
+        void after_set_value() const;
+        void after_set_exception() const;
 
         /**
          * Return the storage cast to the right type, this should be used for
