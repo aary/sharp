@@ -100,6 +100,11 @@ public:
      * shared.  Calls to Promise::get_future() return futures that are valid,
      * calls to all factory functions that produce a future should result in a
      * future that is valid
+     *
+     * Behavior is undefined if valid is false before the calling of this
+     * function, but in most cases if there is no race in the future's
+     * internals then this will cause the implementation to throw
+     * std::future_error exception alerting the user of undefined access
      */
     bool valid() const noexcept;
 
@@ -125,6 +130,15 @@ public:
     Type get();
 
     /**
+     * Returns a true if the future contains a value or an exception, this can
+     * be used to preemptively either avoid waiting or avoid scheduling a
+     * callback to the future
+     *
+     * Throws an exception if there is no shared state
+     */
+    bool is_ready() const noexcept;
+
+    /**
      * Make friends with the promise class
      */
     template <typename T>
@@ -136,7 +150,7 @@ private:
      * Construct the future with the shared state passed in.  This should only
      * be called from the Promise class
      */
-    Future(std::shared_ptr<detail::FutureImpl<Type>> shared_state_in);
+    Future(const std::shared_ptr<detail::FutureImpl<Type>>& state);
 
     /**
      * A pointer to the implementation for the future.  This implementation

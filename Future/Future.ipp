@@ -6,6 +6,7 @@
 
 #include <sharp/Future/Future.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
+#include <sharp/Defer/Defer.hpp>
 
 namespace sharp {
 
@@ -13,8 +14,10 @@ template <typename Type>
 Future<Type>::Future() {}
 
 template <typename Type>
-Future<Type>::Future(std::shared_ptr<detail::FutureImpl<Type>> shared_state_in)
-        : shared_state{std::move(shared_state_in)} {}
+Future<Type>::Future(const std::shared_ptr<detail::FutureImpl<Type>>& state)
+        : shared_state{state} {
+    this->shared_state->test_and_set_retrieved_flag();
+}
 
 template <typename Type>
 Future<Type>::Future(Future&& other) noexcept
@@ -23,6 +26,7 @@ Future<Type>::Future(Future&& other) noexcept
 template <typename Type>
 Future<Type>& Future<Type>::operator=(Future&& other) noexcept {
     this->shared_state = std::move(other.shared_state);
+    return *this;
 }
 
 template <typename Type>
@@ -45,7 +49,16 @@ template <typename Type>
 Type Future<Type>::get() {
     this->check_shared_state();
     this->shared_state->wait();
+    auto deferred = defer([this]() {
+        this->shared_state.reset();
+    });
     return this->shared_state->get();
+}
+
+template <typename Type>
+bool Future<Type>::is_ready() const noexcept {
+    this->check_shared_state();
+    return this->shared_state->is_ready();
 }
 
 template <typename Type>
