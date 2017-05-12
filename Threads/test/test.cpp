@@ -1,12 +1,15 @@
-#include <sharp/Threads/Threads.hpp>
-#include <gtest/gtest.h>
-
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <set>
 #include <queue>
 #include <iostream>
+#include <string>
+#include <chrono>
+
+#include <sharp/Threads/Threads.hpp>
+#include <sharp/Threads/ThreadTest.hpp>
+#include <gtest/gtest.h>
 
 auto mark_execution_sequence_point(int);
 
@@ -121,4 +124,38 @@ TEST(RecursiveMutex, exceptions_test_2) {
         recursive_mtx.unlock();
         EXPECT_TRUE(false);
     } catch (...) {}
+}
+
+TEST(ThreadTest, simple_thread_test_test) {
+    for (auto i = 0; i < 100; ++i) {
+
+        auto str = std::string{};
+
+        sharp::ThreadTest::reset();
+
+        auto th_one = std::thread{[&]() {
+            auto mark = sharp::ThreadTest::mark(1);
+            str += "a";
+        }};
+
+        // sleep for 10 milliseconds to make sure that the above mark is hit,
+        // otherwise would use the same testing suite to write this test, but
+        // that would be a circular dependence, so stress test this to make
+        // sure this is correct and all future tests using this that go by the
+        // assumption that this is correct will not fault as long as this is
+        // correct.  This leads to a straight correctness dependence which is
+        // as strong as the correctness of this test itself, which leads to a
+        // much better testing correctness result.
+        //
+        // Test the small things the bad way and test the big things the good
+        // way
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        auto mark = sharp::ThreadTest::mark(0);
+        str += "b";
+        mark.release();
+
+        th_one.join();
+        EXPECT_EQ(str, "ba");
+    }
 }
