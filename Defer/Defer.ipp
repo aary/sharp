@@ -54,6 +54,7 @@ private:
 
 template <typename Func>
 class DeferGuard {
+public:
 
     /**
      * constructors for the class just initialize the member variable that
