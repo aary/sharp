@@ -30,3 +30,29 @@ usable when using monitors so the internal mutex is made available in those
 cases
 
 ### The interface
+
+#### Simple critical sections
+```c++
+auto vec_locked = LockedData<std::vector<int>>{};
+// ...
+auto& ele = vec_locked.execute_atomic([&](auto& v) { return v[0]; });
+```
+
+#### Lock proxy like `std::weak_ptr`
+```c++
+auto handle = vec_locked.lock();
+handle->push_back(1);
+handle->push_back(2);
+handle->pop_back();
+for (auto integer : *handle) {
+    cout << integer << endl;
+}
+```
+
+#### Monitors
+```c++
+auto handle = vec_locked.lock();
+while (some_condition()) {
+    cv.wait(vec_locked.get_unique_lock());
+}
+```
