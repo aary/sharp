@@ -5,6 +5,7 @@
 #include <mutex>
 #include <initializer_list>
 #include <utility>
+#include <cassert>
 
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.ipp>
@@ -38,6 +39,12 @@ namespace detail {
         // acquire the lock and then construct the data item in the storage
         std::lock_guard<std::mutex> lck{this->mtx};
 
+        // set the value in the proxy if this has been proxied away
+        if (this->proxy) {
+            this->proxy->set_value(std::forward<Args>(args)...);
+            return;
+        }
+
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
@@ -53,6 +60,12 @@ namespace detail {
         // acquire the lock and then construct the data item in the storage
         std::lock_guard<std::mutex> lck{this->mtx};
 
+        // set the value in the proxy if this has been proxied away
+        if (this->proxy) {
+            this->proxy->set_value(il, std::forward<Args>(args)...);
+            return;
+        }
+
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
@@ -65,6 +78,12 @@ namespace detail {
 
         // acquire the lock and then set the exception
         std::lock_guard<std::mutex> lck{this->mtx};
+
+        // set the value in the proxy if this has been proxied away
+        if (this->proxy) {
+            this->proxy->set_exception(ptr);
+            return;
+        }
 
         // construct the exception into place and change the value of the
         // booleans
@@ -90,6 +109,14 @@ namespace detail {
     }
 
     template <typename Type>
+    void FutureImpl<Type>::set_proxy(
+            const std::shared_ptr<FutureImpl>& proxy_in) {
+        // grab a lock and then do stuff
+        std::lock_guard<std::mutex> lck(this->mtx);
+        this->proxy = proxy_in;
+    }
+
+    template <typename Type>
     void FutureImpl<Type>::test_and_set_retrieved_flag() {
         if (this->retrieved.test_and_set()) {
             throw FutureError{FutureErrorCode::future_already_retrieved};
@@ -99,6 +126,11 @@ namespace detail {
     template <typename Type>
     void FutureImpl<Type>::check_get() const {
 
+        // assert that this has not been proxied away, if it has then the
+        // get() method should be uncallable
+        assert(!this->proxy);
+
+        // do the regular exceptional check
         auto state = this->state.load();
         if (state == FutureState::ContainsException) {
             std::rethrow_exception(*this->get_exception_storage());

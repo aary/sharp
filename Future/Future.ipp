@@ -11,7 +11,7 @@
 namespace sharp {
 
 template <typename Type>
-Future<Type>::Future() {}
+Future<Type>::Future() noexcept {}
 
 template <typename Type>
 Future<Type>::Future(const std::shared_ptr<detail::FutureImpl<Type>>& state)

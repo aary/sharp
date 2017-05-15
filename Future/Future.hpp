@@ -50,7 +50,7 @@ public:
      * a value is set into the future with a call to set_value() in a
      * corresponding promise object
      */
-    Future();
+    Future() noexcept;
 
     /**
      * Move constructor move constructs a future from another one.  After a
@@ -80,6 +80,25 @@ public:
      */
     Future& operator=(Future&&) noexcept;
     Future& operator=(const Future&) = delete;
+
+    /**
+     * Constructs the current future as a proxy to the inner future of the
+     * passed in future.  i.e.  The future passed as an argument is unwrapped
+     * into the constructed future
+     *
+     * The unwrapped future is intrinsically linked to the inner future that
+     * would be otherwise returned by a call to get(), since they are
+     * essentially the same.  Now there cannot be any races between the future
+     * set in the shared state of the outer future and the current constructed
+     * future.  Why?  Because that future has been moved into this future via
+     * proxying
+     *
+     * Throws an exception in the following conditions
+     *
+     *  1. other.valid() is false, meaning that there is no shared state in
+     *     the current future
+     */
+    Future(Future<Future<Type>>&&);
 
     /**
      * The destructor for futures releases a reference count on the shared
