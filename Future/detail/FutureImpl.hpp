@@ -68,12 +68,6 @@ namespace detail {
         bool is_ready() const noexcept;
 
         /**
-         * Sets a proxy to another future shared state if unwrapping had
-         * happened in a future level above this one
-         */
-        void set_proxy(const std::shared_ptr<FutureImpl>& proxy_in);
-
-        /**
          * Sets the atomic flag to be set to indicate that a future has
          * already been retrieved from the promise, if the flag had been set
          * before this a future exception with the error code
@@ -91,6 +85,21 @@ namespace detail {
             ContainsValue,
             ContainsException,
         };
+
+        /**
+         * Synchronizy locking things
+         */
+        std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
+        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
+        mutable std::mutex mtx;
+        mutable std::condition_variable cv;
+
+        /**
+         * A union containing either an exception_ptr or a value, this should
+         * be replaced with a better std::variant once that has been
+         * standardized and most compilers support that
+         */
+        std::aligned_union_t<0, std::exception_ptr, Type> storage;
 
         /**
          * fixes the internal bookkeeping for the future, including setting
@@ -119,28 +128,6 @@ namespace detail {
          */
         void check_get() const;
         void check_set_value() const;
-
-        /**
-         * Synchronizy locking things
-         */
-        std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
-        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
-        mutable std::mutex mtx;
-        mutable std::condition_variable cv;
-
-        /**
-         * A union containing either an exception_ptr or a value, this should
-         * be replaced with a better std::variant once that has been
-         * standardized and most compilers support that
-         */
-        std::aligned_union_t<0, std::exception_ptr, Type> storage;
-
-        /**
-         * A shared pointer representing any proxies to the current shared
-         * state, the proxy gets priority for the value or exception whenever
-         * it is set
-         */
-        std::shared_ptr<FutureImpl> proxy;
     };
 
 } // namespace detail
