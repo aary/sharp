@@ -4,6 +4,7 @@ cxx_library(
     deps = [
         "//Tags:Tags",
         "//Defer:Defer",
+        "//Traits:Traits",
     ],
     exported_headers = [
         "Future.hpp",
