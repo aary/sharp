@@ -22,6 +22,9 @@
 #include <mutex>
 #include <initializer_list>
 #include <system_error>
+#include <functional>
+
+#include <sharp/Traits/Traits.hpp>
 
 namespace sharp {
 
@@ -75,6 +78,23 @@ namespace detail {
          */
         void test_and_set_retrieved_flag();
 
+        /**
+         * Add a continuation to be executed on the shared state when the
+         * shared state has been fulfilled
+         *
+         * The continuation closure will be executed inline and will either be
+         * executed immediately if there is a value present in the shared
+         * state or will be packed up and stored in a std::function<> object
+         * to be executed later when the need arises, this way this function
+         * presents reusable code without causing unnecesary allocation if not
+         * needed
+         *
+         * The continuation functor must accept a FutureImpl<Type> object by
+         * reference
+         */
+        template <typename Func>
+        void add_continuation(Func&& func);
+
     private:
 
         /**
@@ -87,27 +107,12 @@ namespace detail {
         };
 
         /**
-         * Synchronizy locking things
-         */
-        std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
-        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
-        mutable std::mutex mtx;
-        mutable std::condition_variable cv;
-
-        /**
-         * A union containing either an exception_ptr or a value, this should
-         * be replaced with a better std::variant once that has been
-         * standardized and most compilers support that
-         */
-        std::aligned_union_t<0, std::exception_ptr, Type> storage;
-
-        /**
          * fixes the internal bookkeeping for the future, including setting
          * the state variable to the appropriate value and signalling any
          * waiting threads to wake up
          */
-        void after_set_value() const;
-        void after_set_exception() const;
+        void after_set_value();
+        void after_set_exception();
 
         /**
          * Return the storage cast to the right type, this should be used for
@@ -128,6 +133,26 @@ namespace detail {
          */
         void check_get() const;
         void check_set_value() const;
+
+        /**
+         * Synchronizy locking things
+         */
+        std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
+        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
+        mutable std::mutex mtx;
+        mutable std::condition_variable cv;
+
+        /**
+         * A union containing either an exception_ptr or a value, this should
+         * be replaced with a better std::variant once that has been
+         * standardized and most compilers support that
+         */
+        std::aligned_union_t<0, std::exception_ptr, Type> storage;
+
+        /**
+         * A callback functor to be called when the shared state has a value
+         */
+        std::function<void(FutureImpl<Type>&)> callback;
     };
 
 } // namespace detail

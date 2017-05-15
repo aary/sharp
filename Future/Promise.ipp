@@ -3,7 +3,6 @@
 #include <memory>
 
 #include <sharp/Tags/Tags.hpp>
-#include <sharp/Future/Future.hpp>
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>

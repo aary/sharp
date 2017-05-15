@@ -97,17 +97,30 @@ namespace detail {
     }
 
     template <typename Type>
-    void FutureImpl<Type>::check_get() const {
+    template <typename Func>
+    void FutureImpl<Type>::add_continuation(Func&& func) {
 
-        auto state = this->state.load();
-        if (state == FutureState::ContainsException) {
+        std::lock_guard<std::mutex> lck(this->mtx);
+
+        // if the value or exception has already been set then call the
+        // functor now
+        if (this->state.load() != FutureState::NotFulfilled) {
+            std::forward<Func>(func)(*this);
+        }
+
+        // otherwise pack it up into a callback and store the callback
+        this->callback = std::forward<Func>(func);
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::check_get() const {
+        if (this->state.load() == FutureState::ContainsException) {
             std::rethrow_exception(*this->get_exception_storage());
         }
     }
 
     template <typename Type>
     void FutureImpl<Type>::check_set_value() const {
-
         auto state = this->state.load();
         if (state == FutureState::ContainsException
                 || state == FutureState::ContainsValue) {
@@ -116,15 +129,19 @@ namespace detail {
     }
 
     template <typename Type>
-    void FutureImpl<Type>::after_set_value() const {
+    void FutureImpl<Type>::after_set_value() {
         this->state.store(FutureState::ContainsValue);
         this->cv.notify_one();
+
+        if (this->callback) {
+            this->callback(*this);
+        }
     }
 
     template <typename Type>
-    void FutureImpl<Type>::after_set_exception() const {
+    void FutureImpl<Type>::after_set_exception() {
+        this->after_set_value();
         this->state.store(FutureState::ContainsException);
-        this->cv.notify_one();
     }
 
     template <typename Type>
@@ -144,9 +161,7 @@ namespace detail {
 
     template <typename Type>
     bool FutureImpl<Type>::is_ready() const noexcept {
-        auto state = this->state.load();
-        return (state == FutureState::ContainsValue)
-            || (state == FutureState::ContainsException);
+        return (this->state.load() != FutureState::NotFulfilled);
     }
 }
 

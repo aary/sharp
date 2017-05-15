@@ -16,7 +16,6 @@
 #include <memory>
 
 #include <sharp/Tags/Tags.hpp>
-#include <sharp/Future/Future.hpp>
 
 namespace sharp {
 
