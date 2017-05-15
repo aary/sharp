@@ -5,6 +5,7 @@
 #include <exception>
 
 #include <sharp/Future/Future.hpp>
+#include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
 #include <sharp/Defer/Defer.hpp>
@@ -25,15 +26,21 @@ Future<Type>::Future(Future&& other) noexcept
         : shared_state{std::move(other.shared_state)} {}
 
 template <typename Type>
+class WhichType;
+
+template <typename Type>
 Future<Type>::Future(Future<Future<Type>>&& other) : Future{} {
 
     // check if other has shared state and if it does not then throw an
     // exception
     other.check_shared_state();
 
-    // create a promise for *this and assign the resulting future to *this
-    auto promise = sharp::Promise<Type>{};
-    *this = promise.get_future();
+    // create a promise for *this and assign the resulting future to *this,
+    // creating a shared_ptr to a promise because the add_callback function
+    // requires a lambda that is copyable, and this is because it stores the
+    // lambda in a std::function object
+    auto promise = std::make_shared<sharp::Promise<Type>>();
+    *this = promise->get_future();
 
     // clear the shared state of the other future when this function exits
     auto deferred = defer_guard([&other]() {
@@ -42,16 +49,34 @@ Future<Type>::Future(Future<Future<Type>>&& other) : Future{} {
 
     // add a continuation to other that will be fired when the other future
     // has been fulfilled with a Future<Type> object
-    other.shared_state->add_continuation([promise = std::move(promise)](
-            auto& shared_state_outer) mutable {
+    other.shared_state->add_callback([promise](auto& shared_state_outer)
+            mutable {
+
+        // store an exception in the current future if either the inner future
+        // is not ready or if there is an exception instead of a future in the
+        // outer future
+        if (shared_state_outer.contains_exception()) {
+            promise->set_exception(shared_state_outer.get_exception_ptr());
+            return;
+        }
+        if (!shared_state_outer.get_value().valid()) {
+            auto exc = FutureError{FutureErrorCode::broken_promise};
+            promise->set_exception(std::make_exception_ptr(exc));
+            return;
+        }
 
         // when the outer future has been fulfilled add a continuation to the
         // inner future that will fire when the inner future has been
         // completed, this will then fulfill *this with the value returned by
         // calling get() on the resulting future
-        shared_state_outer.add_continuation([promise = std::move(promise)](
-               auto& shared_state_inner) mutable {
-            promise.set_value(shared_state_inner.get());
+        assert(shared_state_outer.get_value().shared_state);
+        shared_state_outer.get_value().shared_state->add_callback(
+                [promise] (auto& shared_state_inner) mutable {
+            if (shared_state_inner.contains_exception()) {
+                promise->set_exception(shared_state_inner.get_exception_ptr());
+            } else {
+                promise->set_value(shared_state_inner.get());
+            }
         });
     });
 }

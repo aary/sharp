@@ -5,6 +5,7 @@
 #include <mutex>
 #include <initializer_list>
 #include <utility>
+#include <cassert>
 
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.ipp>
@@ -36,13 +37,16 @@ namespace detail {
     void FutureImpl<Type>::set_value(Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        std::lock_guard<std::mutex> lck{this->mtx};
+        auto lck = std::unique_lock<std::mutex>{this->mtx};
 
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
         new (this->get_object_storage()) Type{std::forward<Args>(args)...};
         this->after_set_value();
+
+        // execute the callback if there is one set
+        this->execute_callback(lck);
     }
 
     template <typename Type>
@@ -51,26 +55,32 @@ namespace detail {
                                      Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
-        std::lock_guard<std::mutex> lck{this->mtx};
+        auto lck = std::unique_lock<std::mutex>{this->mtx};
 
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
         new (this->get_object_storage()) Type{il, std::forward<Args>(args)...};
         this->after_set_value();
+
+        // execute the callback if there is one set
+        this->execute_callback(lck);
     }
 
     template <typename Type>
     void FutureImpl<Type>::set_exception(std::exception_ptr ptr) {
 
         // acquire the lock and then set the exception
-        std::lock_guard<std::mutex> lck{this->mtx};
+        auto lck = std::unique_lock<std::mutex>{this->mtx};
 
         // construct the exception into place and change the value of the
         // booleans
         this->check_set_value();
         new (this->get_exception_storage()) std::exception_ptr(ptr);
         this->after_set_exception();
+
+        // execute the callback if there is one set
+        this->execute_callback(lck);
     }
 
     template <typename Type>
@@ -98,18 +108,33 @@ namespace detail {
 
     template <typename Type>
     template <typename Func>
-    void FutureImpl<Type>::add_continuation(Func&& func) {
+    void FutureImpl<Type>::add_callback(Func&& func) {
 
-        std::lock_guard<std::mutex> lck(this->mtx);
+        auto lck = std::unique_lock<std::mutex>{this->mtx};
+
+        // this should not be called twice, and will only be called internally
+        // so assert
+        assert(!this->callback);
 
         // if the value or exception has already been set then call the
         // functor now
         if (this->state.load() != FutureState::NotFulfilled) {
+            lck.unlock();
             std::forward<Func>(func)(*this);
+        } else {
+            // otherwise pack it up into a callback and store the callback
+            this->callback = std::forward<Func>(func);
         }
+    }
 
-        // otherwise pack it up into a callback and store the callback
-        this->callback = std::forward<Func>(func);
+    template <typename Type>
+    std::exception_ptr FutureImpl<Type>::get_exception_ptr() const {
+        return *this->get_exception_storage();
+    }
+
+    template <typename Type>
+    Type& FutureImpl<Type>::get_value() {
+        return *this->get_object_storage();
     }
 
     template <typename Type>
@@ -132,16 +157,22 @@ namespace detail {
     void FutureImpl<Type>::after_set_value() {
         this->state.store(FutureState::ContainsValue);
         this->cv.notify_one();
-
-        if (this->callback) {
-            this->callback(*this);
-        }
     }
 
     template <typename Type>
     void FutureImpl<Type>::after_set_exception() {
-        this->after_set_value();
         this->state.store(FutureState::ContainsException);
+        this->cv.notify_one();
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::execute_callback(std::unique_lock<std::mutex>& lck) {
+        assert(lck.owns_lock());
+        if (!this->callback) {
+            return;
+        }
+        lck.unlock();
+        this->callback(*this);
     }
 
     template <typename Type>
@@ -162,6 +193,12 @@ namespace detail {
     template <typename Type>
     bool FutureImpl<Type>::is_ready() const noexcept {
         return (this->state.load() != FutureState::NotFulfilled);
+    }
+
+    template <typename Type>
+    bool FutureImpl<Type>::contains_exception() const {
+        std::lock_guard<std::mutex> lck{this->mtx};
+        return (this->state.load() == FutureState::ContainsException);
     }
 }
 

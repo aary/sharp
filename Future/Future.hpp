@@ -174,6 +174,8 @@ public:
      */
     template <typename T>
     friend class sharp::Promise;
+    template <typename T>
+    friend class sharp::Future;
 
 private:
 

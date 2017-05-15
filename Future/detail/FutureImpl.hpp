@@ -93,7 +93,22 @@ namespace detail {
          * reference
          */
         template <typename Func>
-        void add_continuation(Func&& func);
+        void add_callback(Func&& func);
+
+        /**
+         * Returns the current exception_ptr or value assuming there is an
+         * exception or value in this
+         */
+        std::exception_ptr get_exception_ptr() const;
+        Type& get_value();
+
+        /**
+         * Returns true if the shared state contains an exception
+         *
+         * In order to be thread safe, this function first acquires a lock and
+         * then makes the check
+         */
+        bool contains_exception() const;
 
     private:
 
@@ -133,6 +148,11 @@ namespace detail {
          */
         void check_get() const;
         void check_set_value() const;
+
+        /**
+         * Executes the callback on this if there is a callback to execute
+         */
+        void execute_callback(std::unique_lock<std::mutex>& lck);
 
         /**
          * Synchronizy locking things
