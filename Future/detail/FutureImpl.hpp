@@ -139,6 +139,13 @@ namespace detail {
 
         /**
          * Executes the callback on this if there is a callback to execute
+         *
+         * The callback is executed inline within the scope of the function
+         * that called execute_callback, i.e. execution is not forwarded to
+         * another thread or something similar
+         *
+         * Locks are assumed to be held before this function is called and the
+         * lock is released right before the callback is executed
          */
         void execute_callback(std::unique_lock<std::mutex>& lck);
 
