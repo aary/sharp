@@ -42,7 +42,7 @@ namespace detail {
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
-        new (this->get_object_storage()) Type{std::forward<Args>(args)...};
+        new (&this->get_value()) Type{std::forward<Args>(args)...};
         this->after_set_value();
 
         // execute the callback if there is one set
@@ -60,7 +60,7 @@ namespace detail {
         // construct the object into place and change the value of the state
         // variable
         this->check_set_value();
-        new (this->get_object_storage()) Type{il, std::forward<Args>(args)...};
+        new (&this->get_value()) Type{il, std::forward<Args>(args)...};
         this->after_set_value();
 
         // execute the callback if there is one set
@@ -76,7 +76,7 @@ namespace detail {
         // construct the exception into place and change the value of the
         // booleans
         this->check_set_value();
-        new (this->get_exception_storage()) std::exception_ptr(ptr);
+        new (&this->get_exception_ptr()) std::exception_ptr(ptr);
         this->after_set_exception();
 
         // execute the callback if there is one set
@@ -96,7 +96,7 @@ namespace detail {
         // check and throw an exception if the future has already been
         // fulfilled, and then if not store state and return the moved value
         this->check_get();
-        return std::move(*this->get_object_storage());
+        return std::move(this->get_value());
     }
 
     template <typename Type>
@@ -128,19 +128,9 @@ namespace detail {
     }
 
     template <typename Type>
-    std::exception_ptr FutureImpl<Type>::get_exception_ptr() const {
-        return *this->get_exception_storage();
-    }
-
-    template <typename Type>
-    Type& FutureImpl<Type>::get_value() {
-        return *this->get_object_storage();
-    }
-
-    template <typename Type>
     void FutureImpl<Type>::check_get() const {
         if (this->state.load() == FutureState::ContainsException) {
-            std::rethrow_exception(*this->get_exception_storage());
+            std::rethrow_exception(this->get_exception_ptr());
         }
     }
 
@@ -176,21 +166,6 @@ namespace detail {
     }
 
     template <typename Type>
-    Type* FutureImpl<Type>::get_object_storage() {
-        return reinterpret_cast<Type*>(&this->storage);
-    }
-
-    template <typename Type>
-    std::exception_ptr* FutureImpl<Type>::get_exception_storage() {
-        return reinterpret_cast<std::exception_ptr*>(&this->storage);
-    }
-
-    template <typename Type>
-    const std::exception_ptr* FutureImpl<Type>::get_exception_storage() const {
-        return reinterpret_cast<const std::exception_ptr*>(&this->storage);
-    }
-
-    template <typename Type>
     bool FutureImpl<Type>::is_ready() const noexcept {
         return (this->state.load() != FutureState::NotFulfilled);
     }
@@ -200,6 +175,27 @@ namespace detail {
         std::lock_guard<std::mutex> lck{this->mtx};
         return (this->state.load() == FutureState::ContainsException);
     }
+
+    template <typename Type>
+    std::exception_ptr& FutureImpl<Type>::get_exception_ptr() {
+        auto* exception_ptr
+            = reinterpret_cast<std::exception_ptr*>(&this->storage);
+        return *exception_ptr;
+    }
+
+    template <typename Type>
+    const std::exception_ptr& FutureImpl<Type>::get_exception_ptr() const {
+        auto* exception_ptr
+            = reinterpret_cast<const std::exception_ptr*>(&this->storage);
+        return *exception_ptr;
+    }
+
+    template <typename Type>
+    Type& FutureImpl<Type>::get_value() {
+        auto* object_ptr = reinterpret_cast<Type*>(&this->storage);
+        return *object_ptr;
+    }
+
 }
 
 } // namespace sharp

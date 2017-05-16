@@ -99,7 +99,8 @@ namespace detail {
          * Returns the current exception_ptr or value assuming there is an
          * exception or value in this
          */
-        std::exception_ptr get_exception_ptr() const;
+        std::exception_ptr& get_exception_ptr();
+        const std::exception_ptr& get_exception_ptr() const;
         Type& get_value();
 
         /**
@@ -128,19 +129,6 @@ namespace detail {
          */
         void after_set_value();
         void after_set_exception();
-
-        /**
-         * Return the storage cast to the right type, this should be used for
-         * all accesses to the internal object storage
-         */
-        Type* get_object_storage();
-
-        /**
-         * Returns the internal storage cast to an exception_ptr pointer type,
-         * this should then be used to construct or rethrow the exception
-         */
-        std::exception_ptr* get_exception_storage();
-        const std::exception_ptr* get_exception_storage() const;
 
         /**
          * Checking functions that make sure everything is okay in the future
