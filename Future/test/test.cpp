@@ -113,18 +113,20 @@ TEST(Future, BrokenPromise) {
 }
 
 TEST(Future, UnwrapConstructBasic) {
-    sharp::ThreadTest::reset();
-    auto promise = sharp::Promise<sharp::Future<int>>{};
-    auto future_unwrapped = sharp::Future<int>{promise.get_future()};
+    for (auto i = 0; i < 100; ++i) {
+        sharp::ThreadTest::reset();
+        auto promise = sharp::Promise<sharp::Future<int>>{};
+        auto future_unwrapped = sharp::Future<int>{promise.get_future()};
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        sharp::ThreadTest::mark(1);
-        auto promise_inner = sharp::Promise<int>{};
-        auto future_inner = promise_inner.get_future();
-        promise.set_value(std::move(future_inner));
-        promise_inner.set_value(1);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            sharp::ThreadTest::mark(1);
+            auto promise_inner = sharp::Promise<int>{};
+            auto future_inner = promise_inner.get_future();
+            promise.set_value(std::move(future_inner));
+            promise_inner.set_value(1);
+        }}.detach();
 
-    sharp::ThreadTest::mark(0);
-    EXPECT_EQ(future_unwrapped.get(), 1);
+        sharp::ThreadTest::mark(0);
+        EXPECT_EQ(future_unwrapped.get(), 1);
+    }
 }
