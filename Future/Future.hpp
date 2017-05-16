@@ -186,6 +186,12 @@ private:
     Future(const std::shared_ptr<detail::FutureImpl<Type>>& state);
 
     /**
+     * Check if the shared state exists and if it does not then throw an
+     * exception
+     */
+    void check_shared_state() const;
+
+    /**
      * A pointer to the implementation for the future.  This implementation
      * code is shared by both futures and promises and contains all the main
      * functionality for futures
@@ -194,12 +200,6 @@ private:
      * functionality.  Both are thin wrappers around FutureImpl
      */
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
-
-    /**
-     * Check if the shared state exists and if it does not then throw an
-     * exception
-     */
-    void check_shared_state() const;
 };
 
 } // namespace sharp
