@@ -1,6 +1,7 @@
 #include <thread>
 #include <chrono>
 #include <utility>
+#include <iostream>
 
 #include <sharp/Future/Future.hpp>
 #include <sharp/Threads/Threads.hpp>
@@ -194,4 +195,28 @@ TEST(Future, UnwrapConstructOtherContainsValidWithException) {
         future_unwrapped.get();
         EXPECT_TRUE(false);
     } catch (std::logic_error& err) {}
+}
+
+TEST(Future, FutureThenBasicTest) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+    auto thened_future = future.then([](auto future) {
+        return future.get() * 5;
+    });
+    promise.set_value(10);
+    EXPECT_EQ(thened_future.get(), 50);
+}
+
+TEST(Future, ThreadedThenTest) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
+        std::thread{[&]() {
+            promise.set_value(10);
+        }}.detach();
+        auto thened_future = future.then([](auto future) {
+            return future.get() * 5;
+        });
+        EXPECT_EQ(thened_future.get(), 50);
+    }
 }
