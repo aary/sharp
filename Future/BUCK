@@ -14,6 +14,7 @@ cxx_library(
         "FutureError.hpp",
         "detail/FutureImpl.hpp",
         "detail/FutureImpl.ipp",
+        "detail/Future-pre.hpp",
     ],
     srcs = [
         "FutureError.cpp",
