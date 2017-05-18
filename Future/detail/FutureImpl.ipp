@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <utility>
 #include <cassert>
+#include <memory>
 
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.ipp>
@@ -13,6 +14,25 @@
 namespace sharp {
 
 namespace detail {
+
+    /**
+     * std::function requires that the function object be used be copyable,
+     * this is very limiting since many common functors and lambdas are not
+     * copyable, for example any lambda initialized with a move capture
+     *
+     * If a function is move only then use this function to wrap around it
+     * and return a functor that is copyable
+     */
+    template <typename Func>
+    auto make_copyable_function(Func&& func_in) {
+        // get a shared pointer to the function, forward the function into the
+        // shared pointer to avoid copies
+        auto func_stored_ptr
+            = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func_in));
+        return [func_stored_ptr](auto&&... args) -> decltype(auto) {
+            return (*func_stored_ptr)(std::forward<decltype(args)>(args)...);
+        };
+    }
 
     template <typename Type>
     void FutureImpl<Type>::wait() const {
@@ -123,7 +143,7 @@ namespace detail {
             std::forward<Func>(func)(*this);
         } else {
             // otherwise pack it up into a callback and store the callback
-            this->callback = std::forward<Func>(func);
+            this->callback = make_copyable_function(std::forward<Func>(func));
         }
     }
 

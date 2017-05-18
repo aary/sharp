@@ -13,6 +13,10 @@
 #pragma once
 
 #include <memory>
+#include <functional>
+#include <cstddef>
+
+#include <sharp/Future/detail/Future-pre.hpp>
 
 namespace sharp {
 
@@ -36,9 +40,68 @@ namespace detail {
 template <typename Type>
 class Promise;
 
+/**
+ * @class Executor
+ *
+ * This class encapsulates the execution of a passed in function object.  The
+ * function object is either executed inline on the current thread or on
+ * another thread
+ *
+ * The interface to it is simple, when you want a function executed either now
+ * or at some time in the immediate future (because there might be other
+ * things executing currently) then you call the .add() method.  The .add()
+ * method will either execute the function immediately or pass it off to
+ * another thread to execute later.  The execution policy (either to execute
+ * inline or in another thread) will be determined by the implementation of
+ * the executor
+ *
+ * All implementations of executor classes will derive from this one base
+ * class and then specialize the .add() member function
+ */
+class Executor {
+public:
+
+    /**
+     * Virtual destructor for the Executor class
+     */
+    virtual ~Executor();
+
+    /**
+     * The add() function which consists of most of the logic and usage of
+     * this Executor class, this function will be used to add function objects
+     * to this executor, either to be executed now or later in the future
+     *
+     * The exact execution of the closure will be dependent on the
+     * implementation of the executor, for example it can either be executed
+     * inline or on another thread
+     */
+    virtual void add(std::function<void()> closure) = 0;
+
+    /**
+     * Returns the number of function objects waiting to be executed
+     *
+     * This is intended for debugging/logging and other issues of the sort.
+     * Any other uses are inherently prone to race conditions because other
+     * threads may still be executing the closures
+     */
+    virtual std::size_t num_pending_closures() const = 0;
+};
+
+/**
+ * @class Future
+ *
+ * A one-shot asymetrical thread safe queue mechanism, the push end of the
+ * queue is represented by a Promise object and the pull end of the queue is
+ * represented by a Future object
+ */
 template <typename Type>
 class Future {
 public:
+
+    /**
+     * Traits that I thought might be useful
+     */
+    using value_type = Type;
 
     /**
      * Constructor for the future constructs the future object without any
@@ -170,10 +233,42 @@ public:
     bool is_ready() const noexcept;
 
     /**
+     * Attaches a continuation callback to this future that will execute when
+     * the future is finished
+     *
+     * The callback should accept a single argument which is a Future<Type> by
+     * value and should return either another value of any type of a future of
+     * any type.  The .then() method will return an object of type
+     * Future<OtherType> if the callback returns a bare type that is not an
+     * instantiation of a future which will get fulfilled when the callback is
+     * executed.  .then() will return the same type as the future returned if
+     * the callback returns a future itself.  This is done by unwrapping the
+     * future in the return value via the unwrapping constructor
+     *
+     * The callback is executed either on the current thread or on an executor
+     * which can be passed in as an optional second parameter
+     */
+    template <typename Func,
+              typename detail::EnableIfDoesNotReturnFuture<Func, Type>*
+                  = nullptr>
+    auto then(Func&& func) -> Future<decltype(func(std::move(*this)))>;
+    template <typename Func,
+              typename detail::EnableIfReturnsFuture<Func, Type>* = nullptr>
+    auto then(Func&& func) -> decltype(func(std::move(*this)));
+
+    /**
      * Make friends with the promise class
      */
     template <typename T>
     friend class sharp::Promise;
+
+    /**
+     * Make friends with all instantiations of the future class, this is
+     * needed because there are a lot of methods here which rely on futures
+     * that have been instantiated differently from the current instantiation
+     * of the future class.  And it is nice to be able to call private methods
+     * on these other instantiations as well
+     */
     template <typename T>
     friend class sharp::Future;
 
@@ -184,6 +279,14 @@ private:
      * be called from the Promise class
      */
     Future(const std::shared_ptr<detail::FutureImpl<Type>>& state);
+
+    /**
+     * The internal implementation of .then(), this just returns a future
+     * instantiated with the type that the functor returns, this does no
+     * unwrapping around the future
+     */
+    template <typename Func>
+    auto then_impl(Func&& func) -> Future<decltype(func(std::move(*this)))>;
 
     /**
      * Check if the shared state exists and if it does not then throw an
