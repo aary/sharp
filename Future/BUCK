@@ -12,6 +12,7 @@ cxx_library(
         "Promise.hpp",
         "Promise.ipp",
         "FutureError.hpp",
+        "Executor.hpp",
         "detail/FutureImpl.hpp",
         "detail/FutureImpl.ipp",
         "detail/Future-pre.hpp",
