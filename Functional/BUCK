@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Functional",
+    header_namespace = "sharp/Functional",
+    exported_headers = [
+        "Functional.hpp",
+        "detail/Function.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Functional/test:test",
+    ],
+)
