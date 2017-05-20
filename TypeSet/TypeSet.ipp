@@ -159,11 +159,12 @@ TypeSet<Types...>::TypeSet(TypeSetType&& other, sharp::implementation::tag_t)
         // execute a move operation on the other type if the type is move
         // constructible without throwing, otherwise copy the element
         using Type = typename decltype(context)::type;
-        auto& other_element = sharp::get<Type>(other);
+        auto&& other_element = sharp::get<Type>(
+            std::forward<TypeSetType>(other));
         auto& this_element = sharp::get<Type>(*this);
         if (should_move) {
-            new (&this_element) Type{sharp::match_forward<
-                TypeSetType, decltype(other_element)>(other_element)};
+            new (&this_element) Type{
+                std::forward<decltype(other_element)>(other_element)};
         } else {
             new (&this_element) Type{other_element};
         }
@@ -310,8 +311,8 @@ TypeSet<Types...>& TypeSet<Types...>::assign(TypeSetType&& other) noexcept(
             "sharp::get<> evaluated to the wrong value category");
 
         if (should_move) {
-            sharp::get<Type>(*this) = sharp::get<Type>(sharp::match_forward<
-                TypeSetType, decltype(other)>(other));
+            sharp::get<Type>(*this) = sharp::get<Type>(
+                std::forward<TypeSetType>(other));
         } else {
             sharp::get<Type>(*this) = sharp::get<Type>(other);
         }
