@@ -16,6 +16,7 @@
 #include <functional>
 #include <cstddef>
 
+#include <sharp/Traits/Traits.hpp>
 #include <sharp/Future/Executor.hpp>
 #include <sharp/Future/detail/Future-pre.hpp>
 
@@ -33,6 +34,26 @@ namespace detail {
     template <typename Type>
     class FutureImpl;
 
+    /**
+     * A CRTP base class that implements continuations, this code will be used
+     * both for Future and SharedFuture
+     */
+    template <typename FutureType>
+    class ComposableFuture : public sharp::Crtp<FutureType> {
+    public:
+
+        /**
+         * The basic implementation of .then(), this returns a future that
+         * contains the value that is returned by the closure passed to the
+         * function, this does not implement unwrapping of the future into
+         * another layer, as that is possibly dependent on the future type
+         * that inherits from this
+         */
+        template <typename Func>
+        auto then(Func&& func)
+                -> Future<decltype(func(std::declval<FutureType>()))>;
+    };
+
 } // namespace detail
 
 /**
@@ -42,6 +63,12 @@ template <typename Type>
 class Promise;
 
 /**
+ * Forward declaration of SharedFuture for friendship
+ */
+template <typename Type>
+class SharedFuture;
+
+/**
  * @class Future
  *
  * A one-shot asymetrical thread safe queue mechanism, the push end of the
@@ -49,7 +76,7 @@ class Promise;
  * represented by a Future object
  */
 template <typename Type>
-class Future {
+class Future : public detail::ComposableFuture<Future<Type>> {
 public:
 
     /**
@@ -187,6 +214,16 @@ public:
     bool is_ready() const noexcept;
 
     /**
+     * Shares the current future and returns a shared version of the same
+     * future object, a shared future represents a copyable version of future,
+     * where the value is not fetched once and only once from the future but
+     * rather copied as many times as needed
+     *
+     * After calling this, the shared state for the future is left empty
+     */
+    SharedFuture<Type> share();
+
+    /**
      * Attaches a continuation callback to this future that will execute when
      * the future is finished
      *
@@ -225,6 +262,19 @@ public:
      */
     template <typename T>
     friend class sharp::Future;
+
+    /**
+     * Make friends with the ComposableFuture class because that uses private
+     * members of this class
+     */
+    template <typename T>
+    friend class sharp::detail::ComposableFuture;
+
+    /**
+     * Make friends with the SharedFuture class
+     */
+    template <typename T>
+    friend class sharp::SharedFuture;
 
 private:
 

@@ -3,12 +3,14 @@
 #include <memory>
 #include <utility>
 #include <exception>
+#include <type_traits>
 
+#include <sharp/Defer/Defer.hpp>
 #include <sharp/Future/Future.hpp>
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
-#include <sharp/Defer/Defer.hpp>
+#include <sharp/Future/Executor.hpp>
 
 namespace sharp {
 
@@ -24,9 +26,6 @@ Future<Type>::Future(const std::shared_ptr<detail::FutureImpl<Type>>& state)
 template <typename Type>
 Future<Type>::Future(Future&& other) noexcept
         : shared_state{std::move(other.shared_state)} {}
-
-template <typename Type>
-class WhichType;
 
 template <typename Type>
 Future<Type>::Future(Future<Future<Type>>&& other) : Future{} {
@@ -129,47 +128,65 @@ template <typename Func,
           typename detail::EnableIfDoesNotReturnFuture<Func, Type>*>
 auto Future<Type>::then(Func&& func)
         -> Future<decltype(func(std::move(*this)))> {
-    return this->then_impl(std::forward<Func>(func));
+    auto deferred = defer_guard([this]() {
+        this->shared_state.reset();
+    });
+    return detail::ComposableFuture<Future<Type>>::then(
+            std::forward<Func>(func));
 }
 
 template <typename Type>
 template <typename Func,
           typename detail::EnableIfReturnsFuture<Func, Type>*>
 auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
+
+    auto deferred = defer_guard([this]() {
+        this->shared_state.reset();
+    });
+
     // unwrap the returned future
     using T = typename std::decay_t<decltype(func(*this))>::value_type;
-    return Future<T>{this->then_impl(std::forward<Func>(func))};
+    return Future<T>{
+        detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
 }
 
-template <typename Type>
-template <typename Func>
-auto Future<Type>::then_impl(Func&& func)
-        -> Future<decltype(func(std::move(*this)))> {
-    this->check_shared_state();
+namespace detail {
 
-    // make a future promise pair, the value returned will be the future from
-    // this pair, upon successful completion the future will be satisfied by
-    // a callback that is decorated around the one passed in, the decorated
-    // callback will capture the shared state of the current future, and then
-    // call the callback and pass it a future that is constructed with that
-    // shared state the value that the inner callback returns will then be
-    // moved into the promise
-    auto promise = Promise<decltype(func(std::move(*this)))>{};
-    auto future = promise.get_future();
-    this->shared_state->add_callback(
-            [promise = std::move(promise), func = std::forward<Func>(func),
-             shared_state = this->shared_state]
-            (auto&) mutable {
-        // TODO add executors here instead of executing inline
-        // TODO the below design seems hacky, pls fix
-        // bypass the normal execution and assign the shared pointer directly
-        auto fut = Future<Type>{};
-        fut.shared_state = shared_state;
-        auto val = func(std::move(fut));
-        promise.set_value(std::move(val));
-    });
-    return future;
-}
+    template <typename FutureType>
+    template <typename Func>
+    auto ComposableFuture<FutureType>::then(Func&& func)
+            -> Future<decltype(func(std::declval<FutureType>()))> {
+
+        this->this_instance().check_shared_state();
+
+        // make a future promise pair, the value returned will be the future
+        // from this pair, upon successful completion the future will be
+        // satisfied by a callback that is decorated around the one passed in,
+        // the decorated callback will capture the shared state of the current
+        // future, and then call the callback and pass it a future that is
+        // constructed with that shared state the value that the inner
+        // callback returns will then be moved into the promise
+        auto promise = Promise<decltype(func(std::declval<FutureType>()))>{};
+        auto future = std::decay_t<decltype(promise.get_future())>{};
+        future.shared_state = std::move(promise.get_future().shared_state);
+
+        this->this_instance().shared_state->add_callback(
+                [promise = std::move(promise),
+                 func = std::forward<Func>(func),
+                 shared_state = this->this_instance().shared_state]
+                (auto&) mutable {
+            // bypass the normal execution and assign the shared pointer
+            // directly
+            auto fut = FutureType{};
+            fut.shared_state = std::move(shared_state);
+            auto val = func(std::move(fut));
+            promise.set_value(std::move(val));
+        });
+
+        return future;
+    }
+
+} // namespace detail
 
 template <typename Type>
 void Future<Type>::check_shared_state() const {
@@ -179,3 +196,5 @@ void Future<Type>::check_shared_state() const {
 }
 
 } // namespace sharp
+
+#include <sharp/Future/SharedFuture.hpp>
