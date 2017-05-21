@@ -10,8 +10,9 @@
 
 #pragma once
 
-#include <functional>
 #include <cstddef>
+
+#include <sharp/Functional/Functional.hpp>
 
 namespace sharp {
 
@@ -50,7 +51,7 @@ public:
      * implementation of the executor, for example it can either be executed
      * inline or on another thread
      */
-    virtual void add(std::function<void()> closure) = 0;
+    virtual void add(sharp::Function<void()> closure) = 0;
 
     /**
      * Returns the number of function objects waiting to be executed
