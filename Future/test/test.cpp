@@ -127,7 +127,7 @@ TEST(Future, BrokenPromise) {
 }
 
 TEST(Future, UnwrapConstructBasic) {
-    for (auto i = 0; i < 100; ++i) {
+    for (auto i = 0; i < 1000; ++i) {
         sharp::ThreadTest::reset();
         auto promise = sharp::Promise<sharp::Future<int>>{};
         auto future_unwrapped = sharp::Future<int>{promise.get_future()};
@@ -203,6 +203,7 @@ TEST(Future, FutureThenBasicTest) {
     auto thened_future = future.then([](auto future) {
         return future.get() * 5;
     });
+    EXPECT_FALSE(future.valid());
     promise.set_value(10);
     EXPECT_EQ(thened_future.get(), 50);
 }
@@ -218,5 +219,14 @@ TEST(Future, ThreadedThenTest) {
             return future.get() * 5;
         });
         EXPECT_EQ(thened_future.get(), 50);
+    }
+}
+
+TEST(Future, SharedFutureBasic) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future().share();
+    promise.set_value(1);
+    for (auto i = 0; i < 10; ++i) {
+        EXPECT_EQ(future.get(), 1);
     }
 }
