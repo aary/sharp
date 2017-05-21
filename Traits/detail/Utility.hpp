@@ -239,7 +239,7 @@ struct MatchReference {
  *
  *  template <typename Something>
  *  decltype(auto) forward_another_thing(Something&& something) {
- *      auto&& another = something.get_another();
+ *      auto&& another = std::forward<Something>(something).get_another();
  *      return sharp::match_forward<Something, decltype(another)>(another);
  *  }
  *
@@ -275,6 +275,24 @@ template <typename TypeToMatch, typename Type>
 decltype(auto) match_forward(std::remove_reference_t<Type>&);
 template <typename TypeToMatch, typename Type>
 decltype(auto) match_forward(std::remove_reference_t<Type>&&);
+
+/**
+ * @class Crtp
+ *
+ * This class is a utility class that makes making CRTP base classes just a
+ * little more expressive
+ */
+template <typename Derived>
+class Crtp {
+public:
+    /**
+     * Functions that static cast the this pointer and return a reference to
+     * the Derived class, instead of having ugly versions of this inline in
+     * every class that is a CRTP base class, these functions can be used
+     */
+    Derived& this_instance();
+    const Derived& this_instance() const;
+};
 
 /**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
