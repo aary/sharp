@@ -94,4 +94,14 @@ decltype(auto) match_forward(std::remove_reference_t<Type>&& instance) {
     return static_cast<TypeToCast>(instance);
 }
 
+template <typename Derived>
+Derived& Crtp<Derived>::this_instance() {
+    return static_cast<Derived&>(*this);
+}
+
+template <typename Derived>
+const Derived& Crtp<Derived>::this_instance() const {
+    return static_cast<const Derived&>(*this);
+}
+
 } // namespace sharp
