@@ -25,6 +25,7 @@
 #include <functional>
 
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/Functional/Functional.hpp>
 
 namespace sharp {
 
@@ -51,6 +52,13 @@ namespace detail {
          * std::move(instance)
          */
         Type get();
+
+        /**
+         * same as the get() above but does not move the value out of the
+         * storage into a value type, but rather returns a const reference
+         * that will then be copied into where it needs to go
+         */
+        const Type& get_copy() const;
 
         /**
          * Forwarding reference implementations of the set_value function
@@ -101,7 +109,12 @@ namespace detail {
          */
         std::exception_ptr& get_exception_ptr();
         const std::exception_ptr& get_exception_ptr() const;
+
+        /**
+         * Returns the value stored in the storage
+         */
         Type& get_value();
+        const Type& get_value() const;
 
         /**
          * Returns true if the shared state contains an exception
@@ -167,7 +180,7 @@ namespace detail {
         /**
          * A callback functor to be called when the shared state has a value
          */
-        std::function<void(FutureImpl<Type>&)> callback;
+        sharp::Function<void(FutureImpl<Type>&)> callback;
     };
 
 } // namespace detail

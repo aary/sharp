@@ -15,25 +15,6 @@ namespace sharp {
 
 namespace detail {
 
-    /**
-     * std::function requires that the function object be used be copyable,
-     * this is very limiting since many common functors and lambdas are not
-     * copyable, for example any lambda initialized with a move capture
-     *
-     * If a function is move only then use this function to wrap around it
-     * and return a functor that is copyable
-     */
-    template <typename Func>
-    auto make_copyable_function(Func&& func_in) {
-        // get a shared pointer to the function, forward the function into the
-        // shared pointer to avoid copies
-        auto func_stored_ptr
-            = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func_in));
-        return [func_stored_ptr](auto&&... args) -> decltype(auto) {
-            return (*func_stored_ptr)(std::forward<decltype(args)>(args)...);
-        };
-    }
-
     template <typename Type>
     void FutureImpl<Type>::wait() const {
 
@@ -106,8 +87,7 @@ namespace detail {
     template <typename Type>
     Type FutureImpl<Type>::get() {
 
-        // first wait for the result to be ready, and then cast and return the
-        // value
+        // first wait for the result to be ready
         this->wait();
 
         // grab a lock and then do stuff
@@ -117,6 +97,20 @@ namespace detail {
         // fulfilled, and then if not store state and return the moved value
         this->check_get();
         return std::move(this->get_value());
+    }
+
+    template <typename Type>
+    const Type& FutureImpl<Type>::get_copy() const {
+        // first wait for the result to be ready
+        this->wait();
+
+        // grab a lock
+        std::lock_guard<std::mutex> lck(this->mtx);
+
+        // check and throw an exception if the future has already been
+        // fulfilled, and then if not store state and return the moved value
+        this->check_get();
+        return this->get_value();
     }
 
     template <typename Type>
@@ -143,7 +137,7 @@ namespace detail {
             std::forward<Func>(func)(*this);
         } else {
             // otherwise pack it up into a callback and store the callback
-            this->callback = make_copyable_function(std::forward<Func>(func));
+            this->callback = std::forward<Func>(func);
         }
     }
 
@@ -182,7 +176,10 @@ namespace detail {
             return;
         }
         lck.unlock();
+
+        // execute the callback and then hard reset the function object
         this->callback(*this);
+        this->callback = decltype(this->callback){};
     }
 
     template <typename Type>
@@ -216,6 +213,11 @@ namespace detail {
         return *object_ptr;
     }
 
+    template <typename Type>
+    const Type& FutureImpl<Type>::get_value() const {
+        auto* object_ptr = reinterpret_cast<const Type*>(&this->storage);
+        return *object_ptr;
+    }
 }
 
 } // namespace sharp
