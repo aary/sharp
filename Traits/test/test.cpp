@@ -75,19 +75,20 @@ TEST(Traits, for_each_tuple_simple_unary_reference) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-// TEST(Traits, for_each_tuple_simple_binary) {
-    // auto vec = std::vector<std::pair<std::type_index, int>>{
-        // {typeid(int), 0},
-        // {typeid(char), 1}};
-    // auto tup = std::make_tuple(1, 'a');
-    // auto result_vec = std::vector<std::pair<std::type_index, int>>{};
+TEST(Traits, for_each_tuple_simple_binary) {
+    auto vec = std::vector<std::pair<std::type_index, int>>{
+        {typeid(int), 0},
+        {typeid(char), 1}};
+    auto tup = std::make_tuple(1, 'a');
+    auto result_vec = std::vector<std::pair<std::type_index, int>>{};
 
-    // for_each_tuple(tup, [&](auto thing, int index) {
-        // result_vec.push_back({typeid(decltype(thing)), index});
-    // });
+    for_each_tuple(tup, [&](auto thing, auto index) {
+        result_vec.push_back({typeid(decltype(thing)),
+            static_cast<int>(index)});
+    });
 
-    // EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
-// }
+    EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
+}
 
 TEST(Traits, for_each_tuple_forwarding_unary) {
     TestConstructionAlert<int>::reset();
@@ -116,32 +117,32 @@ TEST(Traits, for_each_tuple_forwarding_unary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 }
 
-// TEST(Traits, for_each_tuple_forwarding_binary) {
-    // TestConstructionAlert<int>::reset();
-    // TestConstructionAlert<double>::reset();
-    // auto vec = std::vector<std::pair<std::type_index, int>>{
-        // {typeid(TestConstructionAlert<int>), 0},
-        // {typeid(TestConstructionAlert<double>), 1}};
-    // auto tup = std::make_tuple(
-            // TestConstructionAlert<int>{},
-            // TestConstructionAlert<double>{});
-    // EXPECT_EQ(TestConstructionAlert<int>::number_move_constructs, 1);
-    // EXPECT_EQ(TestConstructionAlert<double>::number_move_constructs, 1);
-    // auto result_vec = decltype(vec){};
+TEST(Traits, for_each_tuple_forwarding_binary) {
+    TestConstructionAlert<int>::reset();
+    TestConstructionAlert<double>::reset();
+    auto vec = std::vector<std::pair<std::type_index, int>>{
+        {typeid(TestConstructionAlert<int>), 0},
+        {typeid(TestConstructionAlert<double>), 1}};
+    auto tup = std::make_tuple(
+            TestConstructionAlert<int>{},
+            TestConstructionAlert<double>{});
+    EXPECT_EQ(TestConstructionAlert<int>::number_move_constructs, 1);
+    EXPECT_EQ(TestConstructionAlert<double>::number_move_constructs, 1);
+    auto result_vec = decltype(vec){};
 
-    // // iterate through the tuple and make sure that everything is right
-    // for_each_tuple(std::move(tup), [&](auto item, int index) {
-        // result_vec.push_back({typeid(decltype(item)), index});
-    // });
+    // iterate through the tuple and make sure that everything is right
+    for_each_tuple(std::move(tup), [&](auto item, auto index) {
+        result_vec.push_back({typeid(decltype(item)), static_cast<int>(index)});
+    });
 
-    // EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
-    // EXPECT_EQ(TestConstructionAlert<int>::number_move_constructs, 2);
-    // EXPECT_EQ(TestConstructionAlert<int>::number_copy_constructs, 0);
-    // EXPECT_EQ(TestConstructionAlert<int>::number_default_constructs, 1);
-    // EXPECT_EQ(TestConstructionAlert<double>::number_move_constructs, 2);
-    // EXPECT_EQ(TestConstructionAlert<double>::number_copy_constructs, 0);
-    // EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
-// }
+    EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
+    EXPECT_EQ(TestConstructionAlert<int>::number_move_constructs, 2);
+    EXPECT_EQ(TestConstructionAlert<int>::number_copy_constructs, 0);
+    EXPECT_EQ(TestConstructionAlert<int>::number_default_constructs, 1);
+    EXPECT_EQ(TestConstructionAlert<double>::number_move_constructs, 2);
+    EXPECT_EQ(TestConstructionAlert<double>::number_copy_constructs, 0);
+    EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
+}
 
 TEST(Traits, ForEach) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(double)};
