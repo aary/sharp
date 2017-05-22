@@ -208,7 +208,7 @@ TEST(Future, FutureThenBasicTest) {
     EXPECT_EQ(thened_future.get(), 50);
 }
 
-TEST(Future, ThreadedThenTest) {
+TEST(Future, FutureThenThreaded) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
