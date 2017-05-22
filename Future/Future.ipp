@@ -179,8 +179,16 @@ namespace detail {
             // directly
             auto fut = FutureType{};
             fut.shared_state = std::move(shared_state);
-            auto val = func(std::move(fut));
-            promise.set_value(std::move(val));
+
+            // try and get the value from the callback, if an exception was
+            // thrown, propagate that
+            try {
+                auto val = func(std::move(fut));
+                promise.set_value(std::move(val));
+            } catch (...) {
+                promise.set_exception(std::current_exception());
+                return;
+            }
         });
 
         return future;
