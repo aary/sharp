@@ -11,12 +11,45 @@ namespace sharp {
 namespace detail {
 
     /**
+     * Enables if the function type can accept a tuple element along with a
+     * integral_constant type for the second argument
+     */
+    template <typename TupleType, typename Func>
+    using EnableIfCanAcceptTwoArguments = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(std::get<0>(std::declval<TupleType>()),
+                    std::integral_constant<int, 0>{})),
+        decltype(std::declval<Func>()(std::get<0>(std::declval<TupleType>()),
+                    std::integral_constant<int, 0>{}))>::value>;
+    /**
+     * Checks if the function can accept one argument only
+     */
+    template <typename TupleType, typename Func>
+    using EnableIfCanAcceptOneArgument = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(std::get<0>(std::declval<TupleType>()))),
+        decltype(std::declval<Func>()(std::get<0>(std::declval<TupleType>())))>
+        ::value>;
+
+    /**
      * Implementation of the for_each_tuple function
      */
     template <int current, int last>
     struct ForEachTupleImpl {
 
-        template <typename TupleType, typename Func>
+        template <typename TupleType, typename Func,
+                  EnableIfCanAcceptTwoArguments<TupleType, Func>* = nullptr>
+        static void impl(TupleType&& tup, Func& func) {
+
+            // call the object at the given index
+            func(std::get<current>(std::forward<TupleType>(tup)),
+                    std::integral_constant<int, current>{});
+
+            // and then recurse
+            ForEachTupleImpl<current + 1, last>::impl(
+                    std::forward<TupleType>(tup), func);
+        }
+
+        template <typename TupleType, typename Func,
+                  EnableIfCanAcceptOneArgument<TupleType, Func>* = nullptr>
         static void impl(TupleType&& tup, Func& func) {
 
             // call the object at the given index
@@ -26,6 +59,7 @@ namespace detail {
             ForEachTupleImpl<current + 1, last>::impl(
                     std::forward<TupleType>(tup), func);
         }
+
     };
     /**
      * No-op on last

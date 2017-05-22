@@ -189,9 +189,26 @@ struct Erase {
  * duplication that would have resulted in attempted rvalue generalization of
  * this function
  *
- * The types of functions that can be used include one having a just a
- * polymorphic first type (i.e.  templated so that it can accept tuple type
- * instances) and another accepting an int as the second parameter
+ * Polymorphic unary or binary lambdas can be passed in as arguments to this
+ * function, the first type always has to be templated so as to accept
+ * arguments of different types, the second argument is optional, but also
+ * must be templated because the index at which the iteration currently is at
+ * is also passed in for convenience, and this is represented as a
+ * std::integral_constant<int, x> type where x is the iteration number, for
+ * example
+ *
+ *  auto t = std::make_tuple(1, "string");
+ *  sharp::for_each_tuple(t, [](auto thing, auto index) {
+ *      cout << thing << " at index " << static_cast<int>(index) << endl;
+ *  });
+ *
+ * The output for the above program would be
+ *
+ *  1 0
+ *  string 1
+ *
+ * and the static_cast to int is a constexpr expression so that will be
+ * can be used in constexpr situations
  */
 template <typename TupleType, typename Func>
 Func for_each_tuple(TupleType&& tup, Func func);
