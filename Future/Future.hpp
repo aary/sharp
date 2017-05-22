@@ -285,14 +285,6 @@ private:
     Future(const std::shared_ptr<detail::FutureImpl<Type>>& state);
 
     /**
-     * The internal implementation of .then(), this just returns a future
-     * instantiated with the type that the functor returns, this does no
-     * unwrapping around the future
-     */
-    template <typename Func>
-    auto then_impl(Func&& func) -> Future<decltype(func(std::move(*this)))>;
-
-    /**
      * Check if the shared state exists and if it does not then throw an
      * exception
      */
