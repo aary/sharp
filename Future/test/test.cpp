@@ -223,166 +223,182 @@ TEST(Future, FutureThenThreaded) {
 }
 
 TEST(Future, FutureThenException) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
-    auto another_future = future.then([](auto) {
-        throw std::runtime_error{""};
-        return 1;
-    });
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
+        auto another_future = future.then([](auto) {
+            throw std::runtime_error{""};
+            return 1;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_value(3);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_value(3);
+        }}.detach();
 
-    try {
-        another_future.get();
-        EXPECT_TRUE(false);
-    } catch (std::runtime_error&) {}
+        try {
+            another_future.get();
+            EXPECT_TRUE(false);
+        } catch (std::runtime_error&) {}
+    }
 }
 
 TEST(Future, FutureThenExceptionIndirection) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
-    auto another_future = future.then([](auto future) {
-        return future.get() * 10;
-    });
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
+        auto another_future = future.then([](auto future) {
+            return future.get() * 10;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_exception(std::make_exception_ptr(std::runtime_error{""}));
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_exception(
+                    std::make_exception_ptr(std::runtime_error{""}));
+        }}.detach();
 
-    try {
-        another_future.get();
-        EXPECT_TRUE(false);
-    } catch (std::runtime_error&) {}
+        try {
+            another_future.get();
+            EXPECT_TRUE(false);
+        } catch (std::runtime_error&) {}
+    }
 }
 
 TEST(Future, FutureThenExceptionTwoLevel) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
 
-    auto another_future = future.then([](auto future) {
-        throw std::runtime_error{""};
-        return future.get();
-    }).then([](auto future) {
-        return future.get() * 2;
-    });
+        auto another_future = future.then([](auto future) {
+            throw std::runtime_error{""};
+            return future.get();
+        }).then([](auto future) {
+            return future.get() * 2;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_value(2);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_value(2);
+        }}.detach();
 
-    try {
-        another_future.get();
-        EXPECT_TRUE(false);
-    } catch (std::runtime_error&) {}
+        try {
+            another_future.get();
+            EXPECT_TRUE(false);
+        } catch (std::runtime_error&) {}
+    }
 }
 
 TEST(Future, FutureThenExceptionTwoLevelSecondThrows) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
 
-    auto another_future = future.then([](auto future) {
-        return future.get();
-    }).then([](auto future) {
-        throw std::runtime_error{""};
-        return future.get() * 2;
-    });
+        auto another_future = future.then([](auto future) {
+            return future.get();
+        }).then([](auto future) {
+            throw std::runtime_error{""};
+            return future.get() * 2;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_value(2);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_value(2);
+        }}.detach();
 
-    try {
-        another_future.get();
-        EXPECT_TRUE(false);
-    } catch (std::runtime_error&) {}
+        try {
+            another_future.get();
+            EXPECT_TRUE(false);
+        } catch (std::runtime_error&) {}
+    }
 }
 
 TEST(Future, FutureThenExceptionIndirectionTwoLevel) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
 
-    auto another_future = future.then([](auto future) {
-        return future.get() * 2;
-    }).then([](auto future) {
-        return future.get() * 2;
-    });
+        auto another_future = future.then([](auto future) {
+            return future.get() * 2;
+        }).then([](auto future) {
+            return future.get() * 2;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_exception(std::make_exception_ptr(std::runtime_error{""}));
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_exception(
+                    std::make_exception_ptr(std::runtime_error{""}));
+        }}.detach();
 
-    try {
-        another_future.get();
-        EXPECT_TRUE(false);
-    } catch (std::runtime_error&) {}
+        try {
+            another_future.get();
+            EXPECT_TRUE(false);
+        } catch (std::runtime_error&) {}
+    }
 }
 
 TEST(Future, FutureThenMultipleThensValuePropagate) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
 
-    auto another_future = future.then([](auto future) {
-        return future.get() * 2;
-    }).then([](auto future) {
-        return future.get() * 2;
-    }).then([](auto future) {
-        return future.get() * 2;
-    }).then([](auto future) {
-        return future.get() * 2;
-    });
+        auto another_future = future.then([](auto future) {
+            return future.get() * 2;
+        }).then([](auto future) {
+            return future.get() * 2;
+        }).then([](auto future) {
+            return future.get() * 2;
+        }).then([](auto future) {
+            return future.get() * 2;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_value(1);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_value(1);
+        }}.detach();
 
-    EXPECT_EQ(another_future.get(), 16);
+        EXPECT_EQ(another_future.get(), 16);
+    }
 }
 
 TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
-    auto promise = sharp::Promise<int>{};
-    auto future = promise.get_future();
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
 
-    auto another_future = future.then([](auto future) {
-        auto value = future.get();
-        auto promise = sharp::Promise<int>{};
-        auto future_other = promise.get_future();
-        std::thread{[value, promise = std::move(promise)]() mutable {
-            promise.set_value(value * 2);
-        }}.detach();
-        return future_other;
-    }).then([](auto future) {
-        auto value = future.get();
-        auto promise = sharp::Promise<int>{};
-        auto future_other = promise.get_future();
-        std::thread{[value, promise = std::move(promise)]() mutable {
-            promise.set_value(value * 2);
-        }}.detach();
-        return future_other;
-    }).then([](auto future) {
-        auto value = future.get();
-        auto promise = sharp::Promise<int>{};
-        auto future_other = promise.get_future();
-        std::thread{[value, promise = std::move(promise)]() mutable {
-            promise.set_value(value * 2);
-        }}.detach();
-        return future_other;
-    }).then([](auto future) {
-        auto value = future.get();
-        auto promise = sharp::Promise<int>{};
-        auto future_other = promise.get_future();
-        std::thread{[value, promise = std::move(promise)]() mutable {
-            promise.set_value(value * 2);
-        }}.detach();
-        return future_other;
-    });
+        auto another_future = future.then([](auto future) {
+            auto value = future.get();
+            auto promise = sharp::Promise<int>{};
+            auto future_other = promise.get_future();
+            std::thread{[value, promise = std::move(promise)]() mutable {
+                promise.set_value(value * 2);
+            }}.detach();
+            return future_other;
+        }).then([](auto future) {
+            auto value = future.get();
+            auto promise = sharp::Promise<int>{};
+            auto future_other = promise.get_future();
+            std::thread{[value, promise = std::move(promise)]() mutable {
+                promise.set_value(value * 2);
+            }}.detach();
+            return future_other;
+        }).then([](auto future) {
+            auto value = future.get();
+            auto promise = sharp::Promise<int>{};
+            auto future_other = promise.get_future();
+            std::thread{[value, promise = std::move(promise)]() mutable {
+                promise.set_value(value * 2);
+            }}.detach();
+            return future_other;
+        }).then([](auto future) {
+            auto value = future.get();
+            auto promise = sharp::Promise<int>{};
+            auto future_other = promise.get_future();
+            std::thread{[value, promise = std::move(promise)]() mutable {
+                promise.set_value(value * 2);
+            }}.detach();
+            return future_other;
+        });
 
-    std::thread{[promise = std::move(promise)]() mutable {
-        promise.set_value(1);
-    }}.detach();
+        std::thread{[promise = std::move(promise)]() mutable {
+            promise.set_value(1);
+        }}.detach();
 
-    EXPECT_EQ(another_future.get(), 16);
+        EXPECT_EQ(another_future.get(), 16);
+    }
 }
 
 TEST(Future, SharedFutureBasic) {
