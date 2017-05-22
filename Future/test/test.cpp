@@ -222,6 +222,103 @@ TEST(Future, FutureThenThreaded) {
     }
 }
 
+TEST(Future, FutureThenException) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+    auto another_future = future.then([](auto) {
+        throw std::runtime_error{""};
+        return 1;
+    });
+
+    std::thread{[promise = std::move(promise)]() mutable {
+        promise.set_value(3);
+    }}.detach();
+
+    try {
+        another_future.get();
+        EXPECT_TRUE(false);
+    } catch (std::runtime_error&) {}
+}
+
+TEST(Future, FutureThenExceptionIndirection) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+    auto another_future = future.then([](auto future) {
+        return future.get() * 10;
+    });
+
+    std::thread{[promise = std::move(promise)]() mutable {
+        promise.set_exception(std::make_exception_ptr(std::runtime_error{""}));
+    }}.detach();
+
+    try {
+        another_future.get();
+        EXPECT_TRUE(false);
+    } catch (std::runtime_error&) {}
+}
+
+TEST(Future, FutureThenExceptionTwoLevel) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+
+    auto another_future = future.then([](auto future) {
+        throw std::runtime_error{""};
+        return future.get();
+    }).then([](auto future) {
+        return future.get() * 2;
+    });
+
+    std::thread{[promise = std::move(promise)]() mutable {
+        promise.set_value(2);
+    }}.detach();
+
+    try {
+        another_future.get();
+        EXPECT_TRUE(false);
+    } catch (std::runtime_error&) {}
+}
+
+TEST(Future, FutureThenExceptionTwoLevelSecondThrows) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+
+    auto another_future = future.then([](auto future) {
+        return future.get();
+    }).then([](auto future) {
+        throw std::runtime_error{""};
+        return future.get() * 2;
+    });
+
+    std::thread{[promise = std::move(promise)]() mutable {
+        promise.set_value(2);
+    }}.detach();
+
+    try {
+        another_future.get();
+        EXPECT_TRUE(false);
+    } catch (std::runtime_error&) {}
+}
+
+TEST(Future, FutureThenExceptionIndirectionTwoLevel) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+
+    auto another_future = future.then([](auto future) {
+        return future.get() * 2;
+    }).then([](auto future) {
+        return future.get() * 2;
+    });
+
+    std::thread{[promise = std::move(promise)]() mutable {
+        promise.set_exception(std::make_exception_ptr(std::runtime_error{""}));
+    }}.detach();
+
+    try {
+        another_future.get();
+        EXPECT_TRUE(false);
+    } catch (std::runtime_error&) {}
+}
+
 TEST(Future, SharedFutureBasic) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future().share();
