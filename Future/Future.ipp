@@ -145,7 +145,8 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
     });
 
     // unwrap the returned future
-    using T = typename std::decay_t<decltype(func(*this))>::value_type;
+    using T
+        = typename std::decay_t<decltype(func(std::move(*this)))>::value_type;
     return Future<T>{
         detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
 }
