@@ -180,14 +180,11 @@ struct Erase {
 };
 
 /**
- * @function for_each_tuple
+ * @function for_each
  *
- * Iterates through all the values in a tuple and executes the passed in
- * functor on each value
- *
- * The tuple argument is passed in by forwarding reference to reduce the code
- * duplication that would have resulted in attempted rvalue generalization of
- * this function
+ * Iterate through values in a range, this works for ranges that have
+ * std::get<> and std::tuple_size<> defined as well, ranges that have the
+ * std::begin() and std::end() functions defined for them
  *
  * Polymorphic unary or binary lambdas can be passed in as arguments to this
  * function, the first type always has to be templated so as to accept
@@ -198,7 +195,7 @@ struct Erase {
  * example
  *
  *  auto t = std::make_tuple(1, "string");
- *  sharp::for_each_tuple(t, [](auto thing, auto index) {
+ *  sharp::for_each(t, [](auto thing, auto index) {
  *      cout << thing << " at index " << static_cast<int>(index) << endl;
  *  });
  *
@@ -210,8 +207,8 @@ struct Erase {
  * and the static_cast to int is a constexpr expression so that will be
  * can be used in constexpr situations
  */
-template <typename TupleType, typename Func>
-Func for_each_tuple(TupleType&& tup, Func func);
+template <typename TupleType, typename Func, typename>
+Func for_each(TupleType&& tup, Func func);
 
 /**
  * @class Identity
