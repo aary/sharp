@@ -51,38 +51,38 @@ int TestConstructionAlert<Tag>::number_move_constructs = 0;
 template <typename Tag>
 int TestConstructionAlert<Tag>::number_copy_constructs = 0;
 
-TEST(Traits, for_each_tuple_simple_unary) {
+TEST(Traits, for_each_simple_unary) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
 
-    for_each_tuple(tup, [&](auto thing) {
+    sharp::for_each(tup, [&](auto thing) {
         result_vec.push_back(typeid(decltype(thing)));
     });
 
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_tuple_simple_unary_reference) {
+TEST(Traits, for_each_simple_unary_reference) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
 
-    for_each_tuple(tup, [&](auto& thing) {
+    sharp::for_each(tup, [&](auto& thing) {
         result_vec.push_back(typeid(decltype(thing)));
     });
 
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_tuple_simple_binary) {
+TEST(Traits, for_each_simple_binary) {
     auto vec = std::vector<std::pair<std::type_index, int>>{
         {typeid(int), 0},
         {typeid(char), 1}};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::pair<std::type_index, int>>{};
 
-    for_each_tuple(tup, [&](auto thing, auto index) {
+    sharp::for_each(tup, [&](auto thing, auto index) {
         result_vec.push_back({typeid(decltype(thing)),
             static_cast<int>(index)});
     });
@@ -90,7 +90,7 @@ TEST(Traits, for_each_tuple_simple_binary) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_tuple_forwarding_unary) {
+TEST(Traits, for_each_forwarding_unary) {
     TestConstructionAlert<int>::reset();
     TestConstructionAlert<double>::reset();
     auto vec = std::vector<std::type_index>{
@@ -104,7 +104,7 @@ TEST(Traits, for_each_tuple_forwarding_unary) {
     auto result_vec = decltype(vec){};
 
     // iterate through the tuple and make sure that everything is right
-    for_each_tuple(std::move(tup), [&](auto item) {
+    sharp::for_each(std::move(tup), [&](auto item) {
         result_vec.push_back(typeid(decltype(item)));
     });
 
@@ -117,7 +117,7 @@ TEST(Traits, for_each_tuple_forwarding_unary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 }
 
-TEST(Traits, for_each_tuple_forwarding_binary) {
+TEST(Traits, for_each_forwarding_binary) {
     TestConstructionAlert<int>::reset();
     TestConstructionAlert<double>::reset();
     auto vec = std::vector<std::pair<std::type_index, int>>{
@@ -131,7 +131,7 @@ TEST(Traits, for_each_tuple_forwarding_binary) {
     auto result_vec = decltype(vec){};
 
     // iterate through the tuple and make sure that everything is right
-    for_each_tuple(std::move(tup), [&](auto item, auto index) {
+    sharp::for_each(std::move(tup), [&](auto item, auto index) {
         result_vec.push_back({typeid(decltype(item)), static_cast<int>(index)});
     });
 
@@ -142,6 +142,27 @@ TEST(Traits, for_each_tuple_forwarding_binary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_move_constructs, 2);
     EXPECT_EQ(TestConstructionAlert<double>::number_copy_constructs, 0);
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
+}
+
+TEST(Traits, for_each_runtime_unary) {
+    auto v = std::vector<int>{1, 2, 4, 8, 16};
+    auto counter = 1;
+    sharp::for_each(v, [&](auto integer) {
+        EXPECT_EQ(counter, integer);
+        counter *= 2;
+    });
+}
+
+TEST(Traits, for_each_runtime_binary) {
+    auto v = std::vector<int>{1, 2, 4, 8, 16};
+    auto element_counter = 1;
+    auto index_counter = 0;
+    sharp::for_each(v, [&](auto integer, auto index) {
+        EXPECT_EQ(element_counter, integer);
+        EXPECT_EQ(index_counter, index);
+        element_counter *= 2;
+        ++index_counter;
+    });
 }
 
 TEST(Traits, ForEach) {
