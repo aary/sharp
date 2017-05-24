@@ -82,7 +82,7 @@ namespace detail {
             /**
              * Return the thing that the iterator points to by value
              */
-            IncrementableType operator*() const;
+            decltype(auto) operator*() const;
 
         private:
             IncrementableType incrementable;

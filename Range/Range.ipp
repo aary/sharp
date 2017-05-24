@@ -13,6 +13,35 @@ auto range(One begin, Two end) {
 namespace detail {
 
     /**
+     * Concepts
+     */
+    template <typename Type>
+    using EnableIfIsIterator = std::enable_if_t<std::is_same<
+        typename std::decay_t<Type>::iterator_category,
+        typename std::decay_t<Type>::iterator_category>::value>;
+
+    /**
+     * Compile time switch that returns the dereferneced version of the range
+     * if the type is an iterator, whether or not the element is an iterator
+     * is tested via the presence of the iterator_category trait
+     */
+    template <typename IncrementableType, typename = std::enable_if_t<true>>
+    struct Dereference {
+        template <typename Incrementable>
+        static auto dereference(Incrementable&& i) {
+            return i;
+        }
+    };
+    template <typename IncrementableType>
+    struct Dereference<IncrementableType,
+                       EnableIfIsIterator<IncrementableType>> {
+        template <typename Incrementable>
+        static decltype(auto) dereference(Incrementable&& i) {
+            return *std::forward<Incrementable>(i);
+        }
+    };
+
+    /**
      * Member functions of the main proxy Range
      */
     template <typename One, typename Two>
@@ -41,9 +70,9 @@ namespace detail {
 
     template <typename One, typename Two>
     template <typename IncrementableType>
-    IncrementableType Range<One, Two>:: Iterator<IncrementableType>::operator*()
+    decltype(auto) Range<One, Two>:: Iterator<IncrementableType>::operator*()
             const {
-        return this->incrementable;
+        return Dereference<IncrementableType>::dereference(this->incrementable);
     }
 
     template <typename One, typename Two>
