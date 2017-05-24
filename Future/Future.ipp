@@ -4,7 +4,12 @@
 #include <utility>
 #include <exception>
 #include <type_traits>
+#include <tuple>
+#include <algorithm>
+#include <iterator>
 
+#include <sharp/Range/Range.hpp>
+#include <sharp/Traits/Traits.hpp>
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Future/Future.hpp>
 #include <sharp/Future/FutureError.hpp>
@@ -149,6 +154,95 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
         = typename std::decay_t<decltype(func(std::move(*this)))>::value_type;
     return Future<T>{
         detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
+}
+
+template <typename... Futures>
+auto when_all(Futures&&... args) {
+
+    // the returning future will be instantiated with this return type
+    using ReturnTupleType = std::tuple<std::decay_t<Futures>...>;
+
+    // A single struct to avoid making 2 shared pointers instead of 1
+    struct Bookkeeping {
+        sharp::Promise<ReturnTupleType> promise;
+        ReturnTupleType tuple_of_futures;
+        // since the cardinality of the input set is known, we can avoid this
+        // and just use a vector of bools, and then query to see if all of
+        // them are complete on every future completion, that would be O(n)
+        // but would be completely lock free
+        std::atomic<int> counter{0};
+    };
+
+    // construct the return type from the argument type list, then construct
+    // an object that will contain the ready futures when they are all done
+    auto futures = std::make_tuple(std::move(args)...);
+    auto bookkeeping = std::make_shared<Bookkeeping>();
+    auto future = bookkeeping->promise.get_future();
+
+    // iterate through all the futures and signal the promsise when all of
+    // them have been satisfied
+    sharp::for_each(futures, [&bookkeeping](auto& future, auto index) {
+        // when the future is complete move it into the tuple of ready
+        // futures, which will at the end contain all the futures that are
+        // ready at a stage where you can signal to the user
+        future.then([bookkeeping, index](auto future) {
+            std::get<static_cast<int>(index)>(bookkeeping->tuple_of_futures) =
+                std::move(future);
+
+            // if all the futures have been completed, signal
+            ++bookkeeping->counter;
+            if (bookkeeping->counter.load()
+                    == std::tuple_size<ReturnTupleType>::value) {
+                bookkeeping->promise.set_value(
+                    std::move(bookkeeping->tuple_of_futures));
+            }
+
+            // return to make the future code not error out
+            return 0;
+        });
+    });
+
+    return future;
+}
+
+template <typename BeginIterator, typename EndIterator>
+auto when_all(BeginIterator first, EndIterator last) {
+    // the type of the future that is to be returned
+    using ReturnFutureType = std::vector<std::decay_t<decltype(*first)>>;
+
+    // The bookkeeping shared struct, this will encapsulate three other
+    // things, that help in both hitting the cache more and saving on heap
+    // allocations via shared pointers
+    struct Bookkeeping {
+        sharp::Promise<ReturnFutureType> promise;
+        ReturnFutureType futures;
+        // since the cardinality of the input set is known, we can avoid this
+        // and just use a vector of bools, and then query to see if all of
+        // them are complete on every future completion, that would be O(n)
+        // but would be completely lock free
+        std::atomic<int> counter{0};
+    };
+
+    auto bookkeeping = std::make_shared<Bookkeeping>();
+    bookkeeping->futures.resize(std::distance(first, last));
+    auto future = bookkeeping->promise.get_future();
+
+    sharp::for_each(sharp::range(first, last),
+    [&bookkeeping](auto& future, auto index) {
+        future.then([bookkeeping, index](auto future) {
+            bookkeeping->futures[static_cast<int>(index)] = std::move(future);
+
+            ++bookkeeping->counter;
+            if (bookkeeping->counter.load()
+                    == static_cast<int>(bookkeeping->futures.size())) {
+                bookkeeping->promise.set_value(std::move(bookkeeping->futures));
+            }
+
+            return 0;
+        });
+    });
+
+    return future;
 }
 
 namespace detail {

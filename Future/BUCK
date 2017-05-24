@@ -2,6 +2,7 @@ cxx_library(
     name = "Future",
     header_namespace = "sharp/Future",
     deps = [
+        "//Range:Range",
         "//Tags:Tags",
         "//Defer:Defer",
         "//Traits:Traits",

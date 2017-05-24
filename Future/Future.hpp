@@ -301,6 +301,34 @@ private:
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
 };
 
+/**
+ * @function when_all
+ *
+ * The join operator, to be used when you are waiting for several asynchronous
+ * operations to finish, when_all accepts several future objects as arguments
+ * and returns a single future that is fulfilled when all of the passed
+ * futures are fulfilled
+ */
+template <typename... Futures>
+auto when_all(Futures&&... futures);
+template <typename BeginIterator, typename EndIterator>
+auto when_all(BeginIterator first, EndIterator last);
+
+/**
+ * @function when_any
+ *
+ * The when_any function like when_all lets you speculatively wait for a lot
+ * of asynchronous operations, and returns a single future that contains the
+ * result of that one asynchronous operation that finished first
+ *
+ * Since this has type restrictions this means that you cannot pass futures
+ * that wrap different types of objects, all futures must be of the same type
+ */
+template <typename... Futures>
+auto when_any(Futures&&... futures);
+template <typename InputIterator>
+auto when_any(InputIterator first, InputIterator last);
+
 } // namespace sharp
 
 #include <sharp/Future/Future.ipp>
