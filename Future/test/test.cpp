@@ -2,6 +2,7 @@
 #include <chrono>
 #include <utility>
 #include <iostream>
+#include <vector>
 
 #include <sharp/Future/Future.hpp>
 #include <sharp/Threads/Threads.hpp>
@@ -267,10 +268,13 @@ TEST(Future, FutureThenExceptionTwoLevel) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto another_future = future.then([](auto future) {
+        auto counter = 0;
+        auto another_future = future.then([&counter](auto future) {
+            EXPECT_EQ(counter++, 0);
             throw std::runtime_error{""};
             return future.get();
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 1);
             return future.get() * 2;
         });
 
@@ -290,9 +294,12 @@ TEST(Future, FutureThenExceptionTwoLevelSecondThrows) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto another_future = future.then([](auto future) {
+        auto counter = 0;
+        auto another_future = future.then([&counter](auto future) {
+            EXPECT_EQ(counter++, 0);
             return future.get();
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 1);
             throw std::runtime_error{""};
             return future.get() * 2;
         });
@@ -313,9 +320,12 @@ TEST(Future, FutureThenExceptionIndirectionTwoLevel) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto another_future = future.then([](auto future) {
+        auto counter = 0;
+        auto another_future = future.then([&counter](auto future) {
+            EXPECT_EQ(counter++, 0);
             return future.get() * 2;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 1);
             return future.get() * 2;
         });
 
@@ -336,13 +346,18 @@ TEST(Future, FutureThenMultipleThensValuePropagate) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto another_future = future.then([](auto future) {
+        auto counter = 0;
+        auto another_future = future.then([&counter](auto future) {
+            EXPECT_EQ(counter++, 0);
             return future.get() * 2;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 1);
             return future.get() * 2;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 2);
             return future.get() * 2;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 3);
             return future.get() * 2;
         });
 
@@ -359,7 +374,9 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto another_future = future.then([](auto future) {
+        auto counter = 0;
+        auto another_future = future.then([&counter](auto future) {
+            EXPECT_EQ(counter++, 0);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -367,7 +384,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 1);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -375,7 +393,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 2);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -383,7 +402,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([](auto future) {
+        }).then([&counter](auto future) {
+            EXPECT_EQ(counter++, 3);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -398,6 +418,73 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
         }}.detach();
 
         EXPECT_EQ(another_future.get(), 16);
+    }
+}
+
+TEST(Future, FutureWhenAllBasic) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise_one = sharp::Promise<int>{};
+        auto future_one = promise_one.get_future();
+        auto promise_two = sharp::Promise<int>{};
+        auto future_two = promise_two.get_future();
+        auto promise_three = sharp::Promise<int>{};
+        auto future_three = promise_three.get_future();
+
+        auto future = sharp::when_all(future_one, future_two, future_three);
+
+        EXPECT_FALSE(future_one.valid() || future_two.valid()
+                || future_three.valid());
+
+        std::thread{[promise = std::move(promise_one)]() mutable {
+            promise.set_value(1);
+        }}.detach();
+        std::thread{[promise = std::move(promise_two)]() mutable {
+            promise.set_value(2);
+        }}.detach();
+        std::thread{[promise = std::move(promise_three)]() mutable {
+            promise.set_value(3);
+        }}.detach();
+
+        auto tuple_futures = future.get();
+        EXPECT_EQ(std::get<0>(tuple_futures).get(), 1);
+        EXPECT_EQ(std::get<1>(tuple_futures).get(), 2);
+        EXPECT_EQ(std::get<2>(tuple_futures).get(), 3);
+    }
+}
+
+TEST(Future, FutureWhenAllRuntimeBasic) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise_one = sharp::Promise<int>{};
+        auto future_one = promise_one.get_future();
+        auto promise_two = sharp::Promise<int>{};
+        auto future_two = promise_two.get_future();
+        auto promise_three = sharp::Promise<int>{};
+        auto future_three = promise_three.get_future();
+
+        auto futures = std::vector<sharp::Future<int>>{};
+        futures.push_back(std::move(future_one));
+        futures.push_back(std::move(future_two));
+        futures.push_back(std::move(future_three));
+
+        auto future = sharp::when_all(futures.begin(), futures.end());
+
+        EXPECT_FALSE(futures[0].valid() || futures[1].valid()
+                || futures[2].valid());
+
+        std::thread{[promise = std::move(promise_one)]() mutable {
+            promise.set_value(1);
+        }}.detach();
+        std::thread{[promise = std::move(promise_two)]() mutable {
+            promise.set_value(2);
+        }}.detach();
+        std::thread{[promise = std::move(promise_three)]() mutable {
+            promise.set_value(3);
+        }}.detach();
+
+        auto vector_futures = future.get();
+        EXPECT_EQ(vector_futures[0].get(), 1);
+        EXPECT_EQ(vector_futures[1].get(), 2);
+        EXPECT_EQ(vector_futures[2].get(), 3);
     }
 }
 
