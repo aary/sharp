@@ -25,3 +25,12 @@ TEST(Range, BasicTest) {
 
     EXPECT_TRUE(std::equal(vec.begin(), vec.end(), vec_two.begin()));
 }
+
+TEST(Range, ActualRange) {
+
+    auto v = std::vector<int>{1, 2, 3};
+    auto element_counter = 1;
+    for (auto i : range(v.begin(), v.end())) {
+        EXPECT_EQ(i, element_counter++);
+    }
+}
