@@ -39,6 +39,17 @@ TEST(Future, FutureMove) {
     EXPECT_FALSE(another_future.valid());
 }
 
+TEST(Future, FutureInvalid) {
+    auto promise = sharp::Promise<int>{};
+    auto future = promise.get_future();
+    promise.set_value(1);
+    future.get();
+    try {
+        future.is_ready();
+        EXPECT_TRUE(false);
+    } catch (...) {}
+}
+
 TEST(Future, FutureExceptionSend) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
@@ -485,6 +496,35 @@ TEST(Future, FutureWhenAllRuntimeBasic) {
         EXPECT_EQ(vector_futures[0].get(), 1);
         EXPECT_EQ(vector_futures[1].get(), 2);
         EXPECT_EQ(vector_futures[2].get(), 3);
+    }
+}
+
+TEST(Future, FutureWhenAnyBasic) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise_one = sharp::Promise<int>{};
+        auto future_one = promise_one.get_future();
+        auto promise_two = sharp::Promise<int>{};
+        auto future_two = promise_two.get_future();
+        auto promise_three = sharp::Promise<int>{};
+        auto future_three = promise_three.get_future();
+
+        auto future = sharp::when_any(future_one, future_two, future_three);
+
+        EXPECT_FALSE(future_one.valid() || future_two.valid()
+                || future_three.valid());
+
+        std::thread{[promise = std::move(promise_two)]() mutable {
+            promise.set_value(2);
+        }}.detach();
+
+        auto tuple_futures = future.get();
+        EXPECT_TRUE(std::get<0>(tuple_futures).valid());
+        EXPECT_TRUE(std::get<1>(tuple_futures).valid());
+        EXPECT_TRUE(std::get<2>(tuple_futures).valid());
+
+        EXPECT_EQ(std::get<1>(tuple_futures).get(), 2);
+        EXPECT_FALSE(std::get<0>(tuple_futures).is_ready());
+        EXPECT_FALSE(std::get<2>(tuple_futures).is_ready());
     }
 }
 

@@ -211,7 +211,7 @@ public:
      *
      * Throws an exception if there is no shared state
      */
-    bool is_ready() const noexcept;
+    bool is_ready() const;
 
     /**
      * Shares the current future and returns a shared version of the same

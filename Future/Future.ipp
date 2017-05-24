@@ -7,6 +7,7 @@
 #include <tuple>
 #include <algorithm>
 #include <iterator>
+#include <cassert>
 
 #include <sharp/Range/Range.hpp>
 #include <sharp/Traits/Traits.hpp>
@@ -18,6 +19,28 @@
 #include <sharp/Future/Executor.hpp>
 
 namespace sharp {
+
+namespace detail {
+
+    /**
+     * The when_*** implementation, checks when the iteration has been
+     * finished by querying the number of finished objects against func, if
+     * func(number_of_finished) returns true then the value in the promise is
+     * set
+     */
+    template <typename Func, typename... Futures>
+    auto when_impl(Func func, Futures&&... futures);
+
+    /**
+     * The when_*** runtime implementation, checks when the iteration has been
+     * finished by querying the number of finished objects against func, if
+     * func(number_of_finished) returns true then the value in the promise is
+     * set
+     */
+    template <typename Func, typename BeginIterator, typename EndIterator>
+    auto when_impl(Func func, BeginIterator first, EndIterator last);
+
+} // namespace detail
 
 template <typename Type>
 Future<Type>::Future() noexcept {}
@@ -123,7 +146,7 @@ Type Future<Type>::get() {
 }
 
 template <typename Type>
-bool Future<Type>::is_ready() const noexcept {
+bool Future<Type>::is_ready() const {
     this->check_shared_state();
     return this->shared_state->is_ready();
 }
@@ -158,91 +181,40 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
 
 template <typename... Futures>
 auto when_all(Futures&&... args) {
-
-    // the returning future will be instantiated with this return type
-    using ReturnTupleType = std::tuple<std::decay_t<Futures>...>;
-
-    // A single struct to avoid making 2 shared pointers instead of 1
-    struct Bookkeeping {
-        sharp::Promise<ReturnTupleType> promise;
-        ReturnTupleType tuple_of_futures;
-        // since the cardinality of the input set is known, we can avoid this
-        // and just use a vector of bools, and then query to see if all of
-        // them are complete on every future completion, that would be O(n)
-        // but would be completely lock free
-        std::atomic<int> counter{0};
+    // make the function that checks when the futures have been completed
+    int length = std::tuple_size<decltype(std::make_tuple(std::move(args)...))>
+        ::value;
+    auto done = [length](int number_done) {
+        assert(number_done <= length);
+        return (number_done == length);
     };
-
-    // construct the return type from the argument type list, then construct
-    // an object that will contain the ready futures when they are all done
-    auto futures = std::make_tuple(std::move(args)...);
-    auto bookkeeping = std::make_shared<Bookkeeping>();
-    auto future = bookkeeping->promise.get_future();
-
-    // iterate through all the futures and signal the promsise when all of
-    // them have been satisfied
-    sharp::for_each(futures, [&bookkeeping](auto& future, auto index) {
-        // when the future is complete move it into the tuple of ready
-        // futures, which will at the end contain all the futures that are
-        // ready at a stage where you can signal to the user
-        future.then([bookkeeping, index](auto future) {
-            std::get<static_cast<int>(index)>(bookkeeping->tuple_of_futures) =
-                std::move(future);
-
-            // if all the futures have been completed, signal
-            ++bookkeeping->counter;
-            if (bookkeeping->counter.load()
-                    == std::tuple_size<ReturnTupleType>::value) {
-                bookkeeping->promise.set_value(
-                    std::move(bookkeeping->tuple_of_futures));
-            }
-
-            // return to make the future code not error out
-            return 0;
-        });
-    });
-
-    return future;
+    return detail::when_impl(done, std::forward<Futures>(args)...);
 }
 
 template <typename BeginIterator, typename EndIterator>
 auto when_all(BeginIterator first, EndIterator last) {
-    // the type of the future that is to be returned
-    using ReturnFutureType = std::vector<std::decay_t<decltype(*first)>>;
-
-    // The bookkeeping shared struct, this will encapsulate three other
-    // things, that help in both hitting the cache more and saving on heap
-    // allocations via shared pointers
-    struct Bookkeeping {
-        sharp::Promise<ReturnFutureType> promise;
-        ReturnFutureType futures;
-        // since the cardinality of the input set is known, we can avoid this
-        // and just use a vector of bools, and then query to see if all of
-        // them are complete on every future completion, that would be O(n)
-        // but would be completely lock free
-        std::atomic<int> counter{0};
+    int length = std::distance(first, last);
+    auto done = [length](int number_done) {
+        assert(number_done <= length);
+        return (number_done == length);
     };
+    return detail::when_impl(done, first, last);
+}
 
-    auto bookkeeping = std::make_shared<Bookkeeping>();
-    bookkeeping->futures.resize(std::distance(first, last));
-    auto future = bookkeeping->promise.get_future();
+template <typename... Futures>
+auto when_any(Futures&&... futures) {
+    auto done = [](int number_done) {
+        return number_done;
+    };
+    return detail::when_impl(done, std::forward<Futures>(futures)...);
+}
 
-    sharp::for_each(sharp::range(first, last),
-    [&bookkeeping](auto& future, auto index) {
-        future.then([bookkeeping, index](auto future) {
-            bookkeeping->futures[static_cast<int>(index)] = std::move(future);
-
-            ++bookkeeping->counter;
-            if (bookkeeping->counter.load()
-                    == static_cast<int>(bookkeeping->futures.size())) {
-                bookkeeping->promise.set_value(std::move(bookkeeping->futures));
-            }
-
-            return 0;
-        });
-    });
-
-    return future;
+template <typename BeginIterator, typename EndIterator>
+auto when_any(BeginIterator first, EndIterator last) {
+    auto done = [](int number_done) {
+        return number_done;
+    };
+    return detail::when_impl(done, first, last);
 }
 
 namespace detail {
@@ -284,6 +256,122 @@ namespace detail {
                 promise.set_exception(std::current_exception());
                 return;
             }
+        });
+
+        return future;
+    }
+
+
+    // helper trait
+    template <typename F>
+    struct PromiseFor {
+        using type = sharp::Promise<typename std::decay_t<F>::value_type>;
+    };
+
+    template <typename Func, typename... Futures>
+    auto when_impl(Func f, Futures&&... args) {
+
+        // the returning future will be instantiated with this return type
+        using ReturnFutures = std::tuple<std::decay_t<Futures>...>;
+        using ReturnPromises = sharp::Transform_t<PromiseFor, ReturnFutures>;
+
+        // A single struct to avoid making 2 shared pointers instead of 1
+        struct Bookkeeping {
+            sharp::Promise<ReturnFutures> promise;
+            ReturnFutures return_futures;
+            ReturnPromises return_promises;
+            std::atomic<int> counter{0};
+            Bookkeeping() {
+                // set each future to be from the corresponding promise
+                sharp::for_each(this->return_futures, [this]
+                        (auto& future, auto index) {
+                    future = std::get<static_cast<int>(index)>(
+                        this->return_promises).get_future();
+                });
+            }
+        };
+
+        // construct the return type from the argument type list, then construct
+        // an object that will contain the ready futures when they are all done
+        auto futures = std::make_tuple(std::move(args)...);
+        auto bookkeeping = std::make_shared<Bookkeeping>();
+        auto future = bookkeeping->promise.get_future();
+
+        // iterate through all the futures and signal the promsise when all of
+        // them have been satisfied
+        sharp::for_each(futures, [&bookkeeping, &f](auto& future, auto index) {
+            // when the future is complete move it into the tuple of ready
+            // futures, which will at the end contain all the futures that are
+            // ready at a stage where you can signal to the user
+            future.then([bookkeeping, index, f](auto future) {
+                std::get<static_cast<int>(index)>(bookkeeping->return_promises)
+                    .set_value(future.get());
+
+                // if all the futures have been completed, signal
+                ++bookkeeping->counter;
+                if (f(bookkeeping->counter.load())) {
+                    bookkeeping->promise.set_value(
+                        std::move(bookkeeping->return_futures));
+                }
+
+                // return to make the future code not error out
+                return 0;
+            });
+        });
+
+        return future;
+    }
+
+    template <typename Func, typename BeginIterator, typename EndIterator>
+    auto when_impl(Func f, BeginIterator first, EndIterator last) {
+
+        // the type of the future that is to be returned
+        using FutureValueType = typename std::decay_t<decltype(*first)>
+            ::value_type;
+        using ReturnFutures = std::vector<std::decay_t<decltype(*first)>>;
+        using ReturnPromises = std::vector<sharp::Promise<FutureValueType>>;
+
+        // The bookkeeping shared struct, this will encapsulate three other
+        // things, that help in both hitting the cache more and saving on heap
+        // allocations via shared pointers
+        struct Bookkeeping {
+            sharp::Promise<ReturnFutures> promise;
+            ReturnFutures return_futures;
+            ReturnPromises return_promises;
+            std::atomic<int> counter{0};
+            Bookkeeping(int length) {
+                this->return_promises.reserve(length);
+                this->return_futures.reserve(length);
+                for (auto i : sharp::range(0, length)) {
+                    this->return_promises.emplace_back();
+                    this->return_futures.push_back(
+                            this->return_promises[i].get_future());
+                }
+            }
+        };
+
+        // make the bookkeeping objects and make the object to return
+        auto length = std::distance(first, last);
+        auto bookkeeping = std::make_shared<Bookkeeping>(length);
+        auto future = bookkeeping->promise.get_future();
+
+        // iterate through all the futures in the bookkeeping struct and then
+        // set callbacks on them via .then(), when sufficient futures have
+        // finished, signal via the promise that the task has been done
+        sharp::for_each(sharp::range(first, last),
+        [&bookkeeping, &f](auto& future, auto index) {
+            future.then([bookkeeping, index, f](auto future) {
+                bookkeeping->return_promises[static_cast<int>(index)]
+                    .set_value(future.get());
+
+                ++bookkeeping->counter;
+                if (f(bookkeeping->counter.load())) {
+                    bookkeeping->promise.set_value(
+                        std::move(bookkeeping->return_futures));
+                }
+
+                return 0;
+            });
         });
 
         return future;
