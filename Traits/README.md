@@ -295,11 +295,11 @@ static_assert(std::is_same<Erase_t<1, std::tuple<int, char, double>>,
                            std::tuple<int, double>>::value);
 ```
 
-#### `sharp::for_each_tuple`
+#### `sharp::for_each`
 
 ```
 auto tup = make_tuple(1, "1.0");
-for_each_tuple(tup, [](auto& member) {
+for_each(tup, [](auto& member) {
     cout << member << endl;
 }
 ```
