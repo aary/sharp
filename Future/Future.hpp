@@ -35,8 +35,8 @@ namespace detail {
     class FutureImpl;
 
     /**
-     * A CRTP base class that implements continuations, this code will be used
-     * both for Future and SharedFuture
+     * A mixin CRTP base class that implements continuations, this code will
+     * be used both for Future and SharedFuture
      */
     template <typename FutureType>
     class ComposableFuture : public sharp::Crtp<FutureType> {
