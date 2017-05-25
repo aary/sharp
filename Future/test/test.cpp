@@ -536,3 +536,44 @@ TEST(Future, SharedFutureBasic) {
         EXPECT_EQ(future.get(), 1);
     }
 }
+
+TEST(Future, FutureSpeedTest) {
+
+    const auto LIMIT = 100000;
+
+    // create a bunch of futures and promises
+    auto promises = std::vector<sharp::Promise<int>>{};
+    auto futures = std::vector<sharp::Future<int>>{};
+    for (auto i = 0; i < LIMIT; ++i) {
+        promises.emplace_back();
+        futures.push_back(promises[i].get_future());
+    }
+
+    // then create two threads to set values in even futures and the other to
+    // set values in the odd futures
+    std::thread{[&promises]() {
+        for (auto i = 0; i < LIMIT; i += 2) {
+            promises[i].set_value(i);
+        }
+    }}.detach();
+    std::thread{[&promises]() {
+        for (auto i = 1; i < LIMIT; i += 2) {
+            promises[i].set_value(i);
+        }
+    }}.detach();
+
+    // then create two threads that get() values from even and odd futures
+    auto th_one = std::thread{[&futures]() {
+        for (auto i = 0; i < LIMIT; i += 2) {
+            futures[i].get();
+        }
+    }};
+    auto th_two = std::thread{[&futures]() {
+        for (auto i = 1; i < LIMIT; i += 2) {
+            futures[i].get();
+        }
+    }};
+
+    th_one.join();
+    th_two.join();
+}
