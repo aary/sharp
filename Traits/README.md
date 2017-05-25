@@ -318,3 +318,28 @@ void foo(Something&&, Else&& else) {
     bar(sharp::match_forward<Something, Else>(else));
 }
 ```
+
+#### `sharp::Crtp`
+
+```
+template <typename Derived>
+class SomeCrtpMixin : public sharp::Crtp<Derived> {
+public:
+    std::string serialize() const {
+        auto ss = std::stringstream{};
+        ss << this->this_instance().data;
+        return ss.str();
+    }
+};
+```
+
+#### `sharp::move_if_movable`
+
+```
+template <typename T>
+void Something::push_to_global(T& object) {
+    // move the object into the vector if it's constructible from an rvalue,
+    // else copy it
+    this->container.push_back(std::move_if_movable(object));
+}
+```

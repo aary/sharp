@@ -50,6 +50,16 @@ namespace detail {
         && std::is_same<
             decltype(std::end(std::declval<Type>())),
             decltype(std::end(std::declval<Type>()))>::value>;
+    /**
+     * Checks if an object of the class is constructible from an rvalue of the
+     * same class
+     */
+    template <typename Type>
+    using EnableIfRValueConstructible = std::enable_if_t<
+        std::is_move_constructible<Type>::value>;
+    template <typename Type>
+    using EnableIfNotRValueConstructible = std::enable_if_t<
+        !std::is_move_constructible<Type>::value>;
 
     /**
      * Implementation of the for_each function for the case where the range is
@@ -123,6 +133,24 @@ namespace detail {
         };
         detail::for_each_impl(std::forward<Range>(range), wrapped);
     }
+
+    namespace test {
+
+        class NotMoveConstructible {
+        public:
+            NotMoveConstructible() = default;
+            NotMoveConstructible(const NotMoveConstructible&) = default;
+            NotMoveConstructible(NotMoveConstructible&&) = delete;
+        };
+
+        class MoveConstructible {
+        public:
+            MoveConstructible() = default;
+            MoveConstructible(const MoveConstructible&) = default;
+            MoveConstructible(MoveConstructible&&) = default;
+        };
+
+    } // namespace test
 
 } // namespace detail
 
@@ -199,5 +227,26 @@ template <typename Derived>
 const Derived& Crtp<Derived>::this_instance() const {
     return static_cast<const Derived&>(*this);
 }
+
+template <typename Type, detail::EnableIfRValueConstructible<Type>* = nullptr>
+decltype(auto) move_if_movable(Type&& object) {
+    return std::move(object);
+}
+
+template <typename Type,
+          detail::EnableIfNotRValueConstructible<Type>* = nullptr>
+decltype(auto) move_if_movable(const Type& object) {
+    return object;
+}
+
+static_assert(std::is_same<
+        decltype(move_if_movable(
+                std::declval<detail::test::MoveConstructible>())),
+        detail::test::MoveConstructible&&>::value, "");
+static_assert(std::is_same<
+        decltype(move_if_movable(
+                std::declval<detail::test::NotMoveConstructible>())),
+        const detail::test::NotMoveConstructible&>::value, "");
+
 
 } // namespace sharp

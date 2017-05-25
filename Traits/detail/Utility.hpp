@@ -309,6 +309,18 @@ public:
 };
 
 /**
+ * @function move_if_movable
+ *
+ * Returns an xvalue referring to the object passed in if the class Type has a
+ * constructor that can be invoked with an rvalue of type std::decay_t<Type>&&
+ *
+ * Useful in templated situations where you don't know if the class you want
+ * to move has a move constructor
+ */
+template <typename Type, typename>
+decltype(auto) move_if_movable(Type&& object);
+
+/**
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
