@@ -537,6 +537,51 @@ TEST(Future, SharedFutureBasic) {
     }
 }
 
+TEST(Future, SharedFutureThen) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
+        auto shared_future = future.share();
+
+        auto future_after = shared_future.then([](auto s_future) {
+            auto promise = sharp::Promise<int>{};
+            auto future = promise.get_future();
+            std::thread{[s_future, promise = std::move(promise)]() mutable {
+                promise.set_value(s_future.get() * 2);
+            }}.detach();
+            return future;
+        });
+
+        promise.set_value(3);
+        EXPECT_EQ(future_after.get(), 6);
+    }
+}
+
+TEST(Future, SharedFutureWhenAll) {
+    for (auto i = 0; i < 100; ++i) {
+        auto promise_one = sharp::Promise<int>{};
+        auto future = promise_one.get_future();
+        auto promise_two = sharp::Promise<int>{};
+        auto future_shared = promise_two.get_future().share();
+
+        auto thenned = sharp::when_all(future, future_shared).then(
+                [](auto futures) {
+            auto tuple_futures = futures.get();
+            return std::get<0>(tuple_futures).get()
+                * std::get<1>(tuple_futures).get();
+        });
+
+        std::thread{[promise = std::move(promise_one)]() mutable {
+            promise.set_value(4);
+        }}.detach();
+        std::thread{[promise = std::move(promise_two)]() mutable {
+            promise.set_value(3);
+        }}.detach();
+
+        EXPECT_EQ(thenned.get(), 12);
+    }
+}
+
 TEST(Future, FutureSpeedTest) {
 
     const auto LIMIT = 100000;
