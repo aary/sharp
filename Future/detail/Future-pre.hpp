@@ -19,6 +19,8 @@ namespace sharp {
  */
 template <typename Type>
 class Future;
+template <typename Type>
+class SharedFuture;
 
 namespace detail {
 
@@ -35,6 +37,16 @@ namespace detail {
     using EnableIfDoesNotReturnFuture = std::enable_if_t<
         !sharp::IsInstantiationOf_v<
             decltype(std::declval<Func>()(std::declval<Future<Type>>())),
+            Future>>;
+    template <typename Func, typename Type>
+    using EnableIfReturnsFutureShared = std::enable_if_t<
+        sharp::IsInstantiationOf_v<
+            decltype(std::declval<Func>()(std::declval<SharedFuture<Type>>())),
+            Future>>;
+    template <typename Func, typename Type>
+    using EnableIfDoesNotReturnFutureShared = std::enable_if_t<
+        !sharp::IsInstantiationOf_v<
+            decltype(std::declval<Func>()(std::declval<SharedFuture<Type>>())),
             Future>>;
 
 } // namespace detail

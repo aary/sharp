@@ -42,6 +42,12 @@ public:
     SharedFuture(Future<Type>&&) noexcept;
 
     /**
+     * Assignment operators
+     */
+    SharedFuture& operator=(const SharedFuture&) = default;
+    SharedFuture& operator=(SharedFuture&&) noexcept = default;
+
+    /**
      * Returns a const reference to the value in the shared state, if there is
      * no value then the function blocks, if there is no shared state then an
      * exception is thrown
@@ -60,19 +66,50 @@ public:
      * in should accept a shared_future by value
      */
     template <typename Func,
-              typename detail::EnableIfDoesNotReturnFuture<Func, Type>*
+              typename detail::EnableIfDoesNotReturnFutureShared<Func, Type>*
                   = nullptr>
-    auto then(Func&& func) -> Future<decltype(func(std::move(*this)))>;
+    auto then(Func&& func) -> Future<decltype(func(*this))>;
     template <typename Func,
-              typename detail::EnableIfReturnsFuture<Func, Type>* = nullptr>
-    auto then(Func&& func) -> decltype(func(std::move(*this)));
+              typename detail::EnableIfReturnsFutureShared<Func, Type>*
+                  = nullptr>
+    auto then(Func&& func) -> decltype(func(*this));
+
+    /**
+     * Make friends with the promise class
+     */
+    template <typename T>
+    friend class sharp::Promise;
+
+    /**
+     * Make friends with all instantiations of the future class, this is
+     * needed because there are a lot of methods here which rely on futures
+     * that have been instantiated differently from the current instantiation
+     * of the future class.  And it is nice to be able to call private methods
+     * on these other instantiations as well
+     */
+    template <typename T>
+    friend class sharp::SharedFuture;
+
+    /**
+     * Make friends with the SharedFuture class
+     */
+    template <typename T>
+    friend class sharp::Future;
+
+    /**
+     * Make friends with the ComposableFuture class because that uses private
+     * members of this class
+     */
+    template <typename T>
+    friend class sharp::detail::ComposableFuture;
 
 private:
 
     void check_shared_state() const;
-    std::shared_ptr<detail::FutureImpl<Type>> shared_state;
     template <typename Func>
     auto then_impl(Func&& func) -> Future<decltype(func(std::move(*this)))>;
+
+    std::shared_ptr<detail::FutureImpl<Type>> shared_state;
 };
 
 } // namespace sharp

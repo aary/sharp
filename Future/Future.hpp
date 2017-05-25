@@ -311,7 +311,7 @@ private:
  */
 template <typename... Futures>
 auto when_all(Futures&&... futures);
-template <typename BeginIterator, typename EndIterator>
+template <typename BeginIterator, typename EndIterator, typename, typename>
 auto when_all(BeginIterator first, EndIterator last);
 
 /**
@@ -326,8 +326,8 @@ auto when_all(BeginIterator first, EndIterator last);
  */
 template <typename... Futures>
 auto when_any(Futures&&... futures);
-template <typename InputIterator>
-auto when_any(InputIterator first, InputIterator last);
+template <typename BeginIterator, typename EndIterator, typename, typename>
+auto when_any(BeginIterator first, EndIterator last);
 
 } // namespace sharp
 

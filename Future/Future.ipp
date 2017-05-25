@@ -23,13 +23,21 @@ namespace sharp {
 namespace detail {
 
     /**
+     * Concepts
+     */
+    template <typename Type>
+    using EnableIfNotFutureType = std::enable_if_t<
+        !sharp::IsInstantiationOf_v<Type, sharp::Future>
+        && !sharp::IsInstantiationOf_v<Type, sharp::SharedFuture>>;
+
+    /**
      * The when_*** implementation, checks when the iteration has been
      * finished by querying the number of finished objects against func, if
      * func(number_of_finished) returns true then the value in the promise is
      * set
      */
     template <typename Func, typename... Futures>
-    auto when_impl(Func func, Futures&&... futures);
+    auto when_impl_variadic(Func func, Futures&&... futures);
 
     /**
      * The when_*** runtime implementation, checks when the iteration has been
@@ -38,7 +46,12 @@ namespace detail {
      * set
      */
     template <typename Func, typename BeginIterator, typename EndIterator>
-    auto when_impl(Func func, BeginIterator first, EndIterator last);
+    auto when_impl_iter(Func func, BeginIterator first, EndIterator last);
+
+    template <typename Type>
+    void move_from_promise(Promise<Type>& promise, Future<Type>& future) {
+        future = promise.get_future();
+    }
 
 } // namespace detail
 
@@ -188,17 +201,19 @@ auto when_all(Futures&&... args) {
         assert(number_done <= length);
         return (number_done == length);
     };
-    return detail::when_impl(done, std::forward<Futures>(args)...);
+    return detail::when_impl_variadic(done, std::forward<Futures>(args)...);
 }
 
-template <typename BeginIterator, typename EndIterator>
+template <typename BeginIterator, typename EndIterator,
+          detail::EnableIfNotFutureType<BeginIterator>* = nullptr,
+          detail::EnableIfNotFutureType<BeginIterator>* = nullptr>
 auto when_all(BeginIterator first, EndIterator last) {
     int length = std::distance(first, last);
     auto done = [length](int number_done) {
         assert(number_done <= length);
         return (number_done == length);
     };
-    return detail::when_impl(done, first, last);
+    return detail::when_impl_iter(done, first, last);
 }
 
 template <typename... Futures>
@@ -206,15 +221,17 @@ auto when_any(Futures&&... futures) {
     auto done = [](int number_done) {
         return number_done;
     };
-    return detail::when_impl(done, std::forward<Futures>(futures)...);
+    return detail::when_impl_variadic(done, std::forward<Futures>(futures)...);
 }
 
-template <typename BeginIterator, typename EndIterator>
+template <typename BeginIterator, typename EndIterator,
+          detail::EnableIfNotFutureType<BeginIterator>* = nullptr,
+          detail::EnableIfNotFutureType<BeginIterator>* = nullptr>
 auto when_any(BeginIterator first, EndIterator last) {
     auto done = [](int number_done) {
         return number_done;
     };
-    return detail::when_impl(done, first, last);
+    return detail::when_impl_iter(done, first, last);
 }
 
 namespace detail {
@@ -269,7 +286,7 @@ namespace detail {
     };
 
     template <typename Func, typename... Futures>
-    auto when_impl(Func f, Futures&&... args) {
+    auto when_impl_variadic(Func f, Futures&&... args) {
 
         // the returning future will be instantiated with this return type
         using ReturnFutures = std::tuple<std::decay_t<Futures>...>;
@@ -285,8 +302,10 @@ namespace detail {
                 // set each future to be from the corresponding promise
                 sharp::for_each(this->return_futures, [this]
                         (auto& future, auto index) {
-                    future = std::get<static_cast<int>(index)>(
-                        this->return_promises).get_future();
+                    move_from_promise(
+                        std::get<static_cast<int>(index)>(
+                            this->return_promises),
+                        future);
                 });
             }
         };
@@ -323,7 +342,7 @@ namespace detail {
     }
 
     template <typename Func, typename BeginIterator, typename EndIterator>
-    auto when_impl(Func f, BeginIterator first, EndIterator last) {
+    auto when_impl_iter(Func f, BeginIterator first, EndIterator last) {
 
         // the type of the future that is to be returned
         using FutureValueType = typename std::decay_t<decltype(*first)>
@@ -344,8 +363,9 @@ namespace detail {
                 this->return_futures.reserve(length);
                 for (auto i : sharp::range(0, length)) {
                     this->return_promises.emplace_back();
-                    this->return_futures.push_back(
-                            this->return_promises[i].get_future());
+                    this->return_futures.emplace_back();
+                    move_from_promise(this->return_promises[i],
+                            this->return_futures[i]);
                 }
             }
         };

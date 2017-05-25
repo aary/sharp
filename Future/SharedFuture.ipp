@@ -1,9 +1,24 @@
 #pragma once
 
-#include <sharp/Future/SharedFuture.hpp>
+#include <type_traits>
+
+#include <sharp/Traits/Traits.hpp>
 #include <sharp/Defer/Defer.hpp>
+#include <sharp/Future/SharedFuture.hpp>
 
 namespace sharp {
+
+namespace detail {
+
+    /**
+     * Assigns a shared future from the promise
+     */
+    template <typename Type>
+    void move_from_promise(Promise<Type>& promise, SharedFuture<Type>& future) {
+        future = promise.get_future().share();
+    }
+
+} // namespace detail
 
 template <typename Type>
 SharedFuture<Type>::SharedFuture() noexcept {};
@@ -100,18 +115,18 @@ void SharedFuture<Type>::check_shared_state() const {
 
 template <typename Type>
 template <typename Func,
-          typename detail::EnableIfDoesNotReturnFuture<Func, Type>*>
+          typename detail::EnableIfDoesNotReturnFutureShared<Func, Type>*>
 auto SharedFuture<Type>::then(Func&& func)
-        -> Future<decltype(func(std::move(*this)))> {
+        -> Future<decltype(func(*this))> {
     return this->detail::ComposableFuture<SharedFuture<Type>>::then(
             std::forward<Func>(func));
 }
 
 template <typename Type>
 template <typename Func,
-          typename detail::EnableIfReturnsFuture<Func, Type>*>
+          typename detail::EnableIfReturnsFutureShared<Func, Type>*>
 auto SharedFuture<Type>::then(Func&& func)
-        -> decltype(func(std::move(*this))) {
+        -> decltype(func(*this)) {
     using T = typename std::decay_t<decltype(func(*this))>::value_type;
     return Future<T>{this->detail::ComposableFuture<SharedFuture<Type>>::then(
         std::forward<Func>(func))};
