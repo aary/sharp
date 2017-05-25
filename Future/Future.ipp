@@ -182,8 +182,8 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
 template <typename... Futures>
 auto when_all(Futures&&... args) {
     // make the function that checks when the futures have been completed
-    int length = std::tuple_size<decltype(std::make_tuple(std::move(args)...))>
-        ::value;
+    int length = std::tuple_size<decltype(std::make_tuple(
+                    sharp::move_if_movable(args)...))>::value;
     auto done = [length](int number_done) {
         assert(number_done <= length);
         return (number_done == length);
@@ -250,7 +250,7 @@ namespace detail {
             // try and get the value from the callback, if an exception was
             // thrown, propagate that
             try {
-                auto val = func(std::move(fut));
+                auto val = func(sharp::move_if_movable(fut));
                 promise.set_value(std::move(val));
             } catch (...) {
                 promise.set_exception(std::current_exception());
@@ -293,7 +293,7 @@ namespace detail {
 
         // construct the return type from the argument type list, then construct
         // an object that will contain the ready futures when they are all done
-        auto futures = std::make_tuple(std::move(args)...);
+        auto futures = std::make_tuple(sharp::move_if_movable(args)...);
         auto bookkeeping = std::make_shared<Bookkeeping>();
         auto future = bookkeeping->promise.get_future();
 
