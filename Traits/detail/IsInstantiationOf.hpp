@@ -13,6 +13,31 @@
 
 namespace sharp {
 
+namespace detail {
+
+    /**
+     * Default non specialized implementaton for when the type on the left is
+     * not an instantiation of the template argument on the right, this uses
+     * the nested template syntax
+     */
+    template <typename Type, template <typename...> class InstantiatedType>
+    struct IsInstantiationOfImpl : public std::integral_constant<bool, false>
+    {};
+
+    /**
+     * Specialized implementation for when the type on the left is an
+     * instantiation of the type on the right
+     *
+     * Keep in mind that the order of arguments does in the initial template
+     * list does not matter for using this trait, the real order in
+     * specializations is maintained with the specialized list after the name
+     * of the struct after the first line below this comment block
+     */
+    template <template <typename...> class InstantiatedType, typename... Args>
+    struct IsInstantiationOfImpl<InstantiatedType<Args...>, InstantiatedType>
+        : public std::integral_constant<bool, true> {};
+} // namespace detail
+
 /**
  * @class IsInstantiationOf
  *
@@ -25,26 +50,10 @@ namespace sharp {
  *
  * will output a "true" to standard out
  */
-/**
- * Default non specialized implementaton for when the type on the left is not
- * an instantiation of the template argument on the right, this uses the
- * nested template syntax
- */
 template <typename Type, template <typename...> class InstantiatedType>
-struct IsInstantiationOf : public std::integral_constant<bool, false> {};
-
-/**
- * Specialized implementation for when the type on the left is an
- * instantiation of the type on the right
- *
- * Keep in mind that the order of arguments does in the initial template list
- * does not matter for using this trait, the real order in specializations is
- * maintained with the specialized list after the name of the struct after the
- * first line below this comment block
- */
-template <template <typename...> class InstantiatedType, typename... Args>
-struct IsInstantiationOf<InstantiatedType<Args...>, InstantiatedType>
-    : public std::integral_constant<bool, true> {};
+struct IsInstantiationOf
+    : public detail::IsInstantiationOfImpl<std::decay_t<Type>, InstantiatedType>
+{};
 
 /**
  * Convenience variable template for uniformity with the standard library
