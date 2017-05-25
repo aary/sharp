@@ -385,9 +385,9 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
 
-        auto counter = 0;
-        auto another_future = future.then([&counter](auto future) {
-            EXPECT_EQ(counter++, 0);
+        auto counter = std::make_shared<int>();
+        auto another_future = future.then([counter](auto future) {
+            EXPECT_EQ((*counter)++, 0);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -395,8 +395,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([&counter](auto future) {
-            EXPECT_EQ(counter++, 1);
+        }).then([counter](auto future) {
+            EXPECT_EQ((*counter)++, 1);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -404,8 +404,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([&counter](auto future) {
-            EXPECT_EQ(counter++, 2);
+        }).then([counter](auto future) {
+            EXPECT_EQ((*counter)++, 2);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -413,8 +413,8 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
                 promise.set_value(value * 2);
             }}.detach();
             return future_other;
-        }).then([&counter](auto future) {
-            EXPECT_EQ(counter++, 3);
+        }).then([counter](auto future) {
+            EXPECT_EQ((*counter)++, 3);
             auto value = future.get();
             auto promise = sharp::Promise<int>{};
             auto future_other = promise.get_future();
@@ -582,7 +582,7 @@ TEST(Future, SharedFutureWhenAll) {
     }
 }
 
-TEST(Future, FutureSpeedTest) {
+TEST(Future, FutureGetSetSpeedTest) {
 
     const auto LIMIT = 100000;
 
@@ -621,4 +621,34 @@ TEST(Future, FutureSpeedTest) {
 
     th_one.join();
     th_two.join();
+
+}
+
+TEST(Future, FutureThenSpeedTest) {
+
+    // changing this to 100000 makes the program exit with an error, so what I
+    // have done is break the loop into two parts, one outer loop and one
+    // inner loop that does the stess execution, the breakage means that the
+    // inner loop will release the memory it had previously acquired
+    const auto LIMIT = 100000;
+    const auto DIVIDER = 10;
+
+    for (auto outer = 0; outer < DIVIDER; ++outer) {
+
+        auto promise = sharp::Promise<int>{};
+        auto future = promise.get_future();
+
+        auto counter = std::make_shared<int>();
+        for (auto i = 0; i < LIMIT/DIVIDER; ++i) {
+            future = future.then([counter](auto) {
+                (*counter)++;
+                return 1;
+            });
+        }
+        EXPECT_EQ((*counter), 0);
+        promise.set_value(1);
+        EXPECT_EQ((*counter), LIMIT / DIVIDER);
+        EXPECT_EQ(future.get(), 1);
+        EXPECT_EQ((*counter), LIMIT / DIVIDER);
+    }
 }
