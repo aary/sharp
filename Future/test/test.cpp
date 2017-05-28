@@ -8,7 +8,7 @@
 #include <sharp/Threads/Threads.hpp>
 #include <gtest/gtest.h>
 
-TEST(Future, FutureBasic) {
+TEST(Future, Basic) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     promise.set_value(1);
@@ -16,7 +16,7 @@ TEST(Future, FutureBasic) {
     EXPECT_EQ(value, 1);
 }
 
-TEST(Future, FutureBasicThreaded) {
+TEST(Future, BasicThreaded) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     auto th = std::thread{[&]() {
@@ -26,7 +26,7 @@ TEST(Future, FutureBasicThreaded) {
     th.join();
 }
 
-TEST(Future, FutureMove) {
+TEST(Future, Move) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     EXPECT_TRUE(future.valid());
@@ -39,7 +39,7 @@ TEST(Future, FutureMove) {
     EXPECT_FALSE(another_future.valid());
 }
 
-TEST(Future, FutureInvalid) {
+TEST(Future, Invalid) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     promise.set_value(1);
@@ -50,7 +50,7 @@ TEST(Future, FutureInvalid) {
     } catch (...) {}
 }
 
-TEST(Future, FutureExceptionSend) {
+TEST(Future, ExceptionSend) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     promise.set_exception(std::make_exception_ptr(std::logic_error{""}));
@@ -63,7 +63,7 @@ TEST(Future, FutureExceptionSend) {
     }
 }
 
-TEST(Future, FutureAlreadyRetrieved) {
+TEST(Future, AlreadyRetrieved) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     try {
@@ -209,7 +209,7 @@ TEST(Future, UnwrapConstructOtherContainsValidWithException) {
     } catch (std::logic_error& err) {}
 }
 
-TEST(Future, FutureThenBasicTest) {
+TEST(Future, ThenBasicTest) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
     auto thened_future = future.then([](auto future) {
@@ -220,7 +220,7 @@ TEST(Future, FutureThenBasicTest) {
     EXPECT_EQ(thened_future.get(), 50);
 }
 
-TEST(Future, FutureThenThreaded) {
+TEST(Future, ThenThreaded) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -234,7 +234,7 @@ TEST(Future, FutureThenThreaded) {
     }
 }
 
-TEST(Future, FutureThenException) {
+TEST(Future, ThenException) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -254,7 +254,7 @@ TEST(Future, FutureThenException) {
     }
 }
 
-TEST(Future, FutureThenExceptionIndirection) {
+TEST(Future, ThenExceptionIndirection) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -274,7 +274,7 @@ TEST(Future, FutureThenExceptionIndirection) {
     }
 }
 
-TEST(Future, FutureThenExceptionTwoLevel) {
+TEST(Future, ThenExceptionTwoLevel) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -300,7 +300,7 @@ TEST(Future, FutureThenExceptionTwoLevel) {
     }
 }
 
-TEST(Future, FutureThenExceptionTwoLevelSecondThrows) {
+TEST(Future, ThenExceptionTwoLevelSecondThrows) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -326,7 +326,7 @@ TEST(Future, FutureThenExceptionTwoLevelSecondThrows) {
     }
 }
 
-TEST(Future, FutureThenExceptionIndirectionTwoLevel) {
+TEST(Future, ThenExceptionIndirectionTwoLevel) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -352,7 +352,7 @@ TEST(Future, FutureThenExceptionIndirectionTwoLevel) {
     }
 }
 
-TEST(Future, FutureThenMultipleThensValuePropagate) {
+TEST(Future, ThenMultipleThensValuePropagate) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -380,7 +380,7 @@ TEST(Future, FutureThenMultipleThensValuePropagate) {
     }
 }
 
-TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
+TEST(Future, ThenMultipleThensValueUnwrappedPropagate) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
@@ -432,7 +432,7 @@ TEST(Future, FutureThenMultipleThensValueUnwrappedPropagate) {
     }
 }
 
-TEST(Future, FutureWhenAllBasic) {
+TEST(Future, WhenAllBasic) {
     for (auto i = 0; i < 100; ++i) {
         auto promise_one = sharp::Promise<int>{};
         auto future_one = promise_one.get_future();
@@ -463,7 +463,7 @@ TEST(Future, FutureWhenAllBasic) {
     }
 }
 
-TEST(Future, FutureWhenAllRuntimeBasic) {
+TEST(Future, WhenAllRuntimeBasic) {
     for (auto i = 0; i < 100; ++i) {
         auto promise_one = sharp::Promise<int>{};
         auto future_one = promise_one.get_future();
@@ -499,7 +499,7 @@ TEST(Future, FutureWhenAllRuntimeBasic) {
     }
 }
 
-TEST(Future, FutureWhenAnyBasic) {
+TEST(Future, WhenAnyBasic) {
     for (auto i = 0; i < 100; ++i) {
         auto promise_one = sharp::Promise<int>{};
         auto future_one = promise_one.get_future();
@@ -582,7 +582,7 @@ TEST(Future, SharedFutureWhenAll) {
     }
 }
 
-TEST(Future, FutureGetSetSpeedTest) {
+TEST(Future, GetSetSpeedTest) {
 
     const auto LIMIT = 100000;
 
@@ -624,7 +624,7 @@ TEST(Future, FutureGetSetSpeedTest) {
 
 }
 
-TEST(Future, FutureThenSpeedTest) {
+TEST(Future, ThenSpeedTest) {
 
     // changing this to 100000 makes the program exit with an error, so what I
     // have done is break the loop into two parts, one outer loop and one
@@ -650,5 +650,33 @@ TEST(Future, FutureThenSpeedTest) {
         EXPECT_EQ((*counter), LIMIT / DIVIDER);
         EXPECT_EQ(future.get(), 1);
         EXPECT_EQ((*counter), LIMIT / DIVIDER);
+    }
+}
+
+TEST(Future, MakeReadyFuture) {
+    auto future = sharp::make_ready_future(1);
+    EXPECT_TRUE(future.valid());
+    EXPECT_EQ(future.get(), 1);
+}
+
+TEST(Future, MakeExceptionalFutureWithExceptionObject) {
+    auto future = sharp::make_exceptional_future<int>(1);
+    EXPECT_TRUE(future.valid());
+    try {
+        future.get();
+        EXPECT_TRUE(false);
+    } catch (int value) {
+        EXPECT_EQ(value, 1);
+    }
+}
+
+TEST(Future, MakeExceptionalFutureWithExceptionPtr) {
+    auto ptr = std::make_exception_ptr(1.0);
+    auto future = sharp::make_exceptional_future<int>(ptr);
+    EXPECT_TRUE(future.valid());
+    try {
+        future.get();
+    } catch (double value) {
+        EXPECT_EQ(value, 1.0);
     }
 }
