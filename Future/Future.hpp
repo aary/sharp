@@ -15,6 +15,7 @@
 #include <memory>
 #include <functional>
 #include <cstddef>
+#include <exception>
 
 #include <sharp/Traits/Traits.hpp>
 #include <sharp/Future/Executor.hpp>
@@ -40,7 +41,7 @@ namespace detail {
      */
     template <typename FutureType>
     class ComposableFuture : public sharp::Crtp<FutureType> {
-    public:
+    protected:
 
         /**
          * The basic implementation of .then(), this returns a future that
@@ -300,6 +301,27 @@ private:
      */
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
 };
+
+/**
+ * @function make_ready_future
+ *
+ * Makes a ready future from the given value
+ *
+ * The type of the future returned is a Future<std::decay_t<T>>
+ */
+template <typename Type>
+auto make_ready_future(Type&&);
+
+/**
+ * @function make_exceptional_future
+ *
+ * Makes a ready future with an exception held, this can either be called with
+ * an exception_ptr or with a copy of the exception object itself
+ */
+template <typename Type>
+auto make_exceptional_future(std::exception_ptr ptr);
+template <typename Type, typename Exception>
+auto make_exceptional_future(Exception);
 
 /**
  * @function when_all

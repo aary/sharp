@@ -192,6 +192,28 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
         detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
 }
 
+template <typename Type>
+auto make_ready_future(Type&& object) {
+    // make a promise with the value and then return the corresponding future
+    auto promise = sharp::Promise<std::decay_t<Type>>{};
+    promise.set_value(std::forward<Type>(object));
+    return promise.get_future();
+}
+
+template <typename Type>
+auto make_exceptional_future(std::exception_ptr ptr) {
+    auto promise = sharp::Promise<Type>{};
+    promise.set_exception(ptr);
+    return promise.get_future();
+}
+
+template <typename Type, typename Exception>
+auto make_exceptional_future(Exception exception) {
+    auto promise = sharp::Promise<Type>{};
+    promise.set_exception(std::make_exception_ptr(exception));
+    return promise.get_future();
+}
+
 template <typename... Futures>
 auto when_all(Futures&&... args) {
     // make the function that checks when the futures have been completed
