@@ -18,7 +18,7 @@
 #include <exception>
 
 #include <sharp/Traits/Traits.hpp>
-#include <sharp/Future/Executor.hpp>
+#include <sharp/Executor/Executor.hpp>
 #include <sharp/Future/detail/Future-pre.hpp>
 
 namespace sharp {

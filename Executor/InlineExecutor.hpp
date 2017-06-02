@@ -11,7 +11,7 @@
 
 #include <cstddef>
 
-#include <sharp/Future/Executor.hpp>
+#include <sharp/Executor/Executor.hpp>
 #include <sharp/Functional/Functional.hpp>
 
 namespace sharp {
@@ -23,7 +23,7 @@ public:
      * Destructor does nothing as there is no state to maintain here, all
      * functions are executed immediately
      */
-    ~InlineExecutor() {}
+    ~InlineExecutor() override {}
 
     /**
      * Do the thing
@@ -39,6 +39,15 @@ public:
     std::size_t num_pending_closures() const override {
         return 0;
     }
+
+    /**
+     * Returns the thread singleton inline executor instance
+     */
+    static Executor* get() {
+        static InlineExecutor executor;
+        return &executor;
+    }
+
 };
 
 } // namespace sharp

@@ -7,6 +7,7 @@ cxx_library(
         "//Defer:Defer",
         "//Traits:Traits",
         "//Functional:Functional",
+        "//Executor:Executor",
     ],
     exported_headers = [
         "Future.hpp",
@@ -16,11 +17,9 @@ cxx_library(
         "SharedFuture.hpp",
         "SharedFuture.ipp",
         "FutureError.hpp",
-        "Executor.hpp",
         "detail/FutureImpl.hpp",
         "detail/FutureImpl.ipp",
         "detail/Future-pre.hpp",
-        "detail/InlineExecutor.hpp",
     ],
     srcs = [
         "FutureError.cpp",

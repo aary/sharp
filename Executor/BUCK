@@ -1,0 +1,11 @@
+cxx_library(
+    name = "Executor",
+    header_namespace = "sharp/Executor",
+    exported_headers = [
+        "Executor.hpp",
+        "InlineExecutor.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

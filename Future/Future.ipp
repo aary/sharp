@@ -16,7 +16,7 @@
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
-#include <sharp/Future/Executor.hpp>
+#include <sharp/Executor/Executor.hpp>
 
 namespace sharp {
 

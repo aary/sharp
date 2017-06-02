@@ -40,7 +40,7 @@ public:
     /**
      * Virtual destructor for the Executor class
      */
-    virtual ~Executor();
+    virtual ~Executor() {}
 
     /**
      * The add() function which consists of most of the logic and usage of
@@ -64,3 +64,5 @@ public:
 };
 
 } // namespace sharp
+
+#include <sharp/Executor/InlineExecutor.hpp>
