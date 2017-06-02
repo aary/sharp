@@ -166,7 +166,7 @@ namespace detail {
          * Synchronizy locking things
          */
         std::atomic_flag retrieved = ATOMIC_FLAG_INIT;
-        mutable std::atomic<FutureState> state{FutureState::NotFulfilled};
+        std::atomic<FutureState> state{FutureState::NotFulfilled};
         mutable std::mutex mtx;
         mutable std::condition_variable cv;
 
