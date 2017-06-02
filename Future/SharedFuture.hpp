@@ -19,6 +19,7 @@
 #include <memory>
 
 #include <sharp/Future/Future.hpp>
+#include <sharp/Executor/Executor.hpp>
 
 namespace sharp {
 
@@ -74,6 +75,8 @@ public:
                   = nullptr>
     auto then(Func&& func) -> decltype(func(*this));
 
+    SharedFuture<Type> via(Executor* executor);
+
     /**
      * Make friends with the promise class
      */
@@ -110,6 +113,7 @@ private:
     auto then_impl(Func&& func) -> Future<decltype(func(std::move(*this)))>;
 
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
+    Executor* executor{sharp::InlineExecutor::get()};
 };
 
 } // namespace sharp

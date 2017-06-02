@@ -55,6 +55,37 @@ namespace detail {
                 -> Future<decltype(func(std::declval<FutureType>()))>;
     };
 
+    /**
+     * A mixin CRTP base that enables the .via() function and allows access to
+     * executors
+     */
+    // template <typename FutureType>
+    // class FutureWithExecutor : public sharp::Crtp<FutureType> {
+    // protected:
+
+        /**
+         * The via() function, further documentation is in the definition of
+         * the Future class
+         */
+        // FutureType via(Executor* executor) {
+            // this->executor = executor;
+            // return std::move(this->this_instance());
+        // }
+
+        /**
+         * Getter for the executor member variable, via() acts like the setter
+         */
+        // Executor* get_executor() {
+            // return this->executor;
+        // }
+
+    // private:
+        /**
+         * The executor member
+         */
+        // Executor* executor;
+    // };
+
 } // namespace detail
 
 /**
@@ -238,7 +269,7 @@ public:
      * future in the return value via the unwrapping constructor
      *
      * The callback is executed either on the current thread or on an executor
-     * which can be passed in as an optional second parameter
+     * which can be set before calling this method via a call to .via()
      */
     template <typename Func,
               typename detail::EnableIfDoesNotReturnFuture<Func, Type>*
@@ -247,6 +278,56 @@ public:
     template <typename Func,
               typename detail::EnableIfReturnsFuture<Func, Type>* = nullptr>
     auto then(Func&& func) -> decltype(func(std::move(*this)));
+
+    /**
+     * Sets an executor that will be used to execute the future's
+     * continuations
+     *
+     *      auto future = make_request();
+     *      future.via(exe).then([](auto future) {
+     *          // use value
+     *      });
+     *
+     * .then() calls can also be chained with a single call to .via()
+     *
+     *      auto future = make_request();
+     *      future.via(exe).then([](auto){}).then([](auto){});
+     *
+     * The executor is set in the shared state and remains until the shared
+     * state is destroyed.  If the current future is moved into another then
+     * the other future will also share the same executor
+     *
+     *      auto make_request() {
+     *          auto future = make_request_impl();
+     *          return future.via(exe);
+     *      }
+     *
+     *      // the following continuation will run in the other side of the
+     *      // executor set by the make_request() function on the returned
+     *      // future
+     *      auto future = make_request();
+     *      future.then([](auto){});
+     *
+     * This allows elimination of repeated executor specifications
+     *
+     *      auto future = make_request();
+     *      future.then(exe, [](auto) {}).then(exe, [](auto) {});
+     *
+     * The current future releases its reference count on the shared state and
+     * returns another future with the same shared state.  This allows for
+     * fluently composing futures
+     *
+     * Note that using via() only affects future continuations, in
+     * continuations that have already been registered, whatever executor was
+     * present in the future's shared state previously is used, for example
+     *
+     *     future.then(one).via(exe).then(two);
+     *
+     * This will cause the first callback `one` to be executed when the future
+     * completes on whatever executor was already set in `future`, and then
+     * `two` will be executed on the other side of `exe`
+     */
+    Future<Type> via(Executor* executor);
 
     /**
      * Make friends with the promise class
@@ -300,6 +381,12 @@ private:
      * functionality.  Both are thin wrappers around FutureImpl
      */
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
+
+    /**
+     * The only state that a future maintains, a non owning pointer to an
+     * executor, this is set at construction and is used to set callbacks
+     */
+    Executor* executor{sharp::InlineExecutor::get()};
 };
 
 /**

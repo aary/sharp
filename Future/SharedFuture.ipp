@@ -36,6 +36,12 @@ SharedFuture<Type>::SharedFuture(Future<Type>&& other) noexcept
         : shared_state{std::move(other.shared_state)} {}
 
 template <typename Type>
+SharedFuture<Type> SharedFuture<Type>::via(Executor* executor) {
+    this->executor = executor;
+    return *this;
+}
+
+template <typename Type>
 SharedFuture<Type>::SharedFuture(Future<SharedFuture<Type>>&& other) {
 
     other.check_shared_state();

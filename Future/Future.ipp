@@ -169,10 +169,7 @@ template <typename Func,
           typename detail::EnableIfDoesNotReturnFuture<Func, Type>*>
 auto Future<Type>::then(Func&& func)
         -> Future<decltype(func(std::move(*this)))> {
-    auto deferred = defer_guard([this]() {
-        this->shared_state.reset();
-    });
-    return detail::ComposableFuture<Future<Type>>::then(
+    return this->detail::ComposableFuture<Future<Type>>::then(
             std::forward<Func>(func));
 }
 
@@ -181,15 +178,20 @@ template <typename Func,
           typename detail::EnableIfReturnsFuture<Func, Type>*>
 auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
 
-    auto deferred = defer_guard([this]() {
-        this->shared_state.reset();
-    });
-
     // unwrap the returned future
     using T
         = typename std::decay_t<decltype(func(std::move(*this)))>::value_type;
-    return Future<T>{
+    return Future<T>{this->
         detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
+}
+
+template <typename Type>
+Future<Type> Future<Type>::via(Executor* executor) {
+    // no lock required, since this will neither conflict with another thread
+    // trying to read executor not conflict with another thread trying to
+    // write to executor
+    this->executor = executor;
+    return std::move(*this);
 }
 
 template <typename Type>
@@ -265,6 +267,10 @@ namespace detail {
 
         this->this_instance().check_shared_state();
 
+        auto deferred = defer_guard([this]() {
+            this->this_instance().shared_state.reset();
+        });
+
         // make a future promise pair, the value returned will be the future
         // from this pair, upon successful completion the future will be
         // satisfied by a callback that is decorated around the one passed in,
@@ -272,12 +278,16 @@ namespace detail {
         // future, and then call the callback and pass it a future that is
         // constructed with that shared state the value that the inner
         // callback returns will then be moved into the promise
+        //
+        // calling std::move() on an already xvalue does not make a difference
+        // so ¯\_(ツ)_/¯
         auto promise = Promise<decltype(func(std::declval<FutureType>()))>{};
         auto future = std::decay_t<decltype(promise.get_future())>{};
         future.shared_state = std::move(promise.get_future().shared_state);
 
         this->this_instance().shared_state->add_callback(
-                [promise = std::move(promise),
+                [executor = this->this_instance().executor,
+                 promise = std::move(promise),
                  func = std::forward<Func>(func),
                  shared_state = this->this_instance().shared_state]
                 (auto&) mutable {
@@ -288,13 +298,19 @@ namespace detail {
 
             // try and get the value from the callback, if an exception was
             // thrown, propagate that
-            try {
-                auto val = func(sharp::move_if_movable(fut));
-                promise.set_value(std::move(val));
-            } catch (...) {
-                promise.set_exception(std::current_exception());
-                return;
-            }
+            assert(executor);
+            executor->add(
+                    [func = std::forward<Func>(func),
+                     fut = std::move(fut),
+                     promise = std::move(promise)]() mutable {
+                try {
+                    auto val = func(std::move(fut));
+                    promise.set_value(std::move(val));
+                } catch (...) {
+                    promise.set_exception(std::current_exception());
+                    return;
+                }
+            });
         });
 
         return future;
