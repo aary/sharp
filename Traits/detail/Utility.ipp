@@ -218,13 +218,13 @@ decltype(auto) match_forward(std::remove_reference_t<Type>&& instance) {
     return static_cast<TypeToCast>(instance);
 }
 
-template <typename Derived>
-Derived& Crtp<Derived>::this_instance() {
+template <template <typename> class Base, typename Derived>
+Derived& Crtp<Base<Derived>>::this_instance() {
     return static_cast<Derived&>(*this);
 }
 
-template <typename Derived>
-const Derived& Crtp<Derived>::this_instance() const {
+template <template <typename> class Base, typename Derived>
+const Derived& Crtp<Base<Derived>>::this_instance() const {
     return static_cast<const Derived&>(*this);
 }
 

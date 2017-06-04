@@ -296,8 +296,10 @@ decltype(auto) match_forward(std::remove_reference_t<Type>&&);
  * This class is a utility class that makes making CRTP base classes just a
  * little more expressive
  */
-template <typename Derived>
-class Crtp {
+template <typename Base>
+class Crtp;
+template <template <typename> class Base, typename Derived>
+class Crtp<Base<Derived>> {
 public:
     /**
      * Functions that static cast the this pointer and return a reference to
