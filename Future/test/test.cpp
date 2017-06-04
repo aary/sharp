@@ -19,11 +19,10 @@ TEST(Future, Basic) {
 TEST(Future, BasicThreaded) {
     auto promise = sharp::Promise<int>{};
     auto future = promise.get_future();
-    auto th = std::thread{[&]() {
+    std::thread{[promise = std::move(promise)]() mutable {
         promise.set_value(10);
-    }};
+    }}.detach();
     EXPECT_EQ(future.get(), 10);
-    th.join();
 }
 
 TEST(Future, Move) {
@@ -224,7 +223,7 @@ TEST(Future, ThenThreaded) {
     for (auto i = 0; i < 100; ++i) {
         auto promise = sharp::Promise<int>{};
         auto future = promise.get_future();
-        std::thread{[&]() {
+        std::thread{[promise = std::move(promise)]() mutable {
             promise.set_value(10);
         }}.detach();
         auto thened_future = future.then([](auto future) {
