@@ -7,6 +7,7 @@
 #include <utility>
 #include <cassert>
 #include <memory>
+#include <atomic>
 
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.ipp>
@@ -14,6 +15,11 @@
 namespace sharp {
 
 namespace detail {
+
+    template <typename Type>
+    FutureImpl<Type>::~FutureImpl() {
+        assert(!this->callback);
+    }
 
     template <typename Type>
     void FutureImpl<Type>::wait() const {
@@ -179,7 +185,7 @@ namespace detail {
 
         // execute the callback and then hard reset the function object
         this->callback(*this);
-        this->callback = decltype(this->callback){};
+        this->callback = std::decay_t<decltype(this->callback)>{};
     }
 
     template <typename Type>

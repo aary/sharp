@@ -40,7 +40,7 @@ namespace detail {
      * be used both for Future and SharedFuture
      */
     template <typename FutureType>
-    class ComposableFuture : public sharp::Crtp<FutureType> {
+    class ComposableFuture : public sharp::Crtp<ComposableFuture<FutureType>> {
     protected:
 
         /**

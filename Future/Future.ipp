@@ -278,12 +278,8 @@ namespace detail {
         // future, and then call the callback and pass it a future that is
         // constructed with that shared state the value that the inner
         // callback returns will then be moved into the promise
-        //
-        // calling std::move() on an already xvalue does not make a difference
-        // so ¯\_(ツ)_/¯
         auto promise = Promise<decltype(func(std::declval<FutureType>()))>{};
-        auto future = std::decay_t<decltype(promise.get_future())>{};
-        future.shared_state = std::move(promise.get_future().shared_state);
+        auto future = promise.get_future();
 
         this->this_instance().shared_state->add_callback(
                 [executor = this->this_instance().executor,
@@ -292,7 +288,11 @@ namespace detail {
                  shared_state = this->this_instance().shared_state]
                 (auto&) mutable {
             // bypass the normal execution and assign the shared pointer
-            // directly
+            // directly, moving the shared pointer here which refers to the
+            // instance on which this callback is executing is safe because
+            // either the promise or the future that is causing this callback
+            // to execute (either via .then(), set_value() or set_exception()
+            // will have a reference count to the shared state anyway
             auto fut = FutureType{};
             fut.shared_state = std::move(shared_state);
 

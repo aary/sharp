@@ -41,6 +41,14 @@ namespace detail {
     public:
 
         /**
+         * Destructor just asserts that there is no callback registered on the
+         * shared state, because if there is a callback then it should already
+         * have been ran before the shared state is destroyed, either through
+         * a call to set_value(), set_exception() or .then()
+         */
+        ~FutureImpl();
+
+        /**
          * The wait function blocks until there is a value or an exception in
          * the shared state, this uses a condition variable to wait internally
          */
