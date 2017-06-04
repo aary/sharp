@@ -282,7 +282,7 @@ namespace detail {
         auto future = promise.get_future();
 
         this->this_instance().shared_state->add_callback(
-                [executor = this->this_instance().executor,
+                [executor = this->this_instance().get_executor(),
                  promise = std::move(promise),
                  func = std::forward<Func>(func),
                  shared_state = this->this_instance().shared_state]
@@ -316,6 +316,16 @@ namespace detail {
         return future;
     }
 
+    template <typename FutureType>
+    FutureType ExecutableFuture<FutureType>::via(Executor* executor) {
+        this->executor = executor;
+        return std::move(this->this_instance());
+    }
+
+    template <typename FutureType>
+    Executor* ExecutableFuture<FutureType>::get_executor() {
+        return this->executor;
+    }
 
     // helper trait
     template <typename F>

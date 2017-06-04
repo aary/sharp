@@ -59,32 +59,31 @@ namespace detail {
      * A mixin CRTP base that enables the .via() function and allows access to
      * executors
      */
-    // template <typename FutureType>
-    // class FutureWithExecutor : public sharp::Crtp<FutureType> {
-    // protected:
+    template <typename FutureType>
+    class ExecutableFuture : public sharp::Crtp<ExecutableFuture<FutureType>> {
+    public:
 
         /**
          * The via() function, further documentation is in the definition of
-         * the Future class
+         * the Future class, this is not atomic beacause it does not need to
+         * be, the executor parameter can only be changed from the future end
+         * and therefore should only be changed in one thread (it is not a
+         * const method)
          */
-        // FutureType via(Executor* executor) {
-            // this->executor = executor;
-            // return std::move(this->this_instance());
-        // }
+        FutureType via(Executor* executor);
 
+    protected:
         /**
          * Getter for the executor member variable, via() acts like the setter
          */
-        // Executor* get_executor() {
-            // return this->executor;
-        // }
+        Executor* get_executor();
 
-    // private:
+    private:
         /**
          * The executor member
          */
-        // Executor* executor;
-    // };
+        Executor* executor{sharp::InlineExecutor::get()};
+    };
 
 } // namespace detail
 
@@ -108,7 +107,8 @@ class SharedFuture;
  * represented by a Future object
  */
 template <typename Type>
-class Future : public detail::ComposableFuture<Future<Type>> {
+class Future : public detail::ComposableFuture<Future<Type>>,
+               public detail::ExecutableFuture<Future<Type>> {
 public:
 
     /**
@@ -381,12 +381,6 @@ private:
      * functionality.  Both are thin wrappers around FutureImpl
      */
     std::shared_ptr<detail::FutureImpl<Type>> shared_state;
-
-    /**
-     * The only state that a future maintains, a non owning pointer to an
-     * executor, this is set at construction and is used to set callbacks
-     */
-    Executor* executor{sharp::InlineExecutor::get()};
 };
 
 /**
