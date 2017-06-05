@@ -132,17 +132,6 @@ namespace detail {
          */
         bool contains_exception() const;
 
-    private:
-
-        /**
-         * The states the future can have, these should be self explanatory
-         */
-        enum class FutureState : int {
-            NotFulfilled,
-            ContainsValue,
-            ContainsException,
-        };
-
         /**
          * Sets the value or exception without locking anything, useful for
          * when calling from public future functions for example
@@ -153,6 +142,17 @@ namespace detail {
         template <typename U, typename... Args>
         void set_value_no_lock(std::initializer_list<U> il, Args&&... args);
         void set_exception_no_lock(std::exception_ptr ptr);
+
+    private:
+
+        /**
+         * The states the future can have, these should be self explanatory
+         */
+        enum class FutureState : int {
+            NotFulfilled,
+            ContainsValue,
+            ContainsException,
+        };
 
         /**
          * fixes the internal bookkeeping for the future, including setting

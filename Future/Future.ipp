@@ -195,25 +195,32 @@ Future<Type> Future<Type>::via(Executor* executor) {
 }
 
 template <typename Type>
-auto make_ready_future(Type&& object) {
+Future<std::decay_t<Type>> make_ready_future(Type&& object) {
     // make a promise with the value and then return the corresponding future
     auto promise = sharp::Promise<std::decay_t<Type>>{};
-    promise.set_value(std::forward<Type>(object));
-    return promise.get_future();
+    auto future = promise.get_future();
+    assert(future.shared_state);
+    future.shared_state->set_value_no_lock(std::forward<Type>(object));
+    return future;
 }
 
 template <typename Type>
-auto make_exceptional_future(std::exception_ptr ptr) {
+Future<std::decay_t<Type>> make_exceptional_future(std::exception_ptr ptr) {
     auto promise = sharp::Promise<Type>{};
-    promise.set_exception(ptr);
-    return promise.get_future();
+    auto future = promise.get_future();
+    assert(future.shared_state);
+    future.shared_state->set_exception_no_lock(ptr);
+    return future;
 }
 
 template <typename Type, typename Exception>
-auto make_exceptional_future(Exception exception) {
+Future<std::decay_t<Type>> make_exceptional_future(Exception exception) {
     auto promise = sharp::Promise<Type>{};
-    promise.set_exception(std::make_exception_ptr(exception));
-    return promise.get_future();
+    auto future = promise.get_future();
+    assert(future.shared_state);
+    future.shared_state->set_exception_no_lock(
+            std::make_exception_ptr(exception));
+    return future;
 }
 
 template <typename... Futures>

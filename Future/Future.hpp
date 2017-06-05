@@ -358,6 +358,16 @@ public:
     template <typename T>
     friend class sharp::SharedFuture;
 
+    /**
+     * Make friends with the make_future functions
+     */
+    template <typename T>
+    friend Future<std::decay_t<T>> make_ready_future(T&&);
+    template <typename T, typename Exception>
+    friend Future<std::decay_t<T>> make_exceptional_future(Exception);
+    template <typename T>
+    friend Future<std::decay_t<T>> make_exceptional_future(std::exception_ptr);
+
 private:
 
     /**
@@ -391,7 +401,7 @@ private:
  * The type of the future returned is a Future<std::decay_t<T>>
  */
 template <typename Type>
-auto make_ready_future(Type&&);
+Future<std::decay_t<Type>>  make_ready_future(Type&&);
 
 /**
  * @function make_exceptional_future
@@ -400,9 +410,9 @@ auto make_ready_future(Type&&);
  * an exception_ptr or with a copy of the exception object itself
  */
 template <typename Type>
-auto make_exceptional_future(std::exception_ptr ptr);
+Future<std::decay_t<Type>> make_exceptional_future(std::exception_ptr ptr);
 template <typename Type, typename Exception>
-auto make_exceptional_future(Exception);
+Future<std::decay_t<Type>> make_exceptional_future(Exception);
 
 /**
  * @function when_all
