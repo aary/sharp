@@ -41,18 +41,36 @@ namespace detail {
 
     template <typename Type>
     template <typename... Args>
-    void FutureImpl<Type>::set_value(Args&&... args) {
-
-        // acquire the lock and then construct the data item in the storage
-        auto lck = std::unique_lock<std::mutex>{this->mtx};
-
-        // construct the object into place and change the value of the state
-        // variable
+    void FutureImpl<Type>::set_value_no_lock(Args&&... args) {
         this->check_set_value();
         new (&this->get_value()) Type{std::forward<Args>(args)...};
         this->after_set_value();
+    }
 
-        // execute the callback if there is one set
+    template <typename Type>
+    template <typename U, typename... Args>
+    void FutureImpl<Type>::set_value_no_lock(std::initializer_list<U> il,
+                                             Args&&... args) {
+        this->check_set_value();
+        new (&this->get_value()) Type{il, std::forward<Args>(args)...};
+        this->after_set_value();
+    }
+
+    template <typename Type>
+    void FutureImpl<Type>::set_exception_no_lock(std::exception_ptr ptr) {
+        this->check_set_value();
+        new (&this->get_exception_ptr()) std::exception_ptr{ptr};
+        this->after_set_exception();
+    }
+
+    template <typename Type>
+    template <typename... Args>
+    void FutureImpl<Type>::set_value(Args&&... args) {
+
+        // acquire the lock and then construct the data item in the storage
+        // and execute the callback if there is one set
+        auto lck = std::unique_lock<std::mutex>{this->mtx};
+        this->set_value_no_lock(std::forward<Args>(args)...);
         this->execute_callback(lck);
     }
 
@@ -62,31 +80,19 @@ namespace detail {
                                      Args&&... args) {
 
         // acquire the lock and then construct the data item in the storage
+        // and execute the callback if there is one set
         auto lck = std::unique_lock<std::mutex>{this->mtx};
-
-        // construct the object into place and change the value of the state
-        // variable
-        this->check_set_value();
-        new (&this->get_value()) Type{il, std::forward<Args>(args)...};
-        this->after_set_value();
-
-        // execute the callback if there is one set
+        this->set_value_no_lock(il, std::forward<Args>(args)...);
         this->execute_callback(lck);
     }
 
     template <typename Type>
     void FutureImpl<Type>::set_exception(std::exception_ptr ptr) {
 
-        // acquire the lock and then set the exception
+        // acquire the lock and then set the exception and execute the
+        // callback if there is one set
         auto lck = std::unique_lock<std::mutex>{this->mtx};
-
-        // construct the exception into place and change the value of the
-        // booleans
-        this->check_set_value();
-        new (&this->get_exception_ptr()) std::exception_ptr(ptr);
-        this->after_set_exception();
-
-        // execute the callback if there is one set
+        this->set_exception_no_lock(ptr);
         this->execute_callback(lck);
     }
 

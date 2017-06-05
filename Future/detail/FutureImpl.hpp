@@ -144,6 +144,17 @@ namespace detail {
         };
 
         /**
+         * Sets the value or exception without locking anything, useful for
+         * when calling from public future functions for example
+         * make_ready_future and make_exceptional_future
+         */
+        template <typename... Args>
+        void set_value_no_lock(Args&&... args);
+        template <typename U, typename... Args>
+        void set_value_no_lock(std::initializer_list<U> il, Args&&... args);
+        void set_exception_no_lock(std::exception_ptr ptr);
+
+        /**
          * fixes the internal bookkeeping for the future, including setting
          * the state variable to the appropriate value and signalling any
          * waiting threads to wake up
