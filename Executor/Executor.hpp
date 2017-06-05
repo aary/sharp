@@ -60,7 +60,7 @@ public:
      * Any other uses are inherently prone to race conditions because other
      * threads may still be executing the closures
      */
-    virtual std::size_t num_pending_closures() const = 0;
+    virtual std::size_t num_pending_closures() const;
 };
 
 } // namespace sharp
