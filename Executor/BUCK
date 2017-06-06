@@ -1,9 +1,15 @@
 cxx_library(
     name = "Executor",
+    deps = [
+        "//Functional:Functional",
+    ],
     header_namespace = "sharp/Executor",
     exported_headers = [
         "Executor.hpp",
         "InlineExecutor.hpp",
+    ],
+    srcs = [
+        "Executor.cpp",
     ],
     visibility = [
         "PUBLIC",
