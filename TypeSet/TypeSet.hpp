@@ -293,6 +293,55 @@ sharp::MatchReference_t<TypeSetType&&, Type> get(TypeSetType&& type_set);
 template <typename... Types, typename... Args>
 TypeSet<Types...> collect_args(Args&&... args);
 
+/**
+ * @class NamedArgument
+ *
+ * A CRTP base class that exposes functions that can be used to make a type a
+ * simple distinguishable alias for another type.  For example a function
+ * accepts three possible parameters, of types Address, Port and Connection,
+ * Address and Connection will be of type string whereas Port will be of type
+ * integer, then a user can do the following
+ *
+ *      class Address : public sharp::NamedArgument<std::string> {
+ *      public:
+ *          Address(std::string input) :
+ *              sharp::NamedArgument<std::string>{std::move(input)} {}
+ *      };
+ *
+ *      class Port : public sharp::NamedArgument<int> {
+ *      public:
+ *          Port(int port = 80) : sharp::NamedArgument<int>{port} {}
+ *      };
+ *
+ *      class Connection : public sharp::NamedArgument<std::string> {
+ *      public:
+ *          Connection(std::string input) :
+ *              sharp::NamedArgument<std::string>{std::move(input)} {}
+ *      };
+ *
+ * Since C++17 and beyond one can just do
+ *
+ *      class Address : public std::optional<std::string> {};
+ *      class Port : public std::optional<int> {};
+ *      class Connection : public std::optional<std::string> {};
+ *
+ * And then in the function that requires those arguments
+ *
+ *      template <typename... Args>
+ *      void start_server(Args&&... args) {
+ *          auto args = sharp::collect_args<Address, Port, Connection>(args...);
+ *          cout << "Address : " << sharp::get<Address>(args).value() << endl;
+ *          cout << "Port : " << sharp::get<Port>(args).value() << endl;
+ *          cout << "Conn : " << sharp::get<Connection>(args).value() << endl;
+ *
+ *          // if using C++17 and beyond
+ *          cout << "Port : " << sharp::get<Port>(args).value_or(80) << endl;
+ *      }
+ *
+ */
+template <typename Type>
+class NamedArgument;
+
 } // namespace sharp
 
 #include <sharp/TypeSet/TypeSet.ipp>

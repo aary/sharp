@@ -321,4 +321,34 @@ TypeSet<Types...>& TypeSet<Types...>::assign(TypeSetType&& other) noexcept(
     return *this;
 }
 
+template <typename Type>
+class NamedArgument {
+public:
+
+    /**
+     * The constructor for this class accepts a forwarding reference and uses
+     * that to instantiate the internal object
+     */
+    template <typename T>
+    explicit NamedArgument(T&& value) : object{std::forward<T>(value)} {}
+
+    /**
+     * Gets the value out of the named argument, if the named argument type is
+     * an rvalue then this moves the value out of the internal storage
+     */
+    Type value() && {
+        return std::move(this->object);
+    }
+    Type value() const & {
+        return this->object;
+    }
+
+protected:
+
+    /**
+     * The actual object stored in the named argument
+     */
+    Type object;
+};
+
 } // namespace sharp
