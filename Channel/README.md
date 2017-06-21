@@ -1,9 +1,8 @@
 `Channel`
 ---------
 
-A type safe channel like the similar one in Go.  The module also provides a
-similar construct for buffered channels but in a way that does not require a
-limit to the buffer size, which would seem limiting.
+An implementation of channels as found in the [Go programming
+langauge](https://tour.golang.org/concurrency/2)
 
 ### Example usage
 
@@ -18,8 +17,8 @@ limit to the buffer size, which would seem limiting.
 using std::cout;
 using std::endl;
 
-template <typename InputIterator>
-void sum(InputIterator begin, InputIterator end, sharp::Channel<int>& c) {
+template <typename InputIt>
+void sum(InputIt begin, InputIt end, sharp::Channel<int>& c) {
     auto sum = std::accumulate(begin, end, 0);
     c.send(sum);
 }
