@@ -135,4 +135,19 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
         );
     }
 }
+
+int main() {
+
+    auto c = sharp::Channel<int>{};
+    auto quit = sharp::Channel<int>{};
+    std::thread{[&]() {
+        for (auto i : sharp::range(0, 10)) {
+            cout << c.read() << endl;
+        }
+        quit.send(0);
+    }}.detach();
+
+    fibonacci(c, quit);
+    return 0;
+}
 ```
