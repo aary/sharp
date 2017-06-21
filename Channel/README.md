@@ -26,7 +26,7 @@ void sum(InputIterator begin, InputIterator end, sharp::Channel<int>& c) {
 
 int main() {
 
-    std::vector<int> s{7, 2, 8, -9, 4, 0};
+    auto s = std::vector<int>{7, 2, 8, -9, 4, 0};
 
     auto c = sharp::Channel<int>{};
     std::thread{[]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
@@ -111,8 +111,7 @@ the channel.
 using std::cout;
 
 void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
-    auto x = 0;
-    auto y = 1;
+    auto x = 0, y = 1;
 
     auto should_continue = true;
     while (should_continue) {
