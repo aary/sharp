@@ -58,6 +58,10 @@ public:
      * channels.  If the intended use is to have a container of channels, then
      * the way to use a channel would be to wrap it around a unique_ptr and
      * then put it in the container
+     *
+     * This is similar to std::mutex, std::condition_variable and std::atomic,
+     * this is a synchronization primitive and should not be moved around.
+     * Note that this behavior is unlike futures, which can be moved
      */
     Channel(Channel&&) = delete;
     Channel(const Channel&) = delete;
@@ -145,8 +149,8 @@ public:
      * Make friends with the select function, each select operation waits on a
      * mutex for the channel, and therefore there is some hooking involved
      */
-    template <typename ChannelType, typename Func, typename... Args>
-    friend void channel_select(std::pair<ChannelType&, Func> Args&&...);
+    template <typename... SelectContexts>
+    friend void channel_select(SelectContexts&&...);
 
 private:
 
