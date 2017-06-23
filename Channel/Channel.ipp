@@ -106,11 +106,10 @@ Type Channel<Type>::read() {
 
     // then read a value out of the channel, check to see if its an
     // exception, if it is then throw it and then pop the front of the queue
-    auto& front = this->queue.front();
     auto deferred = sharp::defer([this]() {
         this->queue.pop_front();
     });
-    return std::move(try_value(front));
+    return std::move(try_value(this->queue.front()));
 }
 
 template <typename Type>
