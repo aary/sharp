@@ -155,85 +155,43 @@ public:
 private:
 
     /**
-     * Function that accepts a range of values and uses that to add an element
-     * into the queue, by perfect forwarding, if a const refernece to a Type
-     * object is passed, then the object in the queue will be copy
-     * constructed, if a rvalue reference is passed in then the object will be
-     * move constructed, if constructor arguments are passed in then the
-     * object will be constructed in place, and otherwise if an initializer
-     * list is passed in along with other arguments, then the same thing will
-     * happen
+     * Utility functions to check if a reader has to wait or if a writer has
+     * to wait
      */
-    template <typename... Args>
-    void enqueue_element(Args&&... args);
-    template <typename U, typename... Args>
-    void enqueue_element(std::initializer_list<U> ilist, Args&&... args);
+    bool should_read_wait() const;
+    bool should_write_wait() const;
 
     /**
-     * Wrapper around the send function that does everything send needs to do
-     * but accepts a functor that is used to enqueue an object into the local
-     * queue.  A functor is accepted because of the complications of using an
-     * initializer_list as a template parameter - it cannot be done.  I would
-     * have to write another wrapper that would deal with the initializer_list
-     * send function
+     * the buffer length of the channel, defaults to 0 meaning that there is
+     * no room for a buffer at all, only one value is stored, and all send()
+     * and read() calls are blocking until there is a read() or send() on the
+     * other end respectively
      */
-    template <typename TypeForward, typename Functor>
-    void send_impl(TypeForward&& value, Functor&& enqueue_func);
+    int buffer_length{0};
 
     /**
-     * The monitor that is going to be used for this channel, there is one
-     * monitor for the senders and one for the readers
+     * The number of waiting reads, when there is no element in the buffer a
+     * send can only go through when there is a pending read
      */
-    std::condition_variable send_cv;
-    std::condition_variable read_cv;
+    int waiting_reads{0};
+
+    /**
+     * The number of waiting writes, when there is no space in the buffer then
+     * a write can only go through when there is a waiting reader
+     */
+    int waiting_writes{0};
+
+    /**
+     * The monitor for synchronization
+     */
     std::mutex mtx;
+    std::condition_variable read_cv;
+    std::condition_variable write_cv;
 
     /**
-     * The buffer length, this contains the maximum number of elements that
-     * the buffer in the channel can have, if a sender tries to send more
-     * values through the channel, then they will need to wait until there is
-     * more space in the queue
+     * The type used to represent either an exception or a value
      */
-    int buffer_length;
-
-    /**
-     * The number of readers that are waiting for the channel, the sleeping
-     * condition for the senders is that there is enough space in the channel
-     * to send a value or that there is a reader to read the value out of the
-     * channel
-     */
-    int num_readers_waiting;
-
-    /**
-     * The queue of elements in this channel, this is maintained according to
-     * the length of the channel that is passed in as a constructor parameter.
-     * The elements in the queue are POD to allow the library to evade default
-     * constructions
-     *
-     * TODO change the struct to either be a variant or a union
-     */
-    struct ValueOrException {
-        /**
-         * Storage contains the data for the value that is stored, this is a
-         * trasparent storage medium with no side effects on either
-         * construction or destruction
-         */
-        std::aligned_storage<sizeof(Type), alignof(Type)> storage;
-
-        /**
-         * An exception ptr in the case where the value stored is an exception
-         * that needs to propagate to the user
-         */
-        std::exception_ptr exc_ptr;
-
-        /**
-         * A boolean that denotes whether the value contains an exception or
-         * not, if this is true then the read that reads this value out of the
-         * channel will throw
-         */
-        bool has_exception = false;
-    };
-    std::deque<ValueOrException> elements;
+    std::deque<std::aligned_union<0, std::exception_ptr, Type>> elements;
 };
 
 
