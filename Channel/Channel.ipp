@@ -1,22 +1,29 @@
 #include <condition_variable>
 #include <mutex>
+#include <exception>
 
 #include <sharp/Channel/Channel.hpp>
+#include <sharp/Defer/Defer.hpp>
 
 namespace sharp {
 
 namespace detail {
 
     /**
-     * Cast the union to the type passed in and return the reference with the
-     * same reference qualifiers
+     * Get the value in the node by reference or throw an exception
      */
-    template <typename Type, typename AlignedUnion>
-    sharp::MatchReference_t<AlignedUnion&&, Type> union_cast(AlignedUnion&& u) {
-        using TypeToCast = std::remove_reference_t<
-            sharp::MatchReference_t<AlignedUnion&&, Type>>;
-        auto* ptr = reinterpret_cast<TypeToCast*>(&u);
-        return *ptr;
+    template <typename NodeType>
+    typename std::decay_t<NodeType>::value_type& try_value(NodeType& node) {
+
+        // if the node contains an exception throw it otherwise return the
+        // value in the node by reference
+        if (node.is_exception) {
+            std::rethrow_exception(
+                    *(reinterpret_cast<std::exception_ptr*>(&node.storage)));
+        } else {
+            using Type = typename std::decay_t<NodeType>::value_type;
+            return *reinterpret_cast<Type*>(&node.storage);
+        }
     }
 
 } // namespace detail
@@ -29,7 +36,8 @@ namespace detail {
  */
 template <typename Type>
 Channel<Type>::Channel(int buffer_length_in = 0)
-        : buffer_length{buffer_length_in} {}
+        : buffer_length{buffer_length_in},
+          number_open_slots{buffer_length_in} {}
 
 template <typename Type>
 template <typename TypeForward, typename Func>
@@ -39,31 +47,15 @@ void Channel<Type>::send_impl(Func&& enqueue_func) {
     assert(this->elements.size() <= this->buffer_length);
     auto lck = std::unique_lock<std::mutex>{this->mtx};
 
-    // increment the number of waiting writes, at this stage we don't know if
-    // the write will block, so assume that this write will wait
-    ++this->waiting_writes;
-
-    // wait while there is no space in the queue, or while there are no
-    // readers waiting for the value to be sent across
-    while (this->should_write_wait()) {
+    // wait while there can is a non-zero number of open slots to write to
+    while (!this->can_write_proceed()) {
         this->write_cv.wait(lck);
     }
 
-    // this write has gone through now
-    --this->waiting_writes;
-
-    // at this point there is a reader, or there is an empty spot in the
-    // queue, so put the element into the queue and signal any readers
-    // that there has been a read
-    //
-    // It doesn't matter if the sender was signalled to carry on because
-    // there was space in the queue or if there was a reader to read the
-    // value out of the channel, the enqueue_element simply puts the
-    // element into the queue and then the reader will pop out of the
-    // queue
+    // at this point the write can go through so write and then signal one
+    // reader
     std::forward<Func>(enqueue_func)();
-
-    // signal one reader that there is an element in the queue
+    --this->number_open_slots;
     this->read_cv.notify_one();
 }
 
@@ -100,11 +92,11 @@ void Channel<Type>::send(sharp::emplace_construct::tag_t,
 }
 
 template <typename Type>
-void Channel<Type>::send_exception(std::exception_ptr p) {
-    this->send_impl([this, &]() {
-        this->queue.push_back(ValueOrException{});
-        this->queue.back().exc_ptr = p;
-        this->queue.back().has_exception = true;
+void Channel<Type>::send_exception(std::exception_ptr ptr) {
+    this->send_impl([this, ptr]() {
+        this->queue.emplace_back();
+        new (&this->queue.back().storage) std::exception_ptr{ptr};
+        this->queue.back().is_exception = true;
     });
 }
 
@@ -116,49 +108,60 @@ Type Channel<Type>::read() {
     // acquire the lock and wait until there is a value to read in the
     // queue
     auto lck = std::unique_lock<std::mutex>{this->mtx};
-    while(this->queue.empty()) {
-        this->read_cv.wait(lck);
-    }
 
-    // remove the front of the queue after the return value has been
-    // constructed
-    //
-    // TODO replace this with a DEFER() after implementing it
-    using QueueType = std::decay_t<decltype(this->queue)>;
-    struct PopQueueOnDestruction {
-        PopQueueOnDestruction(QueueType& queue_in) : q{queue_in} {}
-        ~PopQueueOnDestruction() {
-            // if the front of the queue does not have an exeption then
-            // the value from the queue will have been returned by move()
-            // in the last line of this function, so destroy whatever was
-            // in a "valid but unspecified state"
-            if (!q.front().has_exception) {
-                (*reinterpret_cast<Type*>(q.front().storage))->~Type();
-            }
-            q.pop_front();
+    [this]() {
+        // if there is a new reader then there can be another write that can
+        // possibly go through
+        ++this->number_open_slots;
+        auto deferred = sharp::defer([this]() {
+            --this->number_open_slots;
+        });
+
+        // wait if the read cannot proceed
+        while (!this->can_read_proceed()) {
+            this->write_cv.notify_one();
+            this->read_cv.wait(lck);
         }
-        QueueType& q;
-    };
-    auto raii_pop = PopQueueOnDestruction{this->queue};
+    }();
 
     // then read a value out of the channel, check to see if its an
-    // exception, if it is then throw it
-    if (this->queue.front().has_exception) {
-        std::rethrow_exception(value.exc_ptr);
-    }
+    // exception, if it is then throw it and then pop the front of the queue
+    auto& front = this->queue.front();
+    auto deferred = sharp::defer([this]() {
+        this->queue.pop_front();
+    });
+    return std::move(try_value(front));
+}
 
-    // return the value by moving it into the return value, which is then
-    // a prvalue which will likely be elided (definitely elided in the
-    // C++17 standard)
-    //
-    // If i had instead popped the value before, stored the previous
-    // front() of the queue in a local variable and then returned the
-    // value by reinterpret_cast-ing, the return value would not be a
-    // prvalue and would be an xvalue which could not be elided into the
-    // return value.  Therefore there would be two moves.  Not optimal!
-    // Hence the raii pop does what we need here
-    else return std::move(
-            *reinterpret_cast<Type*>(this->queue.front().storage));
+template <typename... Args>
+void Channel<Type>::enqueue_element(Args&&... args) {
+    // add an element to the back of the queue first and then construct it in
+    // place
+    this->elements.emplace_back();
+    new (&this->elements.back()) Type{std::forward<Args>(args)...};
+}
+
+template <typename U, typename... Args>
+void Channel<Type>::enqueue_element(std::initializer_list<U> ilist,
+                                    Args&&... args) {
+    // add an element to the back of the queue first
+    this->elements.emplace_back();
+    new (&this->elements.back()) Type{ilist, std::forward<Args>(args)...};
+}
+
+template <typename Type>
+bool Channel<Type>::can_read_proceed() const {
+    // reads should wait only if there are no elements in the internal queue,
+    // i.e. if a write has not already gone through
+    return !this->elements.empty();
+}
+
+template <typename Type>
+bool Channel<Type>::can_write_proceed() const {
+    // a write can only proceed if there is a slot left in the buffer or if
+    // there is a waiting reader, this corresponds 1-1 with the number of open
+    // slots, so just compare that to 0
+    return this->number_open_slots != 0;
 }
 
 } // namespace sharp
