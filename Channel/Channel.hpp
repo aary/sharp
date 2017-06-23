@@ -158,8 +158,17 @@ private:
      * Utility functions to check if a reader has to wait or if a writer has
      * to wait
      */
-    bool should_read_wait() const;
-    bool should_write_wait() const;
+    bool can_read_proceed() const;
+    bool can_write_proceed() const;
+
+    /**
+     * Function that will be used to construct the value in place at the back
+     * of the queue
+     */
+    template <typename... Args>
+    void enqueue_element(Args&&... args);
+    template <typename U, typename... Args>
+    void enqueue_element(std::initializer_list<U> ilist, Args&&...);
 
     /**
      * the buffer length of the channel, defaults to 0 meaning that there is
@@ -170,16 +179,14 @@ private:
     int buffer_length{0};
 
     /**
-     * The number of waiting reads, when there is no element in the buffer a
-     * send can only go through when there is a pending read
+     * The number of open slots to write to, for example if the buffer size is
+     * 0 and the number of readers waiting for writes is 2 then the number of
+     * slots to write to would be 2, since 2 writes can go through logically.
+     * Similarly if the buffer size is 2 and there are 4 readers waiting then
+     * the number of slots to write to would be 6, since 6 writes can
+     * logically go through, 2 in the buffer and then 4 to the readers.
      */
-    int waiting_reads{0};
-
-    /**
-     * The number of waiting writes, when there is no space in the buffer then
-     * a write can only go through when there is a waiting reader
-     */
-    int waiting_writes{0};
+    int number_open_slots;
 
     /**
      * The monitor for synchronization
@@ -190,8 +197,25 @@ private:
 
     /**
      * The type used to represent either an exception or a value
+     *
+     * TODO replace with variant when available this is so ugly
      */
-    std::deque<std::aligned_union<0, std::exception_ptr, Type>> elements;
+    template <typename T>
+    struct Node {
+        using value_type = T;
+        std::aligned_union<0, std::exception_ptr, T> storage;
+        bool is_exception{false};
+
+        ~Node() {
+            if (this->is_exception) {
+                (*reinterpret_cast<std::exception_ptr*>(&this->storage))
+                    .~std::exception_ptr();
+            } else {
+                (*reinterpret_cast<T*>(&this->storage)).~T();
+            }
+        }
+    };
+    std::deque<Node<Type>> elements;
 };
 
 
