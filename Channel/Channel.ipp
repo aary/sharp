@@ -40,26 +40,6 @@ Channel<Type>::Channel(int buffer_length_in = 0)
           number_open_slots{buffer_length_in} {}
 
 template <typename Type>
-template <typename TypeForward, typename Func>
-void Channel<Type>::send_impl(Func&& enqueue_func) {
-
-    assert(this->num_readers_waiting >= 0);
-    assert(this->elements.size() <= this->buffer_length);
-    auto lck = std::unique_lock<std::mutex>{this->mtx};
-
-    // wait while there can is a non-zero number of open slots to write to
-    while (!this->can_write_proceed()) {
-        this->write_cv.wait(lck);
-    }
-
-    // at this point the write can go through so write and then signal one
-    // reader
-    std::forward<Func>(enqueue_func)();
-    --this->number_open_slots;
-    this->read_cv.notify_one();
-}
-
-template <typename Type>
 void Channel<Type>::send(const Type& value) {
     this->send_impl([this, &]() {
         this->enqueue_element(value);
@@ -131,6 +111,26 @@ Type Channel<Type>::read() {
         this->queue.pop_front();
     });
     return std::move(try_value(front));
+}
+
+template <typename Type>
+template <typename TypeForward, typename Func>
+void Channel<Type>::send_impl(Func&& enqueue_func) {
+
+    assert(this->num_readers_waiting >= 0);
+    assert(this->elements.size() <= this->buffer_length);
+    auto lck = std::unique_lock<std::mutex>{this->mtx};
+
+    // wait while there can is a non-zero number of open slots to write to
+    while (!this->can_write_proceed()) {
+        this->write_cv.wait(lck);
+    }
+
+    // at this point the write can go through so write and then signal one
+    // reader
+    std::forward<Func>(enqueue_func)();
+    --this->number_open_slots;
+    this->read_cv.notify_one();
 }
 
 template <typename... Args>
