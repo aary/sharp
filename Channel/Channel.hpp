@@ -225,8 +225,8 @@ private:
  * select method implicitly decides whether the channel is being used to
  * wait on a read or a write operation, and multiplexes I/O based on that
  */
-template <typename Func, typename... Args>
-void channel_select(std::pair<Channel&, Func>, Args&&...);
+template <typename... SelectContexts>
+void channel_select(SelectContexts&&...);
 
 } // namespace sharp
 
