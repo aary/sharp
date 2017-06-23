@@ -89,7 +89,7 @@ Type Channel<Type>::read() {
     // queue
     auto lck = std::unique_lock<std::mutex>{this->mtx};
 
-    [this]() {
+    {
         // if there is a new reader then there can be another write that can
         // possibly go through
         ++this->number_open_slots;
@@ -102,7 +102,7 @@ Type Channel<Type>::read() {
             this->write_cv.notify_one();
             this->read_cv.wait(lck);
         }
-    }();
+    }
 
     // then read a value out of the channel, check to see if its an
     // exception, if it is then throw it and then pop the front of the queue
