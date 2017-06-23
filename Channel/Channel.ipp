@@ -108,6 +108,7 @@ Type Channel<Type>::read() {
     // exception, if it is then throw it and then pop the front of the queue
     auto deferred = sharp::defer([this]() {
         this->queue.pop_front();
+        this->read_cv.notify_one();
     });
     return std::move(try_value(this->queue.front()));
 }
