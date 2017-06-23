@@ -83,8 +83,6 @@ void Channel<Type>::send_exception(std::exception_ptr ptr) {
 template <typename Type>
 Type Channel<Type>::read() {
 
-    assert(this->num_readers_waiting >= 0);
-
     // acquire the lock and wait until there is a value to read in the
     // queue
     auto lck = std::unique_lock<std::mutex>{this->mtx};
