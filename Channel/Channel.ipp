@@ -87,7 +87,7 @@ std::optional<Type> Channel<Type>::try_read() {
     // the queue and return the value in an optional
     auto lck = std::unique_lock<std::mutex>{this->mtx};
     if (this->can_read_proceed()) {
-        return this->extract_value();
+        return this->do_read_no_block();
     } else {
         return std::nullopt;
     }
@@ -101,8 +101,8 @@ Type Channel<Type>::read() {
     auto lck = std::unique_lock<std::mutex>{this->mtx};
 
     {
-        // if there is a new reader then there can be another write that can
-        // possibly go through
+        // a reader is waiting, this means that there is another open slot in
+        // the channel for a read to go through
         ++this->open_slots;
         auto deferred = defer([this]() {
             --this->open_slots;
@@ -115,7 +115,7 @@ Type Channel<Type>::read() {
         }
     }
 
-    return this->extract_value();
+    return this->do_read_no_block();
 }
 
 template <typename Type>
@@ -129,15 +129,12 @@ void Channel<Type>::send_impl(Func&& enqueue_func) {
         this->write_cv.wait(lck);
     }
 
-    // at this point the write can go through so write and then signal one
-    // reader
-    std::forward<Func>(enqueue_func)();
-    --this->open_slots;
-    this->read_cv.notify_one();
+    // do the writing to the channel
+    this->do_write_no_block(std::forward<Func>(enqueue_func));
 }
 
 template <typename Type>
-Type Channel<Type>::extract_value() {
+Type Channel<Type>::do_read_no_block() {
 
     assert(this->can_read_proceed());
 
@@ -148,6 +145,19 @@ Type Channel<Type>::extract_value() {
         this->read_cv.notify_one();
     });
     return std::move(detail::try_value(this->elements.front()));
+}
+
+template <typename Type>
+template <typename Func>
+void Channel<Type>::do_write_no_block(Func&& enqueue_func) {
+
+    assert(this->can_write_proceed());
+
+    // at this point the write can go through so write and then signal one
+    // reader
+    std::forward<Func>(enqueue_func)();
+    --this->open_slots;
+    this->read_cv.notify_one();
 }
 
 template <typename Type>
@@ -181,6 +191,32 @@ bool Channel<Type>::can_write_proceed() const {
     // there is a waiting reader, this corresponds 1-1 with the number of open
     // slots, so just compare that to 0
     return this->open_slots != 0;
+}
+
+template <typename Type>
+bool Channel<Type>::try_lock_write() {
+
+    auto lck = std::unique_lock<std::mutex>{this->mtx};
+    if (this->can_write_proceed()) {
+        // release the lock ownership without releasing it, any thread that
+        // gets to this point must follow with an immediate write operation
+        // and release the lock
+        lck.release();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+template <typename Type>
+void Channel<Type>::finish_write(Type value) {
+
+    // adopt the mutex assuming that it is already held
+    auto lck = std::unique_lock<std::mutex>{this->mtx, std::adopt_lock};
+    assert(this->can_write_proceed());
+    this->do_write_no_block([&value, this]() {
+        this->enqueue_element(std::move(value));
+    });
 }
 
 } // namespace sharp

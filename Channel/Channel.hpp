@@ -181,7 +181,17 @@ private:
      * This function should only be called when this->can_read_proceed() is
      * true, otherwise an assertion should fail
      */
-    Type extract_value();
+    Type do_read_no_block();
+
+    /**
+     * This function takes care of actually writing to the channel, without
+     * any waiting, and then signals any needed parties
+     *
+     * Like the above and is signalled in the name this function does not
+     * block
+     */
+    template <typename Func>
+    void do_write_no_block(Func&& enqueue_element);
 
     /**
      * A dirty little hack to imitate multi line writes, one to see if a write
@@ -196,8 +206,12 @@ private:
      * proceed.  Whereas if the write can proceed then it returns a true and
      * keeps the mutex locked, write_finished() should be called when the
      * write has been completed
+     *
+     * Therefore any function that uses this method MUST complete with an
+     * immediate call to finish_write() and write a value to the channel
      */
-    bool lock_write();
+    bool try_lock_write();
+    void finish_write(Type);
 
     /**
      * Utility functions to check if a reader has to wait or if a writer has
