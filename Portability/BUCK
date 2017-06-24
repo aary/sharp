@@ -1,0 +1,7 @@
+cxx_library(
+    name = "Portability",
+    exported_headers = [],
+    visibility = [
+        "PUBLIC",
+    ],
+)
