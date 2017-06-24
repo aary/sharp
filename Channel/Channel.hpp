@@ -174,24 +174,19 @@ private:
     void send_impl(Func&& enqueue_func);
 
     /**
-     * This function takes care of popping from the internal queue and
-     * returning a value or throwing an exception, based on whatever is stored
-     * in the channel
+     * These functions should be called from within read() and send() whenever
+     * all possible blocking has finished and execution is at the point where
+     * the send() or read() is guaranteed to succeed
      *
-     * This function should only be called when this->can_read_proceed() is
-     * true, otherwise an assertion should fail
-     */
-    Type do_read_no_block();
-
-    /**
-     * This function takes care of actually writing to the channel, without
-     * any waiting, and then signals any needed parties
+     * These assume that the internal mutex will be held
      *
-     * Like the above and is signalled in the name this function does not
-     * block
+     * These functions also signal whichever condition variables need to be
+     * signalled.  For example do_write_no_block() signals the read cv because
+     * a read is now ready
      */
     template <typename Func>
     void do_write_no_block(Func&& enqueue_element);
+    Type do_read_no_block();
 
     /**
      * A dirty little hack to imitate multi line writes, one to see if a write
@@ -276,7 +271,6 @@ private:
     };
     std::deque<Node<Type>> elements;
 };
-
 
 /**
  * The select function to allow multiplexing on I/O through a channel.
