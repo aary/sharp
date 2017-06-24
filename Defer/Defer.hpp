@@ -11,6 +11,8 @@
 #include <type_traits>
 #include <utility>
 
+namespace sharp {
+
 /**
  * @function defer
  *
@@ -30,5 +32,7 @@ auto defer(Func&& func_in);
  */
 template <typename Func>
 auto defer_guard(Func&& func_in);
+
+} // namespace sharp
 
 #include <sharp/Defer/Defer.ipp>
