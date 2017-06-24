@@ -20,6 +20,7 @@
 #include <initializer_list>
 
 #include <sharp/Tags/Tags.hpp>
+#include <sharp/Portability/optional.hpp>
 
 namespace sharp {
 
@@ -129,6 +130,12 @@ public:
     Type read();
 
     /**
+     * A speculative version of the blocking read above, this read is non
+     * blocking and either goes through successfully or returns a null value
+     */
+    std::optional<Type> try_read();
+
+    /**
      * An iterator class for the channel to represent a range within the
      * channel.  This enables continuous streaming of objects from one thread
      * to another with a simple generalized reading approach.  See README for
@@ -153,6 +160,44 @@ public:
     friend void channel_select(SelectContexts&&...);
 
 private:
+
+    /**
+     * The function that actually handles the sending of the value across the
+     * channel, this handles all the synchronization involved
+     *
+     * Expects a functor that actually constructs the object into the internal
+     * queue.  Since there are so many ways to do this (by value, by move, by
+     * in place construction, etc) this function accepts a lambda that does
+     * the construction
+     */
+    template <typename Func>
+    void send_impl(Func&& enqueue_func);
+
+    /**
+     * This function takes care of popping from the internal queue and
+     * returning a value or throwing an exception, based on whatever is stored
+     * in the channel
+     *
+     * This function should only be called when this->can_read_proceed() is
+     * true, otherwise an assertion should fail
+     */
+    Type extract_value();
+
+    /**
+     * A dirty little hack to imitate multi line writes, one to see if a write
+     * can go through and if so don't allow anything else to happen in the
+     * channel, block all operations until the write has been completed
+     *
+     * For example if a select operation wants to write to a channel and it is
+     * signalled to continue, then it may use this method to reserve a spot in
+     * the channel for the value it wants to write and then write the value
+     *
+     * This releases the internal mutex and returns false if the write cannot
+     * proceed.  Whereas if the write can proceed then it returns a true and
+     * keeps the mutex locked, write_finished() should be called when the
+     * write has been completed
+     */
+    bool lock_write();
 
     /**
      * Utility functions to check if a reader has to wait or if a writer has
@@ -186,7 +231,7 @@ private:
      * the number of slots to write to would be 6, since 6 writes can
      * logically go through, 2 in the buffer and then 4 to the readers.
      */
-    int number_open_slots;
+    int open_slots;
 
     /**
      * The monitor for synchronization
@@ -198,7 +243,7 @@ private:
     /**
      * The type used to represent either an exception or a value
      *
-     * TODO replace with variant when available this is so ugly
+     * TODO replace with variant when available, this is so ugly
      */
     template <typename T>
     struct Node {
@@ -209,7 +254,7 @@ private:
         ~Node() {
             if (this->is_exception) {
                 (*reinterpret_cast<std::exception_ptr*>(&this->storage))
-                    .~std::exception_ptr();
+                    .~exception_ptr();
             } else {
                 (*reinterpret_cast<T*>(&this->storage)).~T();
             }
