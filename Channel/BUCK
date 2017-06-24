@@ -1,0 +1,24 @@
+cxx_library(
+    name = "Channel",
+    header_namespace = "sharp/Channel",
+    deps = [
+        "//Tags:Tags",
+        "//Defer:Defer",
+        "//Portability:Portability",
+    ],
+    headers = [
+        "Channel.hpp",
+        "Channel.ipp",
+    ],
+    exported_headers = [
+        "Channel.hpp",
+        "Channel.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Channel/test:test",
+    ],
+)
