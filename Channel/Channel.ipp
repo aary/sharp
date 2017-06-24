@@ -104,7 +104,7 @@ Type Channel<Type>::read() {
         // a reader is waiting, this means that there is another open slot in
         // the channel for a read to go through
         ++this->open_slots;
-        auto deferred = defer([this]() {
+        auto deferred = sharp::defer([this]() {
             --this->open_slots;
         });
 
@@ -140,7 +140,7 @@ Type Channel<Type>::do_read_no_block() {
 
     // then read a value out of the channel, check to see if its an
     // exception, if it is then throw it and then pop the front of the queue
-    auto deferred = defer([this]() {
+    auto deferred = sharp::defer([this]() {
         this->elements.pop_front();
         this->read_cv.notify_one();
     });
