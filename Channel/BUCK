@@ -4,6 +4,8 @@ cxx_library(
     deps = [
         "//Tags:Tags",
         "//Defer:Defer",
+        "//Functional:Functional",
+        "//Traits:Traits",
         "//Portability:Portability",
     ],
     headers = [

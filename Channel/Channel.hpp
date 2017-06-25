@@ -45,6 +45,11 @@ class Channel {
 public:
 
     /**
+     * Aliases
+     */
+    using value_type = Type;
+
+    /**
      * Default constructor for the channel initializes it with a buffer large
      * enough to fit the passed buffer length parameter.
      *
@@ -159,6 +164,33 @@ public:
     template <typename... SelectContexts>
     friend void channel_select(SelectContexts&&...);
 
+    /**
+     * A dirty little hack to imitate multi line writes, one to see if a write
+     * can go through and if so don't allow anything else to happen in the
+     * channel, block all operations until the write has been completed
+     *
+     * For example if a select operation wants to write to a channel and it is
+     * signalled to continue, then it may use this method to reserve a spot in
+     * the channel for the value it wants to write and then write the value
+     *
+     * This releases the internal mutex and returns false if the write cannot
+     * proceed.  Whereas if the write can proceed then it returns a true and
+     * keeps the mutex locked, write_finished() should be called when the
+     * write has been completed
+     *
+     * Therefore any function that uses this method MUST complete with an
+     * immediate call to finish_write() and write a value to the channel
+     */
+    bool try_lock_write();
+    void finish_write(Type);
+
+    /**
+     * Add a condition variable that is going to be signalled when the channel
+     * possibly has something to read or write
+     */
+    void add_reader_cv(std::shared_ptr<std::condition_variable> cv);
+    void add_writer_cv(std::shared_ptr<std::condition_variable> cv);
+
 private:
 
     /**
@@ -194,26 +226,6 @@ private:
      */
     void notify_waiting_readers();
     void notify_waiting_writers();
-
-    /**
-     * A dirty little hack to imitate multi line writes, one to see if a write
-     * can go through and if so don't allow anything else to happen in the
-     * channel, block all operations until the write has been completed
-     *
-     * For example if a select operation wants to write to a channel and it is
-     * signalled to continue, then it may use this method to reserve a spot in
-     * the channel for the value it wants to write and then write the value
-     *
-     * This releases the internal mutex and returns false if the write cannot
-     * proceed.  Whereas if the write can proceed then it returns a true and
-     * keeps the mutex locked, write_finished() should be called when the
-     * write has been completed
-     *
-     * Therefore any function that uses this method MUST complete with an
-     * immediate call to finish_write() and write a value to the channel
-     */
-    bool try_lock_write();
-    void finish_write(Type);
 
     /**
      * Utility functions to check if a reader has to wait or if a writer has
