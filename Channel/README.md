@@ -27,9 +27,9 @@ int main() {
 
     auto s = std::vector<int>{7, 2, 8, -9, 4, 0};
 
-    auto c = sharp::Channel<int>{};
-    std::thread{[]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
-    std::thread{[]() { sum(s.begin() + s.size()/2, s.end(), c); }}.detach();
+    sharp::Channel<int> c;
+    std::thread{[&]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
+    std::thread{[&]() { sum(s.begin() + s.size()/2, s.end(), c); }}.detach();
 
     auto x = c.read();
     auto y = c.read();
@@ -51,7 +51,7 @@ using std::cout;
 using std::endl;
 
 int main() {
-    auto ch = sharp::Channel<int>{2};
+    sharp::Channel<int> c{2};
     ch.send(1);
     ch.send(2);
     cout << ch.read() << endl;
@@ -72,8 +72,8 @@ void fibonacci(int n, sharp::Channel<int>& c) {
     auto x = 0;
     auto y = 1;
 
-    for (auto i : sharp::range(0, n)) {
-        c.send(i);
+    for (auto i = 0; i < 10; ++i) {
+        c.send(x);
 
         auto new_y = x + y;
         x = y;
@@ -85,7 +85,7 @@ void fibonacci(int n, sharp::Channel<int>& c) {
 
 int main() {
 
-    auto c = sharp::Channel<int>{};
+    sharp::Channel<int> c;
     fibonacci(10, c);
 
     for (auto i : c) {
@@ -97,7 +97,7 @@ int main() {
 ```
 
 
-### Channel Multiplexing via `select`
+### Compile time channel Multiplexing via `select`
 The compile time `select` API implementation picks whether you are waiting on
 a read or a write based on the signature of the function passed in along with
 the channel.
@@ -116,7 +116,7 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
     while (should_continue) {
 
         sharp::channel_select(
-            std::make_pair(c, [&] () -> int {
+            std::make_pair(std::ref(c), [&] () -> int {
 
                 auto to_send = x, new_y = x + y;
                 x = y;
@@ -125,8 +125,8 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
                 return to_send;
             }),
 
-            std::make_pair(quit, [&](auto) {
-                cout << "quit" << endl;
+            std::make_pair(std::ref(quit), [&](auto) {
+                cout << "Quitting" << endl;
                 should_continue = false;
             })
         );
@@ -134,11 +134,11 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
 }
 
 int main() {
+    sharp::Channel<int> c;
+    sharp::Channel<int> quit;
 
-    auto c = sharp::Channel<int>{};
-    auto quit = sharp::Channel<int>{};
     std::thread{[&]() {
-        for (auto i : sharp::range(0, 10)) {
+        for (auto i = 0; i < 10; ++i) {
             cout << c.read() << endl;
         }
         quit.send(0);
