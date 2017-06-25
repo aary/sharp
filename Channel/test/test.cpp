@@ -36,7 +36,7 @@ TEST(Channel, SendTwoValues) {
 
 TEST(Channel, UnbufferedThreadedSend) {
     sharp::Channel<int> c;
-    auto number_iterations = 1e2;
+    auto number_iterations = 1e4;
 
     // the results vector, although this is not locked with a mutex, access to
     // this is atomic since the read thread only reads a value after it has
