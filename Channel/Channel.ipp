@@ -100,19 +100,15 @@ Type Channel<Type>::read() {
     // queue
     auto lck = std::unique_lock<std::mutex>{this->mtx};
 
-    {
-        // a reader is waiting, this means that there is another open slot in
-        // the channel for a read to go through
-        ++this->open_slots;
-        auto deferred = sharp::defer([this]() {
-            --this->open_slots;
-        });
+    // a reader is waiting, this means that there is another open slot in
+    // the channel for a read to go through, when a write goes through it will
+    // decrement the number of open slots again
+    ++this->open_slots;
 
-        // wait if the read cannot proceed
-        while (!this->can_read_proceed()) {
-            this->write_cv.notify_one();
-            this->read_cv.wait(lck);
-        }
+    // wait if the read cannot proceed
+    while (!this->can_read_proceed()) {
+        this->write_cv.notify_one();
+        this->read_cv.wait(lck);
     }
 
     return this->do_read_no_block();
@@ -166,7 +162,7 @@ void Channel<Type>::enqueue_element(Args&&... args) {
     // add an element to the back of the queue first and then construct it in
     // place
     this->elements.emplace_back();
-    new (&this->elements.back()) Type{std::forward<Args>(args)...};
+    new (&this->elements.back().storage) Type{std::forward<Args>(args)...};
 }
 
 template <typename Type>
@@ -175,7 +171,8 @@ void Channel<Type>::enqueue_element(std::initializer_list<U> ilist,
                                     Args&&... args) {
     // add an element to the back of the queue first
     this->elements.emplace_back();
-    new (&this->elements.back()) Type{ilist, std::forward<Args>(args)...};
+    new (&this->elements.back().storage)
+        Type{ilist, std::forward<Args>(args)...};
 }
 
 template <typename Type>

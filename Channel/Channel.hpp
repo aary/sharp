@@ -257,7 +257,7 @@ private:
     template <typename T>
     struct Node {
         using value_type = T;
-        std::aligned_union<0, std::exception_ptr, T> storage;
+        std::aligned_union_t<0, std::exception_ptr, T> storage;
         bool is_exception{false};
 
         ~Node() {
