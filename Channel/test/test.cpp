@@ -101,3 +101,65 @@ TEST(Channel, SelectBasicWrite) {
     EXPECT_TRUE(value);
     EXPECT_EQ(value.value(), 2);
 }
+
+template <typename InputIt>
+void sum(InputIt begin, InputIt end, sharp::Channel<int>& c) {
+    auto sum = std::accumulate(begin, end, 0);
+    c.send(sum);
+}
+
+TEST(Channel, ExampleOneTest) {
+
+    auto s = std::vector<int>{7, 2, 8, -9, 4, 0};
+
+    sharp::Channel<int> c;
+    std::thread{[&]() { sum(s.begin(), s.begin() + s.size()/2, c); }}.detach();
+    std::thread{[&]() { sum(s.begin() + s.size()/2, s.end(), c); }}.detach();
+
+    auto x = c.read();
+    auto y = c.read();
+
+    EXPECT_TRUE(x == 17 || x == -5);
+    EXPECT_TRUE(y == 17 || y == -5);
+}
+
+void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
+    auto x = 0, y = 1;
+
+    auto should_continue = true;
+    while (should_continue) {
+
+        sharp::channel_select(
+            std::make_pair(std::ref(c), [&] () -> int {
+
+                auto to_send = x, new_y = x + y;
+                x = y;
+                y = new_y;
+
+                return to_send;
+            }),
+
+            std::make_pair(std::ref(quit), [&](auto) {
+                std::cout << "Got quit value " << std::endl;
+                should_continue = false;
+            })
+        );
+    }
+}
+
+TEST(Channel, ExampleTwoTest) {
+
+    sharp::Channel<int> c;
+    sharp::Channel<int> quit;
+    auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+
+    std::thread{[&]() {
+        for (auto i = 0; i < 10; ++i) {
+            auto val = c.read();
+            EXPECT_EQ(val, results[i]);
+        }
+        quit.send(0);
+    }}.detach();
+
+    fibonacci(c, quit);
+}
