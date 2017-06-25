@@ -54,7 +54,6 @@ TEST(Channel, UnbufferedThreadedSend) {
             auto current_value = dist(rng);
             results[i] = current_value;
             c.send(current_value);
-            // std::cout << "sent " << i << " values" << std::endl;
         }
     }};
 
@@ -62,7 +61,6 @@ TEST(Channel, UnbufferedThreadedSend) {
         for (auto i = 0; i < number_iterations; ++i) {
             auto val = c.read();
             EXPECT_EQ(val, results[i]);
-            // std::cout << "received " << i << " values" << std::endl;
         }
     }};
 
