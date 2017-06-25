@@ -165,6 +165,12 @@ public:
     friend void channel_select(SelectContexts&&...);
 
     /**
+     * Register a read interest in the channel, this will essentially increase
+     * the size of the buffer by one
+     */
+    void register_read_interest();
+
+    /**
      * A dirty little hack to imitate multi line writes, one to see if a write
      * can go through and if so don't allow anything else to happen in the
      * channel, block all operations until the write has been completed

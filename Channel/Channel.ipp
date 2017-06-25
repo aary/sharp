@@ -252,6 +252,12 @@ void Channel<Type>::add_writer_cv(std::shared_ptr<std::condition_variable> cv) {
     this->select_cvs_write.push_back(std::move(cv));
 }
 
+template <typename Type>
+void Channel<Type>::register_read_interest() {
+    std::lock_guard<std::mutex> lck{this->mtx};
+    ++this->open_slots;
+}
+
 namespace detail {
 
     /**
@@ -288,6 +294,7 @@ namespace detail {
         return [&context]() {
 
             // try and read
+            context.first.register_read_interest();
             auto val = context.first.try_read();
 
             // if the read was successful then return true and call the
