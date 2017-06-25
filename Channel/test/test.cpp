@@ -140,7 +140,6 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
             }),
 
             std::make_pair(std::ref(quit), [&](auto) {
-                std::cout << "Got quit value " << std::endl;
                 should_continue = false;
             })
         );
