@@ -67,3 +67,37 @@ TEST(Channel, UnbufferedThreadedSend) {
     th_one.join();
     th_two.join();
 }
+
+TEST(Channel, SelectBasicRead) {
+    sharp::Channel<int> c{1};
+    c.send(1);
+    int val = 0;
+    sharp::channel_select(
+        std::make_pair(std::ref(c), [&val](auto value) {
+            ++val;
+            EXPECT_EQ(value, 1);
+        }),
+        std::make_pair(std::ref(c), []() -> int {
+            EXPECT_TRUE(false);
+            return 0;
+        })
+    );
+    EXPECT_EQ(val, 1);
+}
+
+TEST(Channel, SelectBasicWrite) {
+    sharp::Channel<int> c{1};
+    int val = 0;
+    sharp::channel_select(
+        std::make_pair(std::ref(c), [](auto) {
+            EXPECT_TRUE(false);
+        }),
+        std::make_pair(std::ref(c), [&val]() -> int {
+            ++val;
+            return 2;
+        })
+    );
+    auto value = c.try_read();
+    EXPECT_TRUE(value);
+    EXPECT_EQ(value.value(), 2);
+}
