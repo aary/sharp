@@ -107,7 +107,7 @@ Type Channel<Type>::read() {
 
     // wait if the read cannot proceed
     while (!this->can_read_proceed()) {
-        this->write_cv.notify_one();
+        this->notify_waiting_writers();
         this->read_cv.wait(lck);
     }
 
@@ -138,7 +138,7 @@ Type Channel<Type>::do_read_no_block() {
     // exception, if it is then throw it and then pop the front of the queue
     auto deferred = sharp::defer([this]() {
         this->elements.pop_front();
-        this->read_cv.notify_one();
+        this->notify_waiting_readers();
     });
     return std::move(detail::try_value(this->elements.front()));
 }
@@ -153,7 +153,7 @@ void Channel<Type>::do_write_no_block(Func&& enqueue_func) {
     // reader
     std::forward<Func>(enqueue_func)();
     --this->open_slots;
-    this->read_cv.notify_one();
+    this->notify_waiting_readers();
 }
 
 template <typename Type>
@@ -214,6 +214,22 @@ void Channel<Type>::finish_write(Type value) {
     this->do_write_no_block([&value, this]() {
         this->enqueue_element(std::move(value));
     });
+}
+
+template <typename Type>
+void Channel<Type>::notify_waiting_readers() {
+    this->read_cv.notify_one();
+    for (auto& cv : this->select_cvs_read) {
+        cv->notify_one();
+    }
+}
+
+template <typename Type>
+void Channel<Type>::notify_waiting_writers() {
+    this->write_cv.notify_one();
+    for (auto& cv : this->select_cvs_write) {
+        cv->notify_one();
+    }
 }
 
 } // namespace sharp

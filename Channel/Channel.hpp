@@ -189,6 +189,13 @@ private:
     Type do_read_no_block();
 
     /**
+     * Notify all waiting readers or writers that there might be a possible
+     * read or possible write when they wake up.  Also wake them up
+     */
+    void notify_waiting_readers();
+    void notify_waiting_writers();
+
+    /**
      * A dirty little hack to imitate multi line writes, one to see if a write
      * can go through and if so don't allow anything else to happen in the
      * channel, block all operations until the write has been completed
@@ -248,6 +255,15 @@ private:
     std::mutex mtx;
     std::condition_variable read_cv;
     std::condition_variable write_cv;
+
+    /**
+     * the condition variables that select operations might be waiting on,
+     * when there is a read or write the respective cvs are signalled to let
+     * them know that they should proceed and try and read or write to
+     * whichever channel did the signalling
+     */
+    std::vector<std::shared_ptr<std::condition_variable>> select_cvs_write;
+    std::vector<std::shared_ptr<std::condition_variable>> select_cvs_read;
 
     /**
      * The type used to represent either an exception or a value
