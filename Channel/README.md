@@ -97,7 +97,7 @@ int main() {
 ```
 
 
-### Compile time channel Multiplexing via `select`
+### Compile time channel multiplexing via `select`
 The compile time `select` API implementation picks whether you are waiting on
 a read or a write based on the signature of the function passed in along with
 the channel.
