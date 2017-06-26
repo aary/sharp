@@ -6,6 +6,8 @@
 #include <gtest/gtest.h>
 #include <sharp/Channel/Channel.hpp>
 
+constexpr auto number_iterations = 1e3;
+
 TEST(Channel, BasicTest) {
     sharp::Channel<int> ch{1};
     ch.send(1);
@@ -36,7 +38,6 @@ TEST(Channel, SendTwoValues) {
 
 TEST(Channel, UnbufferedThreadedSend) {
     sharp::Channel<int> c;
-    auto number_iterations = 1e4;
 
     // the results vector, although this is not locked with a mutex, access to
     // this is atomic since the read thread only reads a value after it has
@@ -148,17 +149,20 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
 
 TEST(Channel, ExampleTwoTest) {
 
-    sharp::Channel<int> c;
-    sharp::Channel<int> quit;
-    auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+    for (auto i = 0; i < number_iterations; ++i) {
+        sharp::Channel<int> c;
+        sharp::Channel<int> quit;
+        auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
 
-    std::thread{[&]() {
-        for (auto i = 0; i < 10; ++i) {
-            auto val = c.read();
-            EXPECT_EQ(val, results[i]);
-        }
-        quit.send(0);
-    }}.detach();
+        auto th = std::thread{[&]() {
+            for (auto i = 0; i < 10; ++i) {
+                auto val = c.read();
+                EXPECT_EQ(val, results[i]);
+            }
+            quit.send(0);
+        }};
 
-    fibonacci(c, quit);
+        fibonacci(c, quit);
+        th.join();
+    }
 }
