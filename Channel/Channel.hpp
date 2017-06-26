@@ -24,6 +24,20 @@
 
 namespace sharp {
 
+namespace detail {
+
+    /**
+     * A context that represents all the information needed for a select
+     * statement
+     */
+    struct SelectContext {
+        std::mutex mtx;
+        std::condition_variable cv;
+        bool should_try{true};
+    };
+
+} // namespace detail
+
 /**
  * An asynchronous channel that can be used for synchronization across
  * multiple threads.  This is an implementation of channels as found in the Go
@@ -194,8 +208,8 @@ public:
      * Add a condition variable that is going to be signalled when the channel
      * possibly has something to read or write
      */
-    void add_reader_cv(std::shared_ptr<std::condition_variable> cv);
-    void add_writer_cv(std::shared_ptr<std::condition_variable> cv);
+    void add_reader_context(std::shared_ptr<detail::SelectContext> context);
+    void add_writer_context(std::shared_ptr<detail::SelectContext> context);
 
 private:
 
@@ -280,8 +294,8 @@ private:
      * them know that they should proceed and try and read or write to
      * whichever channel did the signalling
      */
-    std::vector<std::shared_ptr<std::condition_variable>> select_cvs_write;
-    std::vector<std::shared_ptr<std::condition_variable>> select_cvs_read;
+    std::vector<std::shared_ptr<detail::SelectContext>> select_contexts_write;
+    std::vector<std::shared_ptr<detail::SelectContext>> select_contexts_read;
 
     /**
      * The type used to represent either an exception or a value
@@ -312,8 +326,9 @@ private:
  * select method implicitly decides whether the channel is being used to
  * wait on a read or a write operation, and multiplexes I/O based on that
  */
-template <typename... SelectContexts>
-void channel_select(SelectContexts&&...);
+template <typename... SelectStatements>
+void channel_select(SelectStatements&&... statements);
+
 
 } // namespace sharp
 

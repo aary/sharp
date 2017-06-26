@@ -227,29 +227,37 @@ void Channel<Type>::finish_write(Type value) {
 }
 
 template <typename Type>
-void Channel<Type>::notify_waiting_readers() {
-    this->read_cv.notify_one();
-    for (auto& cv : this->select_cvs_read) {
-        cv->notify_one();
-    }
-}
-
-template <typename Type>
 void Channel<Type>::notify_waiting_writers() {
     this->write_cv.notify_one();
-    for (auto& cv : this->select_cvs_write) {
-        cv->notify_one();
+    for (auto& select_context : this->select_contexts_write) {
+        std::lock_guard<std::mutex> lck{select_context->mtx};
+        select_context->should_try = true;
+        select_context->cv.notify_one();
     }
 }
 
 template <typename Type>
-void Channel<Type>::add_reader_cv(std::shared_ptr<std::condition_variable> cv) {
-    this->select_cvs_read.push_back(std::move(cv));
+void Channel<Type>::notify_waiting_readers() {
+    this->read_cv.notify_one();
+    for (auto& select_context : this->select_contexts_read) {
+        std::lock_guard<std::mutex> lck{select_context->mtx};
+        select_context->should_try = true;
+        select_context->cv.notify_one();
+    }
 }
 
 template <typename Type>
-void Channel<Type>::add_writer_cv(std::shared_ptr<std::condition_variable> cv) {
-    this->select_cvs_write.push_back(std::move(cv));
+void Channel<Type>::add_reader_context(
+        std::shared_ptr<detail::SelectContext> context) {
+    std::lock_guard<std::mutex> lck{this->mtx};
+    this->select_contexts_read.push_back(std::move(context));
+}
+
+template <typename Type>
+void Channel<Type>::add_writer_context(
+        std::shared_ptr<detail::SelectContext> context) {
+    std::lock_guard<std::mutex> lck{this->mtx};
+    this->select_contexts_write.push_back(std::move(context));
 }
 
 template <typename Type>
@@ -287,20 +295,20 @@ namespace detail {
     template <typename ChannelType, typename Func,
               EnableIfCanRead<ChannelType, Func>* = nullptr>
     sharp::Function<bool()> make_try_func(
-            std::shared_ptr<std::condition_variable> cv,
-            std::pair<ChannelType&, Func>& context) {
+            std::shared_ptr<detail::SelectContext> context,
+            std::pair<ChannelType&, Func>& statement) {
 
-        context.first.add_reader_cv(std::move(cv));
-        return [&context]() {
+        statement.first.add_reader_context(std::move(context));
+        statement.first.register_read_interest();
+        return [&statement]() {
 
             // try and read
-            context.first.register_read_interest();
-            auto val = context.first.try_read();
+            auto val = statement.first.try_read();
 
             // if the read was successful then return true and call the
             // function, if false then return false
             if (val) {
-                context.second(std::move(val.value()));
+                statement.second(std::move(val.value()));
                 return true;
             } else {
                 return false;
@@ -316,15 +324,15 @@ namespace detail {
     template <typename ChannelType, typename Func,
               EnableIfCanWrite<ChannelType, Func>* = nullptr>
     sharp::Function<bool()> make_try_func(
-            std::shared_ptr<std::condition_variable> cv,
-            std::pair<ChannelType&, Func>& context) {
+            std::shared_ptr<detail::SelectContext> context,
+            std::pair<ChannelType&, Func>& statement) {
 
-        context.first.add_writer_cv(std::move(cv));
-        return [&context]() {
+        statement.first.add_writer_context(std::move(context));
+        return [&statement]() {
 
             // try and see if the channel is writable
-            if (context.first.try_lock_write()) {
-                context.first.finish_write(context.second());
+            if (statement.first.try_lock_write()) {
+                statement.first.finish_write(statement.second());
                 return true;
             } else {
                 return false;
@@ -332,17 +340,17 @@ namespace detail {
         };
     }
 
-    template <typename... SelectContexts>
+    template <typename... SelectStatements>
     std::vector<sharp::Function<bool()>>
-    make_try_funcs(std::shared_ptr<std::condition_variable> cv,
-                   SelectContexts&... args_in) {
+    make_try_funcs(std::shared_ptr<detail::SelectContext> context,
+                   SelectStatements&... args_in) {
 
         auto return_vector = std::vector<sharp::Function<bool()>>{};
 
         // put the args into a tuple and then iterate over it
         auto args = std::forward_as_tuple(args_in...);
-        sharp::for_each(args, [&return_vector, &cv](auto& context) {
-            return_vector.push_back(make_try_func(cv, context));
+        sharp::for_each(args, [&return_vector, &context](auto& statement) {
+            return_vector.push_back(make_try_func(context, statement));
         });
 
         return return_vector;
@@ -350,15 +358,14 @@ namespace detail {
 
 } // namespace detail
 
-template <typename... SelectContexts>
-void channel_select(SelectContexts&&... contexts) {
+template <typename... SelectStatements>
+void channel_select(SelectStatements&&... statements) {
 
     // make a vector of functions that can be used to try and see if the read
     // or write has succeeded or not, then this vector will be filled with the
     // compile time generated wrappers from the contexts
-    auto cv = std::make_shared<std::condition_variable>();
-    auto mtx = std::make_shared<std::mutex>();
-    auto try_funcs = detail::make_try_funcs(cv, contexts...);
+    auto context = std::make_shared<detail::SelectContext>();
+    auto try_funcs = detail::make_try_funcs(context, statements...);
 
     // loop while there is nothing to read or write from
     while (true) {
@@ -370,8 +377,10 @@ void channel_select(SelectContexts&&... contexts) {
 
         // wait till signalled, let spuriosly wakeup, doesn't affect
         // correctness, will change to be more efficient later
-        auto lck = std::unique_lock<std::mutex>{*mtx};
-        cv->wait(lck);
+        auto lck = std::unique_lock<std::mutex>{context->mtx};
+        while (!context->should_try) {
+            context->cv.wait(lck);
+        }
     }
 }
 
