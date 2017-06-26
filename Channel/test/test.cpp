@@ -186,8 +186,7 @@ TEST(Channel, ExampleTwoTest) {
 }
 
 void fibonacci_range(sharp::Channel<int>& c) {
-    auto x = 0;
-    auto y = 1;
+    auto x = 0, y = 1;
 
     for (auto i = 0; i < 10; ++i) {
 
