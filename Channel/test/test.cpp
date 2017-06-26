@@ -36,6 +36,24 @@ TEST(Channel, SendTwoValues) {
     th.join();
 }
 
+TEST(Channel, SendTwoValuesModified) {
+    sharp::Channel<int> c{2};
+    c.send(2);
+    c.send(3);
+    EXPECT_EQ(c.read(), 2);
+    c.send(4);
+    EXPECT_EQ(c.read(), 3);
+    c.send(5);
+    EXPECT_EQ(c.read(), 4);
+    EXPECT_EQ(c.read(), 5);
+    EXPECT_FALSE(c.try_read());
+    auto th = std::thread{[&]() {
+        EXPECT_EQ(c.read(), 4);
+    }};
+    c.send(4);
+    th.join();
+}
+
 TEST(Channel, UnbufferedThreadedSend) {
     sharp::Channel<int> c;
 
@@ -164,5 +182,34 @@ TEST(Channel, ExampleTwoTest) {
 
         fibonacci(c, quit);
         th.join();
+    }
+}
+
+void fibonacci_range(sharp::Channel<int>& c) {
+    auto x = 0;
+    auto y = 1;
+
+    for (auto i = 0; i < 10; ++i) {
+
+        auto to_send = x, new_y = x + y;
+        x = y;
+        y = new_y;
+
+        c.send(to_send);
+    }
+
+    c.close();
+}
+
+TEST(Channel, RangeTest) {
+    sharp::Channel<int> c;
+    std::thread{[&]() {
+        fibonacci_range(c);
+    }}.detach();
+    auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+
+    auto counter = 0;
+    for (auto val : c) {
+        EXPECT_EQ(val, results[counter++]);
     }
 }
