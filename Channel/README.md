@@ -68,16 +68,16 @@ int main() {
 #include <sharp/Channel/Channel.hpp>
 #include <sharp/Range/Range.hpp>
 
-void fibonacci(int n, sharp::Channel<int>& c) {
-    auto x = 0;
-    auto y = 1;
+void fibonacci(sharp::Channel<int>& c) {
+    auto x = 0, y = 1;
 
     for (auto i = 0; i < 10; ++i) {
-        c.send(x);
 
-        auto new_y = x + y;
+        auto to_send = x, new_y = x + y;
         x = y;
         y = new_y;
+
+        c.send(to_send);
     }
 
     c.close();
@@ -86,7 +86,7 @@ void fibonacci(int n, sharp::Channel<int>& c) {
 int main() {
 
     sharp::Channel<int> c;
-    fibonacci(10, c);
+    std::thread{[&]() { fibonacci(c); }}.detach();
 
     for (auto i : c) {
         cout < i << endl;
