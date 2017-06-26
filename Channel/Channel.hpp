@@ -5,8 +5,6 @@
  * This file contains an implementation for channels in C++, these channels
  * work exactly the same as the channels in the Go language, along with the
  * convenience and multiplexing operations supported by channels
- *
- * Channels are essentially
  */
 
 #pragma once
