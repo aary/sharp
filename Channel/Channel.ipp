@@ -84,9 +84,9 @@ void Channel<Type>::send(sharp::emplace_construct::tag_t,
 template <typename Type>
 void Channel<Type>::send_exception(std::exception_ptr ptr) {
     this->send_impl([this, ptr]() {
-        this->queue.emplace_back();
-        new (&this->queue.back().storage) std::exception_ptr{ptr};
-        this->queue.back().is_exception = true;
+        this->elements.emplace_back();
+        new (&this->elements.back().storage) std::exception_ptr{ptr};
+        this->elements.back().is_exception = true;
     });
 }
 
@@ -382,6 +382,61 @@ void channel_select(SelectStatements&&... statements) {
             context->cv.wait(lck);
         }
     }
+}
+
+template <typename Type>
+class Channel<Type>::Iterator {
+public:
+    Iterator(Channel<Type>& channel_in) : channel{&channel_in} {
+        this->unfortunate_internal_channel = std::make_shared<Channel<Type>>(1);
+        this->operator++();
+    }
+    Iterator(bool is_closed) {
+        this->is_closed = is_closed;
+    }
+    Iterator& operator++() {
+        try {
+            this->unfortunate_internal_channel->send(this->channel->read());
+        } catch (ChannelClosedException&) {
+            this->is_closed = true;
+        } catch (...) {
+            auto e_ptr = std::current_exception();
+            this->unfortunate_internal_channel->send_exception(e_ptr);
+        }
+        return *this;
+    }
+    Type operator*() {
+        return this->unfortunate_internal_channel->read();
+    }
+    bool operator!=(const Iterator& other) {
+        return this->is_closed != other.is_closed;
+    }
+
+private:
+    /**
+     * unfortunate use of channel in the case of absence of std::variant, I am
+     * using this just because I don't want to cause undefined behavior when I
+     * assign
+     */
+    std::shared_ptr<Channel<Type>> unfortunate_internal_channel;
+    Channel<Type>* channel;
+    bool is_closed{false};
+};
+
+template <typename Type>
+typename Channel<Type>::Iterator Channel<Type>::begin() {
+    return Iterator{*this};
+}
+
+template <typename Type>
+typename Channel<Type>::Iterator Channel<Type>::end() {
+    return Iterator{true};
+}
+
+template <typename Type>
+void Channel<Type>::close() {
+    auto closed_exception = sharp::ChannelClosedException{"Channel closed"};
+    this->send_exception(std::make_exception_ptr(closed_exception));
 }
 
 } // namespace sharp

@@ -37,6 +37,14 @@ namespace detail {
 } // namespace detail
 
 /**
+ * An exception that denotes that the channel has been closed
+ */
+class ChannelClosedException : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+/**
  * An asynchronous channel that can be used for synchronization across
  * multiple threads.  This is an implementation of channels as found in the Go
  * language, with an effort made to maintain the same API as much as possible
@@ -168,6 +176,16 @@ public:
      */
     Iterator begin();
     Iterator end();
+
+    /**
+     * Closes the current range being sent through the channel
+     *
+     * Note that this is slightly different from the version of close() found
+     * in go channels, once a channel has been closed in this version, it can
+     * still be reused like normal.  This is done to allow channels to be
+     * reused
+     */
+    void close();
 
     /**
      * Make friends with the select function, each select operation waits on a
