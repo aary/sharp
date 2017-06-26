@@ -329,7 +329,6 @@ private:
 template <typename... SelectStatements>
 void channel_select(SelectStatements&&... statements);
 
-
 } // namespace sharp
 
 #include <sharp/Channel/Channel.ipp>
