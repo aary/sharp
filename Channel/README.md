@@ -13,8 +13,8 @@ langauge](https://tour.golang.org/concurrency/2)
   efficiently as possible
 
 - This library does not make any assumptions about the programming model of the
-  surrounding code.  For example the value semantics of channels from Go have
-  not been ported, if that is the goal then simply dump the channels into
+  user's code.  For example the value semantics of channels from Go have not
+  been ported, if that is the goal then simply dump the channels into
   `std::shared_ptr` instances
 
 - C++ has RAII and exceptions.  As a consequence these channels do not support
@@ -22,12 +22,12 @@ langauge](https://tour.golang.org/concurrency/2)
   utilities to send exceptions, see the
   [`send_exception`](https://goo.gl/Dx8T4U) method
 
-- Unlike other implementations, this channel implementation does not have the
-  buffer size set at compile time.  This allows users to control the
-  asynchronoicity of APIs and also allows them to engineer code which is
-  independent of the buffer size into a compiled form.  Such a design allows
-  users to interoperate with libraries that use channels for synchronization
-  with their own channel instances
+- Unlike other implementations, this implementation does not have the buffer
+  size set at compile time.  This allows users to control the asynchronoicity
+  of APIs and also allows them to engineer code which is independent of the
+  buffer size into a compiled form.  Such a design allows users to
+  interoperate with libraries that use channels for synchronization with their
+  own channel instances
 
 ## Example usage
 
