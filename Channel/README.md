@@ -6,20 +6,28 @@ langauge](https://tour.golang.org/concurrency/2)
 
 ## Design decisions
 
+- The interface of channels in Go has been mimicked as much as possible, while
+  trying to retain the idiomatic C++ representation of each operation.  For
+  example the [`select()`](https://goo.gl/DVQtEh) statement has been designed
+  to feel familiar to Go users, while utilizing C++ features to work as
+  efficiently as possible
+
 - This library does not make any assumptions about the programming model of the
   surrounding code.  For example the value semantics of channels from Go have
   not been ported, if that is the goal then simply dump the channels into
-  `std::shared_ptr` values
-
-- The interface of channels in Go has been mimicked as much as possible, while
-  trying to retain the idiomatic C++ representation of each operation, for
-  example the [`select()`](https://github.com/aary/sharp/tree/master/Channel#compile-time-channel-multiplexing-via-select)
-  statement has been designed to feel as familiar as possible
+  `std::shared_ptr` instances
 
 - C++ has RAII and exceptions.  As a consequence these channels do not support
   the more primitive form of error passing through values, but rather have
   utilities to send exceptions, see the
-  [`send_exception`](https://github.com/aary/sharp/blob/master/Channel/Channel.hpp#L143) method
+  [`send_exception`](https://goo.gl/Dx8T4U) method
+
+- Unlike other implementations, this channel implementation does not have the
+  buffer size set at compile time.  This allows users to control the
+  asynchronoicity of APIs and also allows them to engineer code which is
+  independent of the buffer size into a compiled form.  Such a design allows
+  users to interoperate with libraries that use channels for synchronization
+  with their own channel instances
 
 ## Example usage
 
