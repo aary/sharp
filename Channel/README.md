@@ -152,8 +152,9 @@ int main() {
 ## Design decisions
 
 This library does not make any assumptions about the programming model of the
-surrounding code.  For example the value semantics in Go have not been copied
-over, if that is the goal then simply dump the channel into a `std::shared_ptr`
+surrounding code.  For example the value semantics of channels from Go have
+not been ported, if that is the goal then simply dump the channel into a
+`std::shared_ptr`
 
 The interface of channels in Go has been mimicked as much as possible, while
 trying to retain the idiomatic C++ representation of each operation, for
