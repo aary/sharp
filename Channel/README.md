@@ -4,6 +4,23 @@
 An implementation of channels as found in the [Go programming
 langauge](https://tour.golang.org/concurrency/2)
 
+## Design decisions
+
+- This library does not make any assumptions about the programming model of the
+  surrounding code.  For example the value semantics of channels from Go have
+  not been ported, if that is the goal then simply dump the channels into
+  `std::shared_ptr` values
+
+- The interface of channels in Go has been mimicked as much as possible, while
+  trying to retain the idiomatic C++ representation of each operation, for
+  example the [`select()`](https://github.com/aary/sharp/tree/master/Channel#compile-time-channel-multiplexing-via-select)
+  statement has been designed to feel as familiar as possible
+
+- C++ has RAII and exceptions.  As a consequence these channels do not support
+  the more primitive form of error passing through values, but rather have
+  utilities to send exceptions, see the
+  [`send_exception`](https://github.com/aary/sharp/blob/master/Channel/Channel.hpp#L143) method
+
 ## Example usage
 
 ```c++
@@ -149,14 +166,3 @@ int main() {
 }
 ```
 
-## Design decisions
-
-This library does not make any assumptions about the programming model of the
-surrounding code.  For example the value semantics of channels from Go have
-not been ported, if that is the goal then simply dump the channel into a
-`std::shared_ptr`
-
-The interface of channels in Go has been mimicked as much as possible, while
-trying to retain the idiomatic C++ representation of each operation, for
-example the [`select()`](https://github.com/aary/sharp/tree/master/Channel#compile-time-channel-multiplexing-via-select)
-statement has been designed to feel as familiar as possible
