@@ -4,7 +4,7 @@
 An implementation of channels as found in the [Go programming
 langauge](https://tour.golang.org/concurrency/2)
 
-### Example usage
+## Example usage
 
 ```c++
 #include <numeric>
@@ -138,6 +138,7 @@ int main() {
     sharp::Channel<int> quit;
 
     std::thread{[&]() {
+
         for (auto i = 0; i < 10; ++i) {
             cout << c.read() << endl;
         }
@@ -147,3 +148,14 @@ int main() {
     fibonacci(c, quit);
 }
 ```
+
+## Design decisions
+
+This library does not make any assumptions about the programming model of the
+surrounding code.  For example the value semantics in Go have not been copied
+over, if that is the goal then simply dump the channel into a `std::shared_ptr`
+
+The interface of channels in Go has been mimicked as much as possible, while
+trying to retain the idiomatic C++ representation of each operation, for
+example the [`select()`](https://github.com/aary/sharp/tree/master/Channel#compile-time-channel-multiplexing-via-select)
+statement has been designed to feel as familiar as possible
