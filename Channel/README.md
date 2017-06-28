@@ -13,9 +13,8 @@ langauge](https://tour.golang.org/concurrency/2)
   efficiently as possible
 
 - This library does not make any assumptions about the programming model of the
-  user's code.  For example the value semantics of channels from Go have not
-  been ported, if that is the goal then simply dump the channels into
-  `std::shared_ptr` instances
+  user's code.  For example if the goal is shared dynamic ownership then
+  simply dump the channels into `std::shared_ptr` instances
 
 - C++ has RAII and exceptions.  As a consequence these channels do not support
   the more primitive form of error passing through values, but rather have
