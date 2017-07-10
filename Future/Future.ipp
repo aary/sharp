@@ -170,7 +170,7 @@ template <typename Func,
 auto Future<Type>::then(Func&& func)
         -> Future<decltype(func(std::move(*this)))> {
     return this->detail::ComposableFuture<Future<Type>>::then(
-            std::forward<Func>(func));
+            std::forward<Func>(func)).via(this->get_executor());
 }
 
 template <typename Type>
@@ -182,7 +182,8 @@ auto Future<Type>::then(Func&& func) -> decltype(func(std::move(*this))) {
     using T
         = typename std::decay_t<decltype(func(std::move(*this)))>::value_type;
     return Future<T>{this->
-        detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))};
+        detail::ComposableFuture<Future<Type>>::then(std::forward<Func>(func))}
+            .via(this->get_executor());
 }
 
 template <typename Type>
@@ -223,15 +224,22 @@ Future<std::decay_t<Type>> make_exceptional_future(Exception exception) {
 }
 
 template <typename... Futures>
-auto when_all(Futures&&... args) {
+auto when_all(Futures&&... futures) {
     // make the function that checks when the futures have been completed
-    int length = std::tuple_size<decltype(std::make_tuple(
-                    sharp::move_if_movable(args)...))>::value;
+    int length = sizeof...(futures);
     auto done = [length](int number_done) {
         assert(number_done <= length);
         return (number_done == length);
     };
-    return detail::when_impl_variadic(done, std::forward<Futures>(args)...);
+
+    // get the executor from the first element in the argument list, no need
+    // to use std::forward here because it's okay to just make a tuple of
+    // lvalue references and then get the executor from it
+    auto executor = std::get<0>(std::forward_as_tuple(futures...))
+        .get_executor();
+
+    return detail::when_impl_variadic(done, std::forward<Futures>(futures)...)
+        .via(executor);
 }
 
 template <typename BeginIterator, typename EndIterator,
@@ -243,7 +251,8 @@ auto when_all(BeginIterator first, EndIterator last) {
         assert(number_done <= length);
         return (number_done == length);
     };
-    return detail::when_impl_iter(done, first, last);
+    return detail::when_impl_iter(done, first, last)
+        .via(first->get_executor());
 }
 
 template <typename... Futures>
@@ -251,7 +260,15 @@ auto when_any(Futures&&... futures) {
     auto done = [](int number_done) {
         return number_done;
     };
-    return detail::when_impl_variadic(done, std::forward<Futures>(futures)...);
+
+    // get the executor from the first element in the argument list, no need
+    // to use std::forward here because it's okay to just make a tuple of
+    // lvalue references and then get the executor from it
+    auto executor = std::get<0>(std::forward_as_tuple(futures...))
+        .get_executor();
+
+    return detail::when_impl_variadic(done, std::forward<Futures>(futures)...)
+        .via(executor);
 }
 
 template <typename BeginIterator, typename EndIterator,
@@ -261,7 +278,8 @@ auto when_any(BeginIterator first, EndIterator last) {
     auto done = [](int number_done) {
         return number_done;
     };
-    return detail::when_impl_iter(done, first, last);
+    return detail::when_impl_iter(done, first, last)
+        .via(first->get_executor());
 }
 
 namespace detail {

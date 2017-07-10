@@ -72,7 +72,6 @@ namespace detail {
          */
         FutureType via(Executor* executor);
 
-    protected:
         /**
          * Getter for the executor member variable, via() acts like the setter
          */

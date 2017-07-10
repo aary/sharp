@@ -119,7 +119,8 @@ template <typename Func,
 auto SharedFuture<Type>::then(Func&& func)
         -> Future<decltype(func(*this))> {
     return this->detail::ComposableFuture<SharedFuture<Type>>::then(
-            std::forward<Func>(func));
+            std::forward<Func>(func))
+        .via(this->get_executor());
 }
 
 template <typename Type>
@@ -129,7 +130,8 @@ auto SharedFuture<Type>::then(Func&& func)
         -> decltype(func(*this)) {
     using T = typename std::decay_t<decltype(func(*this))>::value_type;
     return Future<T>{this->detail::ComposableFuture<SharedFuture<Type>>::then(
-        std::forward<Func>(func))};
+            std::forward<Func>(func))}
+        .via(this->get_executor());
 }
 
 template <typename Type>
