@@ -190,8 +190,7 @@ Future<Type> Future<Type>::via(Executor* executor) {
     // no lock required, since this will neither conflict with another thread
     // trying to read executor not conflict with another thread trying to
     // write to executor
-    this->executor = executor;
-    return std::move(*this);
+    return this->template ExecutableFuture<Future<Type>>::via(executor);
 }
 
 template <typename Type>
