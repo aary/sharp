@@ -433,7 +433,8 @@ namespace detail {
         // set callbacks on them via .then(), when sufficient futures have
         // finished, signal via the promise that the task has been done
         sharp::for_each(sharp::range(first, last),
-        [&bookkeeping, &f](auto& future, auto index) {
+                [&bookkeeping, &f](auto& future, auto index) {
+
             future.then([bookkeeping, index, f](auto future) {
                 bookkeeping->return_promises[static_cast<int>(index)]
                     .set_value(future.get());
