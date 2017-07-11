@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cassert>
+#include <vector>
 
 namespace sharp {
 

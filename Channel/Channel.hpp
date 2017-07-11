@@ -19,6 +19,7 @@
 #include <memory>
 #include <exception>
 #include <initializer_list>
+#include <vector>
 
 namespace sharp {
 
