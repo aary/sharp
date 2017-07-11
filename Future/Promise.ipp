@@ -1,11 +1,11 @@
-#include <initializer_list>
-#include <exception>
-#include <memory>
-
 #include <sharp/Tags/Tags.hpp>
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/FutureError.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
+
+#include <initializer_list>
+#include <exception>
+#include <memory>
 
 namespace sharp {
 

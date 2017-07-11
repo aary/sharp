@@ -1,7 +1,10 @@
 #include <sharp/LockedData/LockedData.hpp>
 #include <sharp/Tags/Tags.hpp>
-#include <cassert>
+
 #include <gtest/gtest.h>
+
+#include <cassert>
+
 using namespace sharp;
 
 namespace sharp {

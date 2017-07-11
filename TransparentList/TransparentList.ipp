@@ -1,10 +1,10 @@
+#include <sharp/TransparentList/TransparentList.hpp>
+
 #include <cassert>
 #include <iterator>
 #include <cstdint>
 #include <iostream>
 #include <type_traits>
-
-#include <sharp/TransparentList/TransparentList.hpp>
 
 namespace sharp {
 

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <memory>
-
 #include <sharp/Future/Future.hpp>
 #include <sharp/Executor/Executor.hpp>
+
+#include <memory>
 
 namespace sharp {
 

@@ -20,12 +20,12 @@
 
 #pragma once
 
+#include <sharp/Tags/Tags.hpp>
+
 #include <utility>
 #include <cassert>
 #include <iterator>
 #include <initializer_list>
-
-#include <sharp/Tags/Tags.hpp>
 
 namespace sharp {
 

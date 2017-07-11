@@ -1,14 +1,5 @@
 #pragma once
 
-#include <memory>
-#include <utility>
-#include <exception>
-#include <type_traits>
-#include <tuple>
-#include <algorithm>
-#include <iterator>
-#include <cassert>
-
 #include <sharp/Range/Range.hpp>
 #include <sharp/Traits/Traits.hpp>
 #include <sharp/Defer/Defer.hpp>
@@ -17,6 +8,15 @@
 #include <sharp/Future/Promise.hpp>
 #include <sharp/Future/detail/FutureImpl.hpp>
 #include <sharp/Executor/Executor.hpp>
+
+#include <memory>
+#include <utility>
+#include <exception>
+#include <type_traits>
+#include <tuple>
+#include <algorithm>
+#include <iterator>
+#include <cassert>
 
 namespace sharp {
 

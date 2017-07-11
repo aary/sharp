@@ -1,10 +1,11 @@
+#include <sharp/Channel/Channel.hpp>
+
+#include <gtest/gtest.h>
+
 #include <thread>
 #include <vector>
 #include <random>
 #include <iostream>
-
-#include <gtest/gtest.h>
-#include <sharp/Channel/Channel.hpp>
 
 constexpr auto number_iterations = 1e3;
 

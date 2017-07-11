@@ -1,11 +1,11 @@
 #pragma once
 
+#include <sharp/Traits/Traits.hpp>
+#include <sharp/TypeSet/TypeSet.hpp>
+
 #include <tuple>
 #include <utility>
 #include <type_traits>
-
-#include <sharp/Traits/Traits.hpp>
-#include <sharp/TypeSet/TypeSet.hpp>
 
 namespace sharp {
 

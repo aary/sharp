@@ -1,7 +1,8 @@
-#include <memory>
+#include <sharp/Functional/Functional.hpp>
 
 #include <gtest/gtest.h>
-#include <sharp/Functional/Functional.hpp>
+
+#include <memory>
 
 TEST(Functional, BasicFunctional) {
     // move only lambda that would otherwise not be compatible with

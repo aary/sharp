@@ -1,7 +1,7 @@
+#include <sharp/Threads/ThreadTest.hpp>
+
 #include <mutex>
 #include <condition_variable>
-
-#include <sharp/Threads/ThreadTest.hpp>
 
 namespace sharp {
 

@@ -1,10 +1,11 @@
+#include <sharp/TransparentList/TransparentList.hpp>
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <vector>
 #include <iostream>
 #include <utility>
-
-#include <gtest/gtest.h>
-#include <sharp/TransparentList/TransparentList.hpp>
 
 using std::unique_ptr;
 using std::vector;

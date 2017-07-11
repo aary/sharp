@@ -1,4 +1,5 @@
 #include <sharp/LessPtr/LessPtr.hpp>
+
 #include <gtest/gtest.h>
 
 #include <set>

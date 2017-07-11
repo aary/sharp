@@ -11,11 +11,11 @@
 
 #pragma once
 
+#include <sharp/Tags/Tags.hpp>
+
 #include <initializer_list>
 #include <exception>
 #include <memory>
-
-#include <sharp/Tags/Tags.hpp>
 
 namespace sharp {
 

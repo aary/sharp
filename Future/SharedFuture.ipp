@@ -1,10 +1,10 @@
 #pragma once
 
-#include <type_traits>
-
 #include <sharp/Traits/Traits.hpp>
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Future/SharedFuture.hpp>
+
+#include <type_traits>
 
 namespace sharp {
 

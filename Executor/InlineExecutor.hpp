@@ -9,10 +9,10 @@
 
 #pragma once
 
-#include <cstddef>
-
 #include <sharp/Executor/Executor.hpp>
 #include <sharp/Functional/Functional.hpp>
+
+#include <cstddef>
 
 namespace sharp {
 

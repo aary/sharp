@@ -12,14 +12,14 @@
 
 #pragma once
 
+#include <sharp/Traits/Traits.hpp>
+#include <sharp/Executor/Executor.hpp>
+#include <sharp/Future/detail/Future-pre.hpp>
+
 #include <memory>
 #include <functional>
 #include <cstddef>
 #include <exception>
-
-#include <sharp/Traits/Traits.hpp>
-#include <sharp/Executor/Executor.hpp>
-#include <sharp/Future/detail/Future-pre.hpp>
 
 namespace sharp {
 

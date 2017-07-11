@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include <sharp/Defer/Defer.hpp>
+
+#include <gtest/gtest.h>
 
 TEST(Defer, basic_test) {
     auto is_set = false;

@@ -1,8 +1,8 @@
+#include "FutureError.hpp"
+
 #include <system_error>
 #include <string>
 #include <cassert>
-
-#include "FutureError.hpp"
 
 namespace sharp {
 

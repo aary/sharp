@@ -17,15 +17,15 @@
 
 #pragma once
 
+#include <sharp/Traits/Traits.hpp>
+#include <sharp/Functional/Functional.hpp>
+
 #include <exception>
 #include <condition_variable>
 #include <mutex>
 #include <initializer_list>
 #include <system_error>
 #include <functional>
-
-#include <sharp/Traits/Traits.hpp>
-#include <sharp/Functional/Functional.hpp>
 
 namespace sharp {
 

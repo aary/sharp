@@ -1,3 +1,8 @@
+#include <sharp/Threads/Threads.hpp>
+#include <sharp/Threads/ThreadTest.hpp>
+
+#include <gtest/gtest.h>
+
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -6,10 +11,6 @@
 #include <iostream>
 #include <string>
 #include <chrono>
-
-#include <sharp/Threads/Threads.hpp>
-#include <sharp/Threads/ThreadTest.hpp>
-#include <gtest/gtest.h>
 
 auto mark_execution_sequence_point(int);
 

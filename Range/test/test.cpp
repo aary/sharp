@@ -1,10 +1,10 @@
+#include <sharp/Range/Range.hpp>
+#include <gtest/gtest.h>
+
 #include <iostream>
 #include <limits>
 #include <vector>
 #include <algorithm>
-
-#include <sharp/Range/Range.hpp>
-#include <gtest/gtest.h>
 
 using namespace std;
 using namespace sharp;

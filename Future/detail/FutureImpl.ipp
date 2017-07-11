@@ -1,5 +1,8 @@
 #pragma once
 
+#include <sharp/Future/FutureError.hpp>
+#include <sharp/Future/detail/FutureImpl.ipp>
+
 #include <exception>
 #include <condition_variable>
 #include <mutex>
@@ -8,9 +11,6 @@
 #include <cassert>
 #include <memory>
 #include <atomic>
-
-#include <sharp/Future/FutureError.hpp>
-#include <sharp/Future/detail/FutureImpl.ipp>
 
 namespace sharp {
 

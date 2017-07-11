@@ -1,12 +1,12 @@
-#include <condition_variable>
-#include <mutex>
-#include <exception>
-#include <vector>
-
 #include <sharp/Channel/Channel.hpp>
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Functional/Functional.hpp>
 #include <sharp/Traits/Traits.hpp>
+
+#include <condition_variable>
+#include <mutex>
+#include <exception>
+#include <vector>
 
 namespace sharp {
 

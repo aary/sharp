@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <sharp/Tags/Tags.hpp>
+#include <sharp/Portability/optional.hpp>
+
 #include <mutex>
 #include <condition_variable>
 #include <utility>
@@ -16,9 +19,6 @@
 #include <memory>
 #include <exception>
 #include <initializer_list>
-
-#include <sharp/Tags/Tags.hpp>
-#include <sharp/Portability/optional.hpp>
 
 namespace sharp {
 

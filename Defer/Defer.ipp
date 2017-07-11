@@ -1,9 +1,9 @@
 #pragma once
 
+#include <sharp/Defer/Defer.hpp>
+
 #include <type_traits>
 #include <utility>
-
-#include <sharp/Defer/Defer.hpp>
 
 namespace sharp {
 

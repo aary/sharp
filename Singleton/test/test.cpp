@@ -1,4 +1,5 @@
 #include <sharp/Singleton/Singleton.hpp>
+
 #include <gtest/gtest.h>
 
 TEST(Singleton, simple_test_1) {

@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include <type_traits>
-
 #include <sharp/Traits/Traits.hpp>
+
+#include <type_traits>
 
 namespace sharp {
 

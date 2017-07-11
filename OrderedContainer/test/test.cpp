@@ -1,4 +1,5 @@
 #include <sharp/OrderedContainer/OrderedContainer.hpp>
+
 #include <gtest/gtest.h>
 
 #include <vector>

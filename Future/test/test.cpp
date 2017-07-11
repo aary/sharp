@@ -1,12 +1,13 @@
+#include <sharp/Future/Future.hpp>
+#include <sharp/Threads/Threads.hpp>
+
+#include <gtest/gtest.h>
+
 #include <thread>
 #include <chrono>
 #include <utility>
 #include <iostream>
 #include <vector>
-
-#include <sharp/Future/Future.hpp>
-#include <sharp/Threads/Threads.hpp>
-#include <gtest/gtest.h>
 
 TEST(Future, Basic) {
     auto promise = sharp::Promise<int>{};

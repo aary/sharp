@@ -1,8 +1,9 @@
-#include <vector>
-#include <typeindex>
+#include <sharp/TypeSet/TypeSet.hpp>
 
 #include <gtest/gtest.h>
-#include <sharp/TypeSet/TypeSet.hpp>
+
+#include <vector>
+#include <typeindex>
 
 using namespace std;
 using namespace sharp;
