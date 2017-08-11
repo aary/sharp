@@ -11,6 +11,7 @@ cxx_library(
         "detail/UnwrapPair.hpp",
         "detail/Algorithm.hpp",
         "detail/Functional.hpp",
+        "detail/VoidT.hpp",
         "detail/Utility.hpp",
         "detail/Utility.ipp",
     ],
