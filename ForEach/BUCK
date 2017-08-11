@@ -1,0 +1,22 @@
+cxx_library(
+    name = "ForEach",
+    header_namespace = "sharp/ForEach",
+    deps = [
+        "//Traits:Traits",
+    ],
+    headers = [
+        "ForEach.hpp",
+        "ForEach.ipp",
+    ],
+    exported_headers = [
+        "ForEach.hpp",
+        "ForEach.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//ForEach/test:test",
+    ],
+)
