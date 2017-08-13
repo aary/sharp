@@ -62,6 +62,20 @@ TEST(ForEach, simple_runtime_range) {
     EXPECT_EQ(iterations, 3);
 }
 
+TEST(ForEach, simple_runtime_range_breakable) {
+    auto range = std::vector<int>{1, 2, 3};
+    auto iterations = 0;
+    sharp::for_each(range, [&](auto ele) {
+        ++iterations;
+        EXPECT_EQ(iterations, ele);
+        if (iterations == 2) {
+            return sharp::loop_break;
+        }
+        return sharp::loop_continue;
+    });
+    EXPECT_EQ(iterations, 2);
+}
+
 TEST(ForEach, simple_tuple_range) {
     auto range = std::make_tuple(1, 2, 3);
     auto iterations = 0;
@@ -71,6 +85,37 @@ TEST(ForEach, simple_tuple_range) {
     });
     EXPECT_EQ(iterations, 3);
 }
+
+TEST(ForEach, simple_tuple_range_breakable) {
+    auto range = std::make_tuple(1, 2, 3);
+    auto iterations = 0;
+    sharp::for_each(range, [&](auto ele) {
+        ++iterations;
+        EXPECT_EQ(iterations, ele);
+        if (iterations == 2) {
+            return sharp::loop_break;
+        }
+        return sharp::loop_continue;
+    });
+    EXPECT_EQ(iterations, 2);
+}
+
+// TEST(ForEach, simple_test) {
+    // auto range = std::vector<int>{};
+    // range.resize(1e9);
+    // range.back() = -1;
+    // sharp::for_each(range, [](volatile auto ele) {
+        // if (ele == -1) {
+            // return sharp::loop_break;
+        // }
+        // return sharp::loop_continue;
+    // });
+    // for (volatile auto ele : range) {
+        // if (ele == -1) {
+            // break;
+        // }
+    // }
+// }
 
 // TEST(Traits, for_each_simple_unary) {
     // auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
