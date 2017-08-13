@@ -62,6 +62,16 @@ TEST(ForEach, simple_runtime_range) {
     EXPECT_EQ(iterations, 3);
 }
 
+TEST(ForEach, simple_tuple_range) {
+    auto range = std::make_tuple(1, 2, 3);
+    auto iterations = 0;
+    sharp::for_each(range, [&](auto ele) {
+        ++iterations;
+        EXPECT_EQ(iterations, ele);
+    });
+    EXPECT_EQ(iterations, 3);
+}
+
 // TEST(Traits, for_each_simple_unary) {
     // auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     // auto tup = std::make_tuple(1, 'a');

@@ -88,7 +88,7 @@ namespace adl {
     template <typename Range>
     using EnableIfCompileTimeRange = sharp::void_t<
         decltype(Get<0, Range>::impl(std::declval<Range>())),
-        decltype(std::tuple_size<Range>::value)>;
+        decltype(std::tuple_size<std::decay_t<Range>>::value)>;
     template <typename Range>
     using EnableIfRuntimeRange = sharp::void_t<
         decltype(adl::adl_begin(std::declval<Range>())),
@@ -145,6 +145,15 @@ namespace adl {
         // iterate through the range, not using a range based for loop because
         // in the future this algorithm should pass iterators to the functor
         // as well
+        //
+        // this has a slight difference with the semantics of a loop with
+        // respect to the range based for loop.  The range based for loop does
+        // things slightly differently.  The range is not forwarded to the
+        // begin and end methods, it is just passed via a bound lvalue
+        // refernece, which means that if a class has decided to overload the
+        // begin and end methods/functions to return move iterators for
+        // rvalues range based for loops will not work, this loop however will
+        // work and will move things in that case
         auto first = adl::adl_begin(std::forward<Range>(range));
         auto last = adl::adl_end(std::forward<Range>(range));
         for (auto index = 0; first != last; ++first, ++index) {
@@ -163,8 +172,46 @@ namespace adl {
         for_each_runtime_impl(std::forward<Range>(range), two_arg_adaptor);
     }
 
-    template <typename Range, typename Func>
-    void for_each_compile_time_impl(Range&&, Func&) {}
+
+    /**
+     * This function accepts an index sequence that is used to unroll the
+     * compile time sequence
+     */
+    template <typename Range, typename Func, std::size_t... Indices>
+    void for_each_compile_time_index_sequence_impl(
+            Range&& range, Func& func,
+            std::integer_sequence<std::size_t, Indices...>) {
+        // construct an initializer list and use its arguments to loop over
+        // the function
+        static_cast<void>(std::initializer_list<int>{
+             (func(Get<Indices, Range>::impl(std::forward<Range>(range)),
+                 std::integral_constant<int, Indices>{}), 0)...
+        });
+    }
+
+    template <typename Range, typename Func,
+              EnableIfAcceptsTwoArgs<Range, Func>* = nullptr>
+    void for_each_compile_time_impl(Range&& range, Func& func) {
+
+        // compute the length and then pass that to another function which
+        // will use the length and the integral_sequence associated with that
+        // to loop through a range via pack expansion
+        constexpr auto length = std::tuple_size<std::decay_t<Range>>::value;
+        for_each_compile_time_index_sequence_impl(std::forward<Range>(range),
+                func, std::make_index_sequence<length>{});
+    }
+    template <typename Range, typename Func,
+              EnableIfAcceptsOneArg<Range, Func>* = nullptr>
+    void for_each_compile_time_impl(Range&& range, Func& func) {
+
+        // construct an adaptor that makes the function accept two arguments,
+        // and then pass that to the other implementation function that deals
+        // with functions accepting two arguments
+        auto two_arg_adaptor = [&func](auto& ele, auto) {
+            func(std::forward<decltype(ele)>(ele));
+        };
+        for_each_compile_time_impl(std::forward<Range>(range), two_arg_adaptor);
+    }
 
     template <typename Range, typename = sharp::void_t<>>
     class ForEachImpl {
