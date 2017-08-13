@@ -141,16 +141,16 @@ namespace adl {
      */
     template <typename Range, typename Func>
     using EnableIfBreaksCompileTime = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(
+        std::decay_t<decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
-                    std::integral_constant<std::size_t, 0>{})),
+                    std::integral_constant<std::size_t, 0>{}))>,
         std::decay_t<decltype(sharp::loop_break)>>::value>;
     template <typename Range, typename Func>
     using EnableIfBreaksRuntime = std::enable_if_t<std::is_same<
-        decltype(std::declval<Func>()(
+        std::decay_t<decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
                     std::integral_constant<std::size_t, 0>{},
-                    adl::adl_begin(std::declval<Range>()))),
+                    adl::adl_begin(std::declval<Range>())))>,
         std::decay_t<decltype(sharp::loop_break)>>::value>;
 
     template <typename Range, typename Func, typename = sharp::void_t<>>
