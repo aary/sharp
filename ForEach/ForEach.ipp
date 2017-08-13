@@ -9,6 +9,13 @@
 #include <utility>
 #include <iterator>
 #include <array>
+#include <iostream>
+
+// assert that both sharp::void_t and std::enable_if_t result in the same type
+// becasue this library depends on that being true, concepts are described in
+// terms of both and the call site sometimes requires either to be compatibe
+// with the other
+static_assert(std::is_same<sharp::void_t<>, std::enable_if_t<true>>::value, "");
 
 namespace sharp {
 
@@ -132,6 +139,15 @@ namespace adl {
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
                     std::integral_constant<int, 0>{}))>;
+    /**
+     * Enables if the function returns a break condition
+     */
+    template <typename Range, typename Func>
+    using EnableIfBreaks = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(
+                    DeclvalSequence<Range>::impl(),
+                    std::integral_constant<int, 0>{})),
+        std::decay_t<decltype(sharp::loop_break)>>::value>;
 
     /**
      * Implementation of the for_each runtime algorithm, this has two cases,
@@ -166,38 +182,64 @@ namespace adl {
 
         // construct an adaptor that makes the function passed in a two
         // argument function and then pass that to the implementation function
-        auto two_arg_adaptor = [&func](auto&& ele, auto) {
-            func(std::forward<decltype(ele)>(ele));
+        auto two_arg_adaptor = [&func](auto& ele, auto) -> decltype(auto) {
+            return func(std::forward<decltype(ele)>(ele));
         };
         for_each_runtime_impl(std::forward<Range>(range), two_arg_adaptor);
     }
 
+    template <typename...>
+    struct WhichType;
+    template <typename Range, typename Func, typename = sharp::void_t<>>
+    class ForEachCompileTimeImpl {
+    public:
+        template <typename R, typename F, std::size_t... Indices>
+        static void impl(R&& range, F& func,
+                         std::integer_sequence<std::size_t, Indices...>) {
 
-    /**
-     * This function accepts an index sequence that is used to unroll the
-     * compile time sequence
-     */
-    template <typename Range, typename Func, std::size_t... Indices>
-    void for_each_compile_time_index_sequence_impl(
-            Range&& range, Func& func,
-            std::integer_sequence<std::size_t, Indices...>) {
-        // construct an initializer list and use its arguments to loop over
-        // the function
-        static_cast<void>(std::initializer_list<int>{
-             (func(Get<Indices, Range>::impl(std::forward<Range>(range)),
-                 std::integral_constant<int, Indices>{}), 0)...
-        });
-    }
+            // construct an initializer list and use its arguments to loop over
+            // the function,
+            static_cast<void>(std::initializer_list<int>{
+                 (func(Get<Indices, Range>::impl(std::forward<Range>(range)),
+                     std::integral_constant<int, Indices>{}), 0)...
+            });
+        }
+    };
+    template <typename Range, typename Func>
+    class ForEachCompileTimeImpl<Range, Func, EnableIfBreaks<Range, Func>> {
+    public:
+        template <typename R, typename F, std::size_t... Indices>
+        static void impl(R&& range, F& func,
+                         std::integer_sequence<std::size_t, Indices...>) {
+
+            // the variable that is used as the break condition, ideally the
+            // compiler should be able to optimize this and treat is as a
+            // regular unrolled loop
+            auto has_broken = sharp::loop_continue;
+
+            // construct an initializer list and use its arguments to loop over
+            // the function, use a ternary conditional to determine whether
+            // the user has broken or not
+            static_cast<void>(std::initializer_list<int>{
+                (((has_broken == sharp::loop_continue) ?
+                 (has_broken =
+                  func(
+                      Get<Indices, Range>::impl(std::forward<Range>(range)),
+                      std::integral_constant<int, Indices>{})) :
+                 (sharp::loop_continue)),
+                0)...
+            });
+        }
+    };
 
     template <typename Range, typename Func,
               EnableIfAcceptsTwoArgs<Range, Func>* = nullptr>
     void for_each_compile_time_impl(Range&& range, Func& func) {
-
         // compute the length and then pass that to another function which
-        // will use the length and the integral_sequence associated with that
-        // to loop through a range via pack expansion
+        // will use the length and the integral_sequence associated with
+        // that to loop through a range via pack expansion
         constexpr auto length = std::tuple_size<std::decay_t<Range>>::value;
-        for_each_compile_time_index_sequence_impl(std::forward<Range>(range),
+        ForEachCompileTimeImpl<Range, Func>::impl(std::forward<Range>(range),
                 func, std::make_index_sequence<length>{});
     }
     template <typename Range, typename Func,
@@ -207,12 +249,16 @@ namespace adl {
         // construct an adaptor that makes the function accept two arguments,
         // and then pass that to the other implementation function that deals
         // with functions accepting two arguments
-        auto two_arg_adaptor = [&func](auto& ele, auto) {
-            func(std::forward<decltype(ele)>(ele));
+        auto two_arg_adaptor = [&func](auto& ele, auto) -> decltype(auto) {
+            return func(std::forward<decltype(ele)>(ele));
         };
         for_each_compile_time_impl(std::forward<Range>(range), two_arg_adaptor);
     }
 
+    /**
+     * The internal class switches based on whether the passed in range is a
+     * runtime range or a compile time range
+     */
     template <typename Range, typename = sharp::void_t<>>
     class ForEachImpl {
     public:

@@ -62,8 +62,8 @@ namespace for_each_detail {
     };
 } // namespace for_each_detail
 
-constexpr auto loop_break = LoopControl::BREAK;
-constexpr auto loop_continue = LoopControl::CONTINUE;
+constexpr auto loop_break = for_each_detail::LoopControl::BREAK;
+constexpr auto loop_continue = for_each_detail::LoopControl::CONTINUE;
 
 } // namespace sharp
 
