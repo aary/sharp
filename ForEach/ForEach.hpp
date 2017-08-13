@@ -1,6 +1,9 @@
 /**
  * @file Foreach.hpp
  * @author Aaryaman Sagar
+ *
+ * This file contains a generalized iteration algorithm that gets more
+ * complicated as you use more features of the iteration
  */
 
 #pragma once
@@ -64,6 +67,28 @@ namespace for_each_detail {
 
 constexpr auto loop_break = for_each_detail::LoopControl::BREAK;
 constexpr auto loop_continue = for_each_detail::LoopControl::CONTINUE;
+
+/**
+ * Utility function that can be used to get elements at a given index in a
+ * range, be it compile time or runtime
+ *
+ * This only works if the range offers random access iterators.  Not a worry
+ * though with compile time iterators
+ *
+ * The formal requirement for this to work is, if the range contains an
+ * overloaded get<>() function (ADL defined free function or as a member
+ * fucntion), then that will be used.  If that does not exist then the begin
+ * iterator will be examined to see if that is a random access iterator (as
+ * deemed by the presence of
+ * std::iterator_traits<decltype(begin)>::iterator_category and that being the
+ * same as std::random_access_iterator_tag, if that is so then the index will
+ * be used to index from the starting position of the range and a reference
+ * (whatever that may be qualified as based on the characteristics of the
+ * iterator class, i.e. it can either be an xvalue or an lvalue) will be
+ * returned to it
+ */
+template <typename Range, typename Index>
+decltype(auto) fetch(Range&& range, Index index);
 
 } // namespace sharp
 
