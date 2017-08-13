@@ -129,12 +129,12 @@ namespace adl {
     using EnableIfAcceptsTwoArgs = sharp::void_t<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
-                    std::integral_constant<int, 0>{}))>;
+                    std::integral_constant<std::size_t, 0>{}))>;
     template <typename Range, typename Func>
     using EnableIfAcceptsThreeArgs = sharp::void_t<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
-                    std::integral_constant<int, 0>{},
+                    std::integral_constant<std::size_t, 0>{},
                     adl::adl_begin(std::declval<Range>())))>;
     /**
      * Enables if the function returns a break condition
@@ -143,13 +143,13 @@ namespace adl {
     using EnableIfBreaksCompileTime = std::enable_if_t<std::is_same<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
-                    std::integral_constant<int, 0>{})),
+                    std::integral_constant<std::size_t, 0>{})),
         std::decay_t<decltype(sharp::loop_break)>>::value>;
     template <typename Range, typename Func>
     using EnableIfBreaksRuntime = std::enable_if_t<std::is_same<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
-                    std::integral_constant<int, 0>{},
+                    std::integral_constant<std::size_t, 0>{},
                     adl::adl_begin(std::declval<Range>()))),
         std::decay_t<decltype(sharp::loop_break)>>::value>;
 
@@ -257,7 +257,7 @@ namespace adl {
             // the function,
             static_cast<void>(std::initializer_list<int>{
                  (func(Get<Indices, Range>::impl(std::forward<Range>(range)),
-                     std::integral_constant<int, Indices>{}), 0)...
+                     std::integral_constant<std::size_t, Indices>{}), 0)...
             });
         }
     };
@@ -282,7 +282,7 @@ namespace adl {
                  (has_broken =
                   func(
                       Get<Indices, Range>::impl(std::forward<Range>(range)),
-                      std::integral_constant<int, Indices>{})) :
+                      std::integral_constant<std::size_t, Indices>{})) :
                  (sharp::loop_continue)),
                 0)...
             });
