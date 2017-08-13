@@ -38,6 +38,33 @@ namespace sharp {
 template <typename TupleType, typename Func>
 constexpr Func for_each(TupleType&& tup, Func func);
 
+/**
+ * This can be used by the user to control whether the loop breaks or not,
+ * instances of loop_break or loop_continue should be returned by the function
+ * passed to the for_each algorithm to determine breaking or continuing
+ *
+ *  sharp::for_each(range, [](auto ele, auto index) {
+ *      if (index >= 3) {
+ *          return loop_break;
+ *      }
+ *      cout << ele << endl;
+ *      return loop_continue;
+ *  });
+ *
+ * This works almost identically to break and continue in regular C++ loops,
+ * except that if either continue or break is returned then the function
+ * object must return an instance of either in each path
+ */
+namespace for_each_detail {
+    enum class LoopControl : bool {
+        BREAK = true,
+        CONTINUE = false
+    };
+} // namespace for_each_detail
+
+constexpr auto loop_break = LoopControl::BREAK;
+constexpr auto loop_continue = LoopControl::CONTINUE;
+
 } // namespace sharp
 
 #include <sharp/ForEach/ForEach.ipp>
