@@ -9,7 +9,6 @@
 #include <utility>
 #include <iterator>
 #include <array>
-#include <iostream>
 
 // assert that both sharp::void_t and std::enable_if_t result in the same type
 // becasue this library depends on that being true, concepts are described in
@@ -120,61 +119,120 @@ namespace adl {
     };
 
     /**
-     * Enables if the function type can accept a tuple element along with a
-     * integral_constant type for the second argument
+     * Enables if the function accepts the number of args required
      */
     template <typename Range, typename Func>
     using EnableIfAcceptsOneArg = sharp::void_t<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl()))>;
-    /**
-     * Enables if the function accepts two arguments, one of the range type
-     * and another of type std::integral_constant
-     *
-     * For simplicity I am not adding in the possibility of accepting an int
-     * as the second argument
-     */
     template <typename Range, typename Func>
     using EnableIfAcceptsTwoArgs = sharp::void_t<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
                     std::integral_constant<int, 0>{}))>;
+    template <typename Range, typename Func>
+    using EnableIfAcceptsThreeArgs = sharp::void_t<
+        decltype(std::declval<Func>()(
+                    DeclvalSequence<Range>::impl(),
+                    std::integral_constant<int, 0>{},
+                    adl::adl_begin(std::declval<Range>())))>;
     /**
      * Enables if the function returns a break condition
      */
     template <typename Range, typename Func>
-    using EnableIfBreaks = std::enable_if_t<std::is_same<
+    using EnableIfBreaksCompileTime = std::enable_if_t<std::is_same<
         decltype(std::declval<Func>()(
                     DeclvalSequence<Range>::impl(),
                     std::integral_constant<int, 0>{})),
         std::decay_t<decltype(sharp::loop_break)>>::value>;
+    template <typename Range, typename Func>
+    using EnableIfBreaksRuntime = std::enable_if_t<std::is_same<
+        decltype(std::declval<Func>()(
+                    DeclvalSequence<Range>::impl(),
+                    std::integral_constant<int, 0>{},
+                    adl::adl_begin(std::declval<Range>()))),
+        std::decay_t<decltype(sharp::loop_break)>>::value>;
+
+    template <typename Range, typename Func, typename = sharp::void_t<>>
+    class ForEachRuntimeImpl {
+    public:
+        template <typename R, typename F>
+        static void impl(R&& range, F& func) {
+
+            // iterate through the range, not using a range based for loop
+            // because in the future this algorithm should pass iterators to
+            // the functor as well
+            //
+            // this has a slight difference with the semantics of a loop with
+            // respect to the range based for loop.  The range based for loop
+            // does things slightly differently.  The range is not forwarded
+            // to the begin and end methods, it is just passed via a bound
+            // lvalue refernece, which means that if a class has decided to
+            // overload the begin and end methods/functions to return move
+            // iterators for rvalues range based for loops will not work, this
+            // loop however will work and will move things in that case
+            auto first = adl::adl_begin(std::forward<Range>(range));
+            auto last = adl::adl_end(std::forward<Range>(range));
+            for (auto index = 0; first != last; ++first, ++index) {
+                func(*first, index, first);
+            }
+        }
+    };
+    template <typename Range, typename Func>
+    class ForEachRuntimeImpl<Range, Func, EnableIfBreaksRuntime<Range, Func>> {
+    public:
+        template <typename R, typename F>
+        static void impl(R&& range, F& func) {
+
+            // iterate through the range, not using a range based for loop
+            // because in the future this algorithm should pass iterators to
+            // the functor as well
+            //
+            // this has a slight difference with the semantics of a loop with
+            // respect to the range based for loop.  The range based for loop
+            // does things slightly differently.  The range is not forwarded
+            // to the begin and end methods, it is just passed via a bound
+            // lvalue refernece, which means that if a class has decided to
+            // overload the begin and end methods/functions to return move
+            // iterators for rvalues range based for loops will not work, this
+            // loop however will work and will move things in that case
+            auto first = adl::adl_begin(std::forward<Range>(range));
+            auto last = adl::adl_end(std::forward<Range>(range));
+            auto has_broken = sharp::loop_continue;
+            for (auto index = 0; first != last; ++first, ++index) {
+                has_broken = func(*first, index, first);
+                if (has_broken == sharp::loop_break) {
+                    break;
+                }
+            }
+        }
+    };
 
     /**
-     * Implementation of the for_each runtime algorithm, this has two cases,
-     * one for the case where the function accepts one argument and another
-     * for the case when the function accepts two arguments
+     * Implementation of the for_each runtime algorithm, this has three cases,
+     * one for the case where the function accepts one argument, another
+     * for the case when the function accepts two arguments and the last for
+     * when the function accepts an iterator as well
      */
+    template <typename Range, typename Func,
+              EnableIfAcceptsThreeArgs<Range, Func>* = nullptr>
+    void for_each_runtime_impl(Range&& range, Func& func) {
+        // forward implementation to the specialization that does different
+        // things based on whether the function returns a break or not
+        ForEachRuntimeImpl<Range, Func>::impl(std::forward<Range>(range), func);
+    }
     template <typename Range, typename Func,
               EnableIfAcceptsTwoArgs<Range, Func>* = nullptr>
     void for_each_runtime_impl(Range&& range, Func& func) {
 
-        // iterate through the range, not using a range based for loop because
-        // in the future this algorithm should pass iterators to the functor
-        // as well
-        //
-        // this has a slight difference with the semantics of a loop with
-        // respect to the range based for loop.  The range based for loop does
-        // things slightly differently.  The range is not forwarded to the
-        // begin and end methods, it is just passed via a bound lvalue
-        // refernece, which means that if a class has decided to overload the
-        // begin and end methods/functions to return move iterators for
-        // rvalues range based for loops will not work, this loop however will
-        // work and will move things in that case
-        auto first = adl::adl_begin(std::forward<Range>(range));
-        auto last = adl::adl_end(std::forward<Range>(range));
-        for (auto index = 0; first != last; ++first, ++index) {
-            func(*first, index);
-        }
+        // construct an adaptor that makes the function accept three arguments
+        // instead of two and then pass that to the implementation function to
+        // reduce code duplication
+        auto three_arg_adaptor = [&func](auto&& ele, auto index, auto)
+                -> decltype(auto) {
+            return func(std::forward<decltype(ele)>(ele), index);
+        };
+        for_each_runtime_impl(std::forward<Range>(range), three_arg_adaptor);
     }
     template <typename Range, typename Func,
               EnableIfAcceptsOneArg<Range, Func>* = nullptr>
@@ -182,14 +240,12 @@ namespace adl {
 
         // construct an adaptor that makes the function passed in a two
         // argument function and then pass that to the implementation function
-        auto two_arg_adaptor = [&func](auto& ele, auto) -> decltype(auto) {
+        auto two_arg_adaptor = [&func](auto&& ele, auto) -> decltype(auto) {
             return func(std::forward<decltype(ele)>(ele));
         };
         for_each_runtime_impl(std::forward<Range>(range), two_arg_adaptor);
     }
 
-    template <typename...>
-    struct WhichType;
     template <typename Range, typename Func, typename = sharp::void_t<>>
     class ForEachCompileTimeImpl {
     public:
@@ -206,7 +262,8 @@ namespace adl {
         }
     };
     template <typename Range, typename Func>
-    class ForEachCompileTimeImpl<Range, Func, EnableIfBreaks<Range, Func>> {
+    class ForEachCompileTimeImpl<Range, Func,
+                                 EnableIfBreaksCompileTime<Range, Func>> {
     public:
         template <typename R, typename F, std::size_t... Indices>
         static void impl(R&& range, F& func,
@@ -249,7 +306,7 @@ namespace adl {
         // construct an adaptor that makes the function accept two arguments,
         // and then pass that to the other implementation function that deals
         // with functions accepting two arguments
-        auto two_arg_adaptor = [&func](auto& ele, auto) -> decltype(auto) {
+        auto two_arg_adaptor = [&func](auto&& ele, auto) -> decltype(auto) {
             return func(std::forward<decltype(ele)>(ele));
         };
         for_each_compile_time_impl(std::forward<Range>(range), two_arg_adaptor);
