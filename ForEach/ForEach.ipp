@@ -173,7 +173,7 @@ namespace adl {
             // loop however will work and will move things in that case
             auto first = adl::adl_begin(std::forward<Range>(range));
             auto last = adl::adl_end(std::forward<Range>(range));
-            for (auto index = 0; first != last; ++first, ++index) {
+            for (auto index = std::size_t{0}; first != last; ++first, ++index) {
                 func(*first, index, first);
             }
         }
@@ -199,7 +199,7 @@ namespace adl {
             auto first = adl::adl_begin(std::forward<Range>(range));
             auto last = adl::adl_end(std::forward<Range>(range));
             auto has_broken = sharp::loop_continue;
-            for (auto index = 0; first != last; ++first, ++index) {
+            for (auto index = std::size_t{0}; first != last; ++first, ++index) {
                 has_broken = func(*first, index, first);
                 if (has_broken == sharp::loop_break) {
                     break;
