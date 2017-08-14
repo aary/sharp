@@ -153,15 +153,27 @@ namespace adl {
                     adl::adl_begin(std::declval<Range>())))>,
         std::decay_t<decltype(sharp::loop_break)>>::value>;
 
+    /**
+     * Assert that the range passed in has random access iterators, otherwise
+     * use the optional iterator third argument to manipulate the range
+     */
+    template <typename Range>
+    constexpr auto has_random_access_iterators = std::is_same<
+        typename std::iterator_traits<std::decay_t<
+            decltype(adl::adl_begin(std::declval<Range>()))>>::
+                iterator_category,
+        std::random_access_iterator_tag>::value;
+
     template <typename Range, typename Func, typename = sharp::void_t<>>
     class ForEachRuntimeImpl {
     public:
         template <typename R, typename F>
         static void impl(R&& range, F& func) {
 
-            // iterate through the range, not using a range based for loop
-            // because in the future this algorithm should pass iterators to
-            // the functor as well
+            // iterate through the range, iterate in such a way that the first
+            // iterator is preserved even when calling say .erase() on the
+            // passed iterator, the next iterator is preserved, this is fine
+            // for most C++ standard library container
             //
             // this has a slight difference with the semantics of a loop with
             // respect to the range based for loop.  The range based for loop
@@ -173,8 +185,10 @@ namespace adl {
             // loop however will work and will move things in that case
             auto first = adl::adl_begin(std::forward<Range>(range));
             auto last = adl::adl_end(std::forward<Range>(range));
-            for (auto index = std::size_t{0}; first != last; ++first, ++index) {
+            for (auto index = std::size_t{0}; first != last; ++index) {
+                auto next = std::next(first);
                 func(*first, index, first);
+                first = next;
             }
         }
     };
@@ -184,9 +198,10 @@ namespace adl {
         template <typename R, typename F>
         static void impl(R&& range, F& func) {
 
-            // iterate through the range, not using a range based for loop
-            // because in the future this algorithm should pass iterators to
-            // the functor as well
+            // iterate through the range, iterate in such a way that the first
+            // iterator is preserved even when calling say .erase() on the
+            // passed iterator, the next iterator is preserved, this is fine
+            // for most C++ standard library container
             //
             // this has a slight difference with the semantics of a loop with
             // respect to the range based for loop.  The range based for loop
@@ -198,12 +213,12 @@ namespace adl {
             // loop however will work and will move things in that case
             auto first = adl::adl_begin(std::forward<Range>(range));
             auto last = adl::adl_end(std::forward<Range>(range));
-            auto has_broken = sharp::loop_continue;
-            for (auto index = std::size_t{0}; first != last; ++first, ++index) {
-                has_broken = func(*first, index, first);
-                if (has_broken == sharp::loop_break) {
+            for (auto index = std::size_t{0}; first != last; ++index) {
+                auto next = std::next(first);
+                if (func(*first, index, first) == sharp::loop_break) {
                     break;
                 }
+                first = next;
             }
         }
     };
@@ -333,22 +348,25 @@ namespace adl {
         }
     };
 
-    template <typename Range, typename Index, typename = sharp::void_t<>>
+    template <typename Range, typename = sharp::void_t<>>
     class FetchImpl {
     public:
-        template <typename R, typename I>
-        static decltype(auto) fetch(R&& range, I index) {
+        template <typename R, typename Index>
+        static decltype(auto) impl(R&& range, Index index) {
             return Get<static_cast<std::size_t>(index), R>::impl(
                     std::forward<R>(range));
         }
     };
-    template <typename Range, typename Index>
-    class FetchImpl<Range, Index, EnableIfRuntimeRange<Range>> {
-        template <typename R, typename I>
-        static decltype(auto) fetch(R&& range, I index) {
+    template <typename Range>
+    class FetchImpl<Range, EnableIfRuntimeRange<Range>> {
+    public:
+        template <typename R, typename Index>
+        static decltype(auto) impl(R&& range, Index index) {
 
             // assert that the range has random access iterators
             static_assert(has_random_access_iterators<Range>, "");
+            auto first = adl::adl_begin(std::forward<Range>(range));
+            return *std::next(first, static_cast<std::size_t>(index));
         }
     };
 
@@ -361,7 +379,7 @@ constexpr Func for_each(Range&& tup, Func func) {
 }
 
 template <typename Range, typename Index>
-decltype(auto) fetch(Range&& range, Index index) {
+constexpr decltype(auto) fetch(Range&& range, Index index) {
     // dispatch to the implementation function that does different things
     // based on whether the range is a runtime range or a compile time range
     return for_each_detail::FetchImpl<Range>::impl(std::forward<Range>(range),

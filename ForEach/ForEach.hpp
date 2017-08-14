@@ -88,7 +88,7 @@ constexpr auto loop_continue = for_each_detail::LoopControl::CONTINUE;
  * returned to it
  */
 template <typename Range, typename Index>
-decltype(auto) fetch(Range&& range, Index index);
+constexpr decltype(auto) fetch(Range&& range, Index index);
 
 } // namespace sharp
 
