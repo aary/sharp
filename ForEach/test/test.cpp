@@ -7,6 +7,7 @@
 #include <tuple>
 #include <algorithm>
 #include <utility>
+#include <list>
 
 using namespace sharp;
 
@@ -217,4 +218,20 @@ TEST(ForEach, for_each_runtime_binary) {
         element_counter *= 2;
         ++index_counter;
     });
+}
+
+TEST(ForEach, fetch_test) {
+    auto tup = std::make_tuple(1, 2);
+    auto one = sharp::fetch(tup, std::integral_constant<int, 0>{});
+    auto two = sharp::fetch(tup, std::integral_constant<int, 1>{});
+    EXPECT_EQ(one, 1);
+    EXPECT_EQ(two, 2);
+    one = 3;
+    EXPECT_EQ(one, 3);
+
+    auto vec = std::vector<int>{3, 4};
+    auto three = sharp::fetch(vec, std::integral_constant<int, 0>{});
+    auto four = sharp::fetch(vec, std::integral_constant<int, 1>{});
+    EXPECT_EQ(three, 3);
+    EXPECT_EQ(four, 4);
 }
