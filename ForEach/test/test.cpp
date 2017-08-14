@@ -1,15 +1,3 @@
-/**
- * @file test.cpp
- * @author Aaryaman Sagar (rmn100@gmail.com)
- *
- * Includes all the files in the Traits.hpp header and runs static unit
- * tests on them.  To run all tests simply do the following
- *
- *  g++ -std=c++14 -Wall test.cpp -c -o /dev/null
- *
- * And all the crap object file output will go to /dev/null and you will see
- * the stderr reported.
- */
 #include <sharp/ForEach/ForEach.hpp>
 
 #include <gtest/gtest.h>
@@ -117,7 +105,7 @@ TEST(ForEach, simple_tuple_range_breakable) {
     // }
 // }
 
-TEST(Traits, for_each_simple_unary) {
+TEST(ForEach, for_each_simple_unary) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
@@ -129,7 +117,7 @@ TEST(Traits, for_each_simple_unary) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_simple_unary_reference) {
+TEST(ForEach, for_each_simple_unary_reference) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(char)};
     auto tup = std::make_tuple(1, 'a');
     auto result_vec = std::vector<std::type_index>{};
@@ -141,7 +129,7 @@ TEST(Traits, for_each_simple_unary_reference) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_simple_binary) {
+TEST(ForEach, for_each_simple_binary) {
     auto vec = std::vector<std::pair<std::type_index, int>>{
         {typeid(int), 0},
         {typeid(char), 1}};
@@ -156,7 +144,7 @@ TEST(Traits, for_each_simple_binary) {
     EXPECT_TRUE(std::equal(result_vec.begin(), result_vec.end(), vec.begin()));
 }
 
-TEST(Traits, for_each_forwarding_unary) {
+TEST(ForEach, for_each_forwarding_unary) {
     TestConstructionAlert<int>::reset();
     TestConstructionAlert<double>::reset();
     auto vec = std::vector<std::type_index>{
@@ -183,7 +171,7 @@ TEST(Traits, for_each_forwarding_unary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 }
 
-TEST(Traits, for_each_forwarding_binary) {
+TEST(ForEach, for_each_forwarding_binary) {
     TestConstructionAlert<int>::reset();
     TestConstructionAlert<double>::reset();
     auto vec = std::vector<std::pair<std::type_index, int>>{
@@ -210,7 +198,7 @@ TEST(Traits, for_each_forwarding_binary) {
     EXPECT_EQ(TestConstructionAlert<double>::number_default_constructs, 1);
 }
 
-TEST(Traits, for_each_runtime_unary) {
+TEST(ForEach, for_each_runtime_unary) {
     auto v = std::vector<int>{1, 2, 4, 8, 16};
     auto counter = 1;
     sharp::for_each(v, [&](auto integer) {
@@ -219,7 +207,7 @@ TEST(Traits, for_each_runtime_unary) {
     });
 }
 
-TEST(Traits, for_each_runtime_binary) {
+TEST(ForEach, for_each_runtime_binary) {
     auto v = std::vector<int>{1, 2, 4, 8, 16};
     auto element_counter = 1;
     auto index_counter = std::size_t{0};
@@ -231,7 +219,7 @@ TEST(Traits, for_each_runtime_binary) {
     });
 }
 
-TEST(Traits, ForEach) {
+TEST(ForEach, ForEach) {
     auto vec = std::vector<std::type_index>{typeid(int), typeid(double)};
     auto result_vec = decltype(vec){};
 
@@ -241,4 +229,3 @@ TEST(Traits, ForEach) {
 
     EXPECT_TRUE(std::equal(vec.begin(), vec.end(), result_vec.begin()));
 }
-
