@@ -218,14 +218,3 @@ TEST(ForEach, for_each_runtime_binary) {
         ++index_counter;
     });
 }
-
-TEST(ForEach, ForEach) {
-    auto vec = std::vector<std::type_index>{typeid(int), typeid(double)};
-    auto result_vec = decltype(vec){};
-
-    ForEach<std::tuple<int, double>>{}([&](auto type_context) {
-        result_vec.push_back(typeid(typename decltype(type_context)::type));
-    });
-
-    EXPECT_TRUE(std::equal(vec.begin(), vec.end(), result_vec.begin()));
-}
