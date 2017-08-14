@@ -333,6 +333,24 @@ namespace adl {
         }
     };
 
+    template <typename Range, typename Index, typename = sharp::void_t<>>
+    class FetchImpl {
+    public:
+        template <typename R, typename I>
+        static decltype(auto) fetch(R&& range, I index) {
+            return Get<static_cast<std::size_t>(index), R>::impl(
+                    std::forward<R>(range));
+        }
+    };
+    template <typename Range, typename Index>
+    class FetchImpl<Range, Index, EnableIfRuntimeRange<Range>> {
+        template <typename R, typename I>
+        static decltype(auto) fetch(R&& range, I index) {
+
+            // assert that the range has random access iterators
+            static_assert(has_random_access_iterators<Range>, "");
+        }
+    };
 
 } // namespace detail
 
@@ -340,6 +358,14 @@ template <typename Range, typename Func>
 constexpr Func for_each(Range&& tup, Func func) {
     for_each_detail::ForEachImpl<Range>::impl(std::forward<Range>(tup), func);
     return func;
+}
+
+template <typename Range, typename Index>
+decltype(auto) fetch(Range&& range, Index index) {
+    // dispatch to the implementation function that does different things
+    // based on whether the range is a runtime range or a compile time range
+    return for_each_detail::FetchImpl<Range>::impl(std::forward<Range>(range),
+            index);
 }
 
 } // namespace sharp
