@@ -25,7 +25,7 @@ Iterate with indices
 
 ```c++
 sharp::for_each(std::make_tuple(1, 2), [](auto element, auto index) {
-    cout << static_cast<int>(index) << " : " << element << endl;
+    cout << index << " : " << element << endl;
 });
 ```
 
