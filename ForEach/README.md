@@ -5,9 +5,9 @@ This library provides an API for looping and iterating through any type of
 range at all.  This does not have to be a runtime range like a `std::vector`
 but can also be a "range" that is defined at compile time like a `std::tuple`
 
-The library is increasingly complex as you use more features so the inherent
-simple use is really simple.  Even simpler than the existing `std::for_each`
-algorithm
+The library has high differential complexity as you use more features but the
+inherent simple use is really simple.  Even simpler than the existing
+`std::for_each` algorithm
 
 ```c++
 // With the standard std::for_each
