@@ -47,10 +47,15 @@ and accessing elements within a range.
 
 ```c++
 auto one = std::make_tuple(1, 2, 3);
+
 auto two = std::tuple<int, int, int>{};
+auto three = std::vector<int>{0, 0, 0};
+auto four = std::unordered_map<int, int>{};
 
 sharp::for_each(one, [](auto element, auto index) {
     sharp::fetch(two, index) = element * 2;
+    sharp::fetch(three, index) = element * 2;
+    sharp::fetch(four, index) = element * 2;
 });
 ```
 
