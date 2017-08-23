@@ -154,8 +154,7 @@ namespace adl {
         std::decay_t<decltype(sharp::loop_break)>>::value>;
 
     /**
-     * Assert that the range passed in has random access iterators, otherwise
-     * use the optional iterator third argument to manipulate the range
+     * Check if the range passed in has random access iterators
      */
     template <typename Range>
     constexpr auto has_random_access_iterators = std::is_same<
@@ -163,6 +162,9 @@ namespace adl {
             decltype(adl::adl_begin(std::declval<Range>()))>>::
                 iterator_category,
         std::random_access_iterator_tag>::value;
+    template <typename Range>
+    using EnableIfDoesntHaveRandomAccessIterator = std::enable_if_t<
+        has_random_access_iterators<Range>>;
 
     template <typename Range, typename Func, typename = sharp::void_t<>>
     class ForEachRuntimeImpl {
@@ -348,6 +350,36 @@ namespace adl {
         }
     };
 
+    /**
+     * Implementation for fetch() when given a runtime range.  When the range
+     * has random access iterators the operator+() method of the iterator is
+     * used to return the nth element of the range.  If the range does not
+     * have random access iterators then operator[] is used instead
+     */
+    template <typename Range, typename = sharp::void_t<>>
+    class FetchRangeImpl {
+    public:
+        template <typename R, typename Index>
+        static decltype(auto) impl(R&& range, Index index) {
+            auto first = adl::adl_begin(std::forward<R>(range));
+            return *(first + index);
+        }
+    };
+    template <typename Range>
+    class FetchRangeImpl<Range, EnableIfDoesntHaveRandomAccessIterator<Range>> {
+    public:
+        template <typename R, typename Index>
+        static decltype(auto) impl(R&& range, Index&& index) {
+
+            // assert that the range does not have random access iterators
+            static_assert(!has_random_access_iterators<Range>, "");
+            return std::forward<R>(range)[std::forward<Index>(index)];
+        }
+    };
+
+    /**
+     * Main implementation for the fetch function
+     */
     template <typename Range, typename = sharp::void_t<>>
     class FetchImpl {
     public:
@@ -361,12 +393,9 @@ namespace adl {
     class FetchImpl<Range, EnableIfRuntimeRange<Range>> {
     public:
         template <typename R, typename Index>
-        static decltype(auto) impl(R&& range, Index index) {
-
-            // assert that the range has random access iterators
-            static_assert(has_random_access_iterators<Range>, "");
-            auto first = adl::adl_begin(std::forward<Range>(range));
-            return *std::next(first, static_cast<std::size_t>(index));
+        static decltype(auto) impl(R&& range, Index&& index) {
+            return FetchRangeImpl<R>::impl(std::forward<R>(range),
+                    std::forward<Index>(index));
         }
     };
 
@@ -379,11 +408,11 @@ constexpr Func for_each(Range&& tup, Func func) {
 }
 
 template <typename Range, typename Index>
-constexpr decltype(auto) fetch(Range&& range, Index index) {
+constexpr decltype(auto) fetch(Range&& range, Index&& index) {
     // dispatch to the implementation function that does different things
     // based on whether the range is a runtime range or a compile time range
     return for_each_detail::FetchImpl<Range>::impl(std::forward<Range>(range),
-            index);
+            std::forward<Index>(index));
 }
 
 } // namespace sharp
