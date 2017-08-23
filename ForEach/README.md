@@ -59,17 +59,6 @@ sharp::for_each(one, [](auto element, auto index) {
 });
 ```
 
-Similarly for other "runtime" ranges
-
-```c++
-auto one = std::vector<int>{1, 2, 3};
-auto two = std::vector<int>(3);
-
-sharp::for_each(one, [](auto element, auto index) {
-    sharp::fetch(two, index) = element * 2;
-});
-```
-
 The loop code can remain the same no matter what.
 
 Take a look inside the headers `ForEach.hpp` and `ForEach.ipp` for more
