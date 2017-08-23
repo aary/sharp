@@ -13,6 +13,9 @@ namespace sharp {
 /**
  * @function for_each
  *
+ * This was imported to Facebook's C++ libraries here
+ * https://github.com/facebook/folly/blob/master/folly/Foreach.h
+ *
  * Iterate through values in a range, this works for ranges that have
  * std::get<> and std::tuple_size<> defined as well, ranges that have the
  * std::begin() and std::end() functions defined for them
@@ -27,7 +30,7 @@ namespace sharp {
  *
  *  auto t = std::make_tuple(1, "string");
  *  sharp::for_each(t, [](auto thing, auto index) {
- *      cout << thing << " at index " << static_cast<int>(index) << endl;
+ *      cout << thing << " at index " << index << endl;
  *  });
  *
  * The output for the above program would be
