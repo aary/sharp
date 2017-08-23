@@ -29,6 +29,20 @@ sharp::for_each(std::make_tuple(1, 2), [](auto element, auto index) {
 });
 ```
 
+You can also break from a loop preemptively
+
+```c++
+auto range = std::make_tuple(1, 2, 3, 4);
+sharp::for_each(range, [](auto element, auto index) {
+    if (index >= 2) {
+        return sharp::loop_break;
+    }
+
+    cout << index << " : " << element << endl;
+    return sharp::loop_continue;
+});
+```
+
 Iterate through a list and peek forwards and backwards with iterators
 
 ```c++
