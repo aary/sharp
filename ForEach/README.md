@@ -24,7 +24,8 @@ sharp::for_each(range, [](auto element) {
 Iterate with indices
 
 ```c++
-sharp::for_each(std::make_tuple(1, 2), [](auto element, auto index) {
+auto range = std::make_tuple(1, 2);
+sharp::for_each(range, [](auto element, auto index) {
     cout << index << " : " << element << endl;
 });
 ```
@@ -32,10 +33,10 @@ sharp::for_each(std::make_tuple(1, 2), [](auto element, auto index) {
 You can also break from a loop preemptively
 
 ```c++
-auto range = std::make_tuple(1, 2, 3, 4);
+auto range = std::make_tuple(1, 2);
 sharp::for_each(range, [](auto element, auto index) {
     if (index >= 2) {
-        return sharp::loop_break;
+        return sharp::loop_break;;
     }
 
     cout << index << " : " << element << endl;
