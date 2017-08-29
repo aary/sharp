@@ -1,11 +1,53 @@
 #pragma once
 
-#include <sharp/Traits/detail/Overload.hpp>
+#include "Overload.hpp"
 
 #include <utility>
+#include <type_traits>
+
+template <typename...> struct WhichType;
 
 namespace sharp {
 namespace overload_detail {
+
+    /**
+     * A helper class that detects the type of function passed in and switches
+     * based on the type.  For example if a function is passed in then the
+     * operator() is defined by the class manually and the arguments forwarded
+     * to the function and if a functor is passed the operator() of the
+     * functor is used
+     */
+    template <typename Func>
+    class OverloadFuncImpl : public Func {
+    public:
+        template <typename F>
+        explicit OverloadFuncImpl(F&& f) : Func{std::forward<F>(f)} {}
+
+        /**
+         * Import operator()
+         */
+        using Func::operator();
+    };
+    template <typename ReturnType, typename... Args>
+    class OverloadFuncImpl<ReturnType (*) (Args...)> {
+    public:
+        template <typename F>
+        explicit OverloadFuncImpl(F&& f) : func{std::forward<F>(f)} {}
+
+        /**
+         * Call the function and forward the return type
+         */
+        ReturnType operator()(Args... args) {
+            return this->func(args...);
+        }
+
+    private:
+        /**
+         * Store a pointer to the function
+         */
+        using FPtr_t = ReturnType (*) (Args...);
+        FPtr_t func;
+    };
 
     /**
      * The base overload template that is an incomplete type, this should
@@ -24,17 +66,19 @@ namespace overload_detail {
      * operator() methods into the current scope
      */
     template <typename Func, typename... Funcs>
-    class Overload<Func, Funcs...> : public Func, public Overload<Funcs...> {
+    class Overload<Func, Funcs...>
+            : public OverloadFuncImpl<Func>,
+              public Overload<Funcs...> {
     public:
         template <typename F, typename... Fs>
         explicit Overload(F&& f, Fs&&... fs)
-            : Func{std::forward<F>(f)},
+            : OverloadFuncImpl<Func>{std::forward<F>(f)},
             Overload<Funcs...>{std::forward<Fs>(fs)...} {}
 
         /**
          * Import operator() of the current functor and then recursve
          */
-        using Func::operator();
+        using OverloadFuncImpl<Func>::operator();
         using Overload<Funcs...>::operator();
     };
 
@@ -43,18 +87,20 @@ namespace overload_detail {
      * current functor type
      */
     template <typename Func>
-    class Overload<Func> : public Func {
+    class Overload<Func> : public OverloadFuncImpl<Func> {
     public:
         template <typename F>
-        explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
+        explicit Overload(F&& f)
+            : OverloadFuncImpl<Func>{std::forward<F>(f)} {}
 
-        using Func::operator();
+        using OverloadFuncImpl<Func>::operator();
     };
 
 } // namespace overload_detail
 
 template <typename... Funcs>
 auto make_overload(Funcs&&... funcs) {
-    return Overload<std::decay_t<Funcs>...>{std::forward<Funcs>(funcs)...};
+    return overload_detail::Overload<std::decay_t<Funcs>...>{
+        std::forward<Funcs>(funcs)...};
 }
 } // namespace sharp

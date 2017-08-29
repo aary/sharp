@@ -53,4 +53,4 @@ auto make_overload(Funcs&&... funcs);
 
 } // namespace sharp
 
-#include <sharp/Traits/detail/Overload.ipp>
+#include "Overload.ipp"
