@@ -20,7 +20,7 @@ namespace sharp {
  *  assert(overloaded(2.1) == 2.1);
  *
  * This can be useful in several scenarios, can be used to implement double
- * dispatch, variant visiting etc, for example
+ * dispatch, variant visiting, etc, for example
  *
  *  auto variant = std::variant<int, double>{1};
  *  std::visit(sharp::make_overload([](int) {}, [](double) {}), variant);
