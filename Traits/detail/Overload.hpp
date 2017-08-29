@@ -13,8 +13,8 @@ namespace sharp {
  * Overload lambda expressions into one functor, example:
  *
  *  auto overloaded = sharp::make_overload(
- *      [](int a) { return a; },
- *      [](double d) { return d; });
+ *      [&](int a) { return a; },
+ *      [&](double d) { return d; });
  *
  *  assert(overloaded(1) == 1);
  *  assert(overloaded(2.1) == 2.1);
