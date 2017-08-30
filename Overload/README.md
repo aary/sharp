@@ -1,13 +1,21 @@
-`Overload` Overload anything together
+`Overload` Overload anything
 ----------
 
 ```c++
-void foo(char) {}
+char foo(char ch) {
+    return ch;
+}
 
-auto overload = sharp::make_overload([&](double) {}, [&](std::string) {}, foo);
-overload(1.2);
-overload("something");
-overload('a');
+int main() {
+    auto overload = sharp::make_overload(
+        [&](double d) { return d; },
+        [&](std::string str) { return str; },
+        foo);
+
+    assert(overload(1.2) == 1.2
+    assert(overload("something") == "something");
+    assert(overload('a') == 'a');
+}
 ```
 
 This can be very useful and can be used to make code readable and maintainable
@@ -17,10 +25,14 @@ with complex double dispatch and visitor patterns
 void handle_int(int) {}
 void handle_double(double) {}
 
-auto variant = std::variant<int, double, std::string>{};
-std::visit(sharp::make_overload(
-        [&some_state](std::string&) {},
-        handle_int,
-        handle_double),
-    variant);
+int main() {
+    // ...
+
+    auto variant = std::variant<int, double, std::string>{};
+    std::visit(sharp::make_overload(
+            [&some_state](std::string&) {},
+            handle_int,
+            handle_double),
+        variant);
+}
 ```
