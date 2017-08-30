@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sharp/Traits/detail/Overload.hpp>
+#include <sharp/Overload/Overload.hpp>
 
 #include <utility>
 #include <type_traits>

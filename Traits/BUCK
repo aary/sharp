@@ -12,8 +12,6 @@ cxx_library(
         "detail/Algorithm.hpp",
         "detail/Functional.hpp",
         "detail/VoidT.hpp",
-        "detail/Overload.hpp",
-        "detail/Overload.ipp",
         "detail/Utility.hpp",
         "detail/Utility.ipp",
     ],
