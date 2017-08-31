@@ -6,6 +6,7 @@ cxx_library(
         "//Tags:Tags",
         "//Defer:Defer",
         "//Traits:Traits",
+        "//ForEach:ForEach",
         "//Functional:Functional",
         "//Executor:Executor",
     ],

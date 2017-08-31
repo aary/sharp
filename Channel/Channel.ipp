@@ -2,6 +2,7 @@
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Functional/Functional.hpp>
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/ForEach/ForEach.hpp>
 
 #include <condition_variable>
 #include <mutex>

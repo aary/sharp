@@ -164,7 +164,7 @@ namespace adl {
         std::random_access_iterator_tag>::value;
     template <typename Range>
     using EnableIfDoesntHaveRandomAccessIterator = std::enable_if_t<
-        has_random_access_iterators<Range>>;
+        !has_random_access_iterators<Range>>;
 
     template <typename Range, typename Func, typename = sharp::void_t<>>
     class ForEachRuntimeImpl {

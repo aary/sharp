@@ -2,6 +2,7 @@
 
 #include <sharp/Range/Range.hpp>
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/ForEach/ForEach.hpp>
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Future/Future.hpp>
 #include <sharp/Future/FutureError.hpp>

@@ -19,4 +19,3 @@
 #include <sharp/Traits/detail/Functional.hpp>
 #include <sharp/Traits/detail/VoidT.hpp>
 #include <sharp/Traits/detail/Utility.hpp>
-#include <sharp/Traits/detail/Overload.hpp>

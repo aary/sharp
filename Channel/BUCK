@@ -3,6 +3,7 @@ cxx_library(
     header_namespace = "sharp/Channel",
     deps = [
         "//Tags:Tags",
+        "//ForEach:ForEach",
         "//Defer:Defer",
         "//Functional:Functional",
         "//Traits:Traits",
