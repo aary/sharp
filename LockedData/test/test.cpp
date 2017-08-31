@@ -117,20 +117,20 @@ public:
         EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
-    static void test_execute_atomic_non_const() {
+    static void test_atomic_non_const() {
         LockedData<double, FakeMutex> locked;
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
-        locked.execute_atomic([&](auto&) {
+        locked.atomic([&](auto&) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::LOCKED);
         });
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
-    static void test_execute_atomic_const() {
+    static void test_atomic_const() {
         LockedData<double, FakeMutex> locked;
         [](const auto& locked) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
-            locked.execute_atomic([&](auto&) {
+            locked.atomic([&](auto&) {
                 EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
             });
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
@@ -217,12 +217,12 @@ TEST(LockedData, test_unique_locked_proxy) {
     LockedDataTests::test_unique_locked_proxy();
 }
 
-TEST(LockedData, test_execute_atomic_non_const) {
-    LockedDataTests::test_execute_atomic_non_const();
+TEST(LockedData, test_atomic_non_const) {
+    LockedDataTests::test_atomic_non_const();
 }
 
-TEST(LockedData, test_execute_atomic_const) {
-    LockedDataTests::test_execute_atomic_const();
+TEST(LockedData, test_atomic_const) {
+    LockedDataTests::test_atomic_const();
 }
 
 TEST(LockedData, test_lock) {

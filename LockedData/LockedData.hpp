@@ -29,7 +29,7 @@ namespace sharp {
  * Or
  *
  *  LockedData<std::vector> vector_locked;
- *  auto& ele = vector_locked.execute_atomic([&](auto& v) { return v[0]; });
+ *  auto& ele = vector_locked.atomic([&](auto& v) { return v[0]; });
  *
  * Or similar to the std::weak_ptr interface
  *
@@ -81,7 +81,7 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_atomic(Func&&)
+    decltype(auto) atomic(Func&&)
         /* -> decltype(std::declval<Func>(std::declval<Type>())) */;
 
     /* Const version of the same function that locks the object via acquiring
@@ -93,7 +93,7 @@ public:
      *         executed on the internal object
      */
     template <typename Func>
-    decltype(auto) execute_atomic(Func&&) const
+    decltype(auto) atomic(Func&&) const
         /* -> decltype(std::declval<Func>()(std::declval<Type>())) */;
 
     /**
