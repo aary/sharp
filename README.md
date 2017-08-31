@@ -11,13 +11,11 @@ The libraries in this project support building with
 on master, run the following
 
 ```
-brew update
-brew install --HEAD facebook/fb/buck
+brew install facebook/fb/buck
 ```
 
-This will install buck from the
-[latest `HEAD` commit](https://github.com/facebook/buck) with homebrew using
-[Facebook's homebrew tap](https://github.com/facebook/homebrew-fb).
+This will install buck with homebrew using [Facebook's homebrew
+tap](https://github.com/facebook/homebrew-fb).
 
 This repository is arranged in the form of a buck module.  The recommended
 way of installing this library into your project is by using  git submodules.
@@ -40,12 +38,12 @@ To use this with buck simply add a `[repositories]` section in your top level
 ```
 
 Then build with buck by adding a dependency of the following form
-`path-to-sharp-submodule//<library-target>`.  For example the `deps` section in
-the `BUCK` file for your project can look like so
+`sharp//:sharp`.  For example the `deps` section in the `BUCK` file for your
+project can look like so
 
 ```
 deps = [
-    "sharp//LockedData:LockedData",
+    "sharp//:sharp",
 ],
 ```
 
@@ -67,13 +65,14 @@ in this repository.  Run the following to install `gtest` within this project
 git submodule update --init --recursive
 ```
 
-Once `gtest` has been installed run all unit tests with `buck`
+Once `gtest` has been installed `cd` into the `sharp` folder and run all unit
+tests with `buck`
 ```
-buck test --all
+buck test ...
 ```
 
 To run the unit tests individually for a module run
-`buck test //<module_name>/test` from the `sharp` folder.  For example
+`buck test //<module_name>/...` from the `sharp` folder.  For example
 to run unit tests for the `LockedData` module run `buck test
-//LockedData/test`
+//LockedData/...`
 
