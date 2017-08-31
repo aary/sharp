@@ -205,6 +205,9 @@ public:
             l1 = l2;
             l2 = l1;
         }
+
+        reinterpret_cast<LockedDataType*>(&l1)->~LockedDataType();
+        reinterpret_cast<LockedDataType*>(&l2)->~LockedDataType();
     }
 };
 
