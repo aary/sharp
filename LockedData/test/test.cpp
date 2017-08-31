@@ -177,11 +177,15 @@ public:
 
     static void test_assignment_operator() {
 
-        LockedData<int, FakeMutexTrack> l1;
-        LockedData<int, FakeMutexTrack> l2;
+        using LockedDataType = LockedData<int, FakeMutexTrack>;
+        using AlignedStorage = std::aligned_storage_t<sizeof(LockedDataType)>;
+        AlignedStorage l1;
+        AlignedStorage l2;
 
         if (reinterpret_cast<uintptr_t>(&l1)
                 < reinterpret_cast<uintptr_t>(&l2)) {
+            new (&l1) LockedDataType{};
+            new (&l2) LockedDataType{};
             l1 = l2;
             l2 = l1;
         }
@@ -194,8 +198,8 @@ public:
             // with l2 going first in memory then reconstruct them to get the
             // counter initialized right
             current_track = 0;
-            new (&l2) decltype(l2)();
-            new (&l1) decltype(l2)();
+            new (&l2) LockedDataType{};
+            new (&l1) LockedDataType{};
 
             current_track = 0;
             l1 = l2;
