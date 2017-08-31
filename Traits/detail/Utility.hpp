@@ -11,8 +11,6 @@
 #include <type_traits>
 #include <tuple>
 
-#include <sharp/Traits/detail/IsInstantiationOf.hpp>
-
 namespace sharp {
 
 /**
