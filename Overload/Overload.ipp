@@ -34,7 +34,8 @@ namespace overload_detail {
     template <int current,
               typename ReturnType, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, ReturnType (*) (Args...), Tail...> {
+    class FunctionOverloadDetector<current, ReturnType (*) (Args...), Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
     public:
 
         /**
@@ -45,6 +46,13 @@ namespace overload_detail {
          */
         static std::integral_constant<int, current> impl(Args...);
         using FunctionOverloadDetector<current + 1, Tail...>::impl;
+    };
+    template <int current>
+    class FunctionOverloadDetector<current> {
+    private:
+        class Inaccessible{};
+    public:
+        static std::integral_constant<int, current> impl(Inaccessible);
     };
 
     /**
@@ -82,17 +90,14 @@ namespace overload_detail {
         using Overload<Funcs...>::operator();
     };
 
-    template <typename Func>
-    class Overload<Func> : public Func {
-    public:
-        template <typename F>
-        explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
+    // template <typename Func>
+    // class Overload<Func> : public Func {
+    // public:
+        // template <typename F>
+        // explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
 
-        /**
-         * Import
-         */
-        using Func::operator();
-    };
+        // using Func::operator();
+    // };
 
     /**
      * Base case, use the overload resolution helper to deduce the return type
@@ -103,6 +108,7 @@ namespace overload_detail {
     public:
 
         using Head = ReturnType (*) (Args...);
+        using OverloadDetector = FunctionOverloadDetector<0, Head, Tail...>;
 
         template <typename... FPtrs>
         explicit Overload(FPtrs&&... fs) {
@@ -112,13 +118,13 @@ namespace overload_detail {
             this->function_pointers = FPtrTupleType{fs...};
         }
 
-        template <typename... Ts>
+        template <typename... Ts, sharp::void_t<
+            decltype(OverloadDetector::impl(std::declval<Ts>()...))>* = nullptr>
         decltype(auto) operator()(Ts&&... args) {
 
             // get the index with the function overload detector
             using IndexType =
-                decltype(FunctionOverloadDetector<0, Head, Tail...>
-                        ::impl(std::forward<Ts>(args)...));
+                decltype(OverloadDetector::impl(std::forward<Ts>(args)...));
 
             // and then call the appropriate function
             return std::get<IndexType::value>(this->function_pointers)(

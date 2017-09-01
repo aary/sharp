@@ -26,12 +26,12 @@ namespace {
 TEST(Overload, BasicOverloadTest) {
     auto overloaded = sharp::make_overload(
         [](int a) { return a; },
-        [](double d) { return d; });
-        // foo);
+        [](double d) { return d; },
+        foo);
 
     EXPECT_EQ(overloaded(1), 1);
     EXPECT_EQ(overloaded(2.1), 2.1);
-    // EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
+    EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
 
 TEST(Overload, TestInternalSplitLists) {
