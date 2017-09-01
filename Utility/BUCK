@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Utility",
+    header_namespace = "sharp/Utility",
+    exported_headers = [
+        "Utility.ipp",
+        "Utility.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Utility/test:test",
+    ],
+)

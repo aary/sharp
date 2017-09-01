@@ -1,15 +1,13 @@
 #pragma once
 
-#include <tuple>
+#include <sharp/Utility/Utility.hpp>
+
 #include <type_traits>
 #include <utility>
-#include <iterator>
-
-#include <sharp/Traits/detail/Utility.hpp>
 
 namespace sharp {
 
-namespace detail {
+namespace utility_detail {
 
     /**
      * Checks if an object of the class is constructible from an rvalue of the
@@ -22,25 +20,8 @@ namespace detail {
     using EnableIfNotRValueConstructible = std::enable_if_t<
         !std::is_move_constructible<Type>::value>;
 
-    namespace test {
-
-        class NotMoveConstructible {
-        public:
-            NotMoveConstructible() = default;
-            NotMoveConstructible(const NotMoveConstructible&) = default;
-            NotMoveConstructible(NotMoveConstructible&&) = delete;
-        };
-
-        class MoveConstructible {
-        public:
-            MoveConstructible() = default;
-            MoveConstructible(const MoveConstructible&) = default;
-            MoveConstructible(MoveConstructible&&) = default;
-        };
-
-    } // namespace test
-
 } // namespace detail
+
 
 template <typename TypeToMatch, typename Type>
 decltype(auto) match_forward(std::remove_reference_t<Type>& instance) {
@@ -86,34 +67,26 @@ decltype(auto) match_forward(std::remove_reference_t<Type>&& instance) {
     return static_cast<TypeToCast>(instance);
 }
 
-template <template <typename> class Base, typename Derived>
-Derived& Crtp<Base<Derived>>::this_instance() {
-    return static_cast<Derived&>(*this);
-}
-
-template <template <typename> class Base, typename Derived>
-const Derived& Crtp<Base<Derived>>::this_instance() const {
-    return static_cast<const Derived&>(*this);
-}
-
-template <typename Type, detail::EnableIfRValueConstructible<Type>* = nullptr>
+template <typename Type,
+          utility_detail::EnableIfRValueConstructible<Type>* = nullptr>
 decltype(auto) move_if_movable(Type&& object) {
     return std::move(object);
 }
 
 template <typename Type,
-          detail::EnableIfNotRValueConstructible<Type>* = nullptr>
+          utility_detail::EnableIfNotRValueConstructible<Type>* = nullptr>
 decltype(auto) move_if_movable(const Type& object) {
     return object;
 }
 
-static_assert(std::is_same<
-        decltype(move_if_movable(
-                std::declval<detail::test::MoveConstructible>())),
-        detail::test::MoveConstructible&&>::value, "");
-static_assert(std::is_same<
-        decltype(move_if_movable(
-                std::declval<detail::test::NotMoveConstructible>())),
-        const detail::test::NotMoveConstructible&>::value, "");
+template <template <typename> class Base, typename Derived>
+Derived& Crtp<Base<Derived>>::instance() {
+    return static_cast<Derived&>(*this);
+}
+
+template <template <typename> class Base, typename Derived>
+const Derived& Crtp<Base<Derived>>::instance() const {
+    return static_cast<const Derived&>(*this);
+}
 
 } // namespace sharp

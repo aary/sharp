@@ -13,7 +13,6 @@ cxx_library(
         "detail/Functional.hpp",
         "detail/VoidT.hpp",
         "detail/Utility.hpp",
-        "detail/Utility.ipp",
     ],
     deps = [
         "//Tags:Tags",

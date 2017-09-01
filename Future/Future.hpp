@@ -13,6 +13,7 @@
 #pragma once
 
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/Utility/Utility.hpp>
 #include <sharp/Executor/Executor.hpp>
 #include <sharp/Future/detail/Future-pre.hpp>
 

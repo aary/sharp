@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sharp/Utility/Utility.hpp>
 #include <sharp/Range/Range.hpp>
 #include <sharp/Traits/Traits.hpp>
 #include <sharp/ForEach/ForEach.hpp>
@@ -291,10 +292,10 @@ namespace detail {
     auto ComposableFuture<FutureType>::then(Func&& func)
             -> Future<decltype(func(std::declval<FutureType>()))> {
 
-        this->this_instance().check_shared_state();
+        this->instance().check_shared_state();
 
         auto deferred = defer_guard([this]() {
-            this->this_instance().shared_state.reset();
+            this->instance().shared_state.reset();
         });
 
         // make a future promise pair, the value returned will be the future
@@ -307,11 +308,11 @@ namespace detail {
         auto promise = Promise<decltype(func(std::declval<FutureType>()))>{};
         auto future = promise.get_future();
 
-        this->this_instance().shared_state->add_callback(
-                [executor = this->this_instance().get_executor(),
+        this->instance().shared_state->add_callback(
+                [executor = this->instance().get_executor(),
                  promise = std::move(promise),
                  func = std::forward<Func>(func),
-                 shared_state = this->this_instance().shared_state]
+                 shared_state = this->instance().shared_state]
                 (auto&) mutable {
             // bypass the normal execution and assign the shared pointer
             // directly, moving the shared pointer here which refers to the
@@ -345,7 +346,7 @@ namespace detail {
     template <typename FutureType>
     FutureType ExecutableFuture<FutureType>::via(Executor* executor) {
         this->executor = executor;
-        return std::move(this->this_instance());
+        return std::move(this->instance());
     }
 
     template <typename FutureType>
