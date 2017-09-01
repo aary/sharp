@@ -6,7 +6,7 @@ existing interfaces for containers that allows them to be used in an ordered
 fashion, in the best way possible.  So for example if the goal is to make a
 linked list that is sorted, then you can do the following
 
-```
+```c++
 OrderedContainer<std::list<int>> ordered_list;
 
 // insert values into the list
@@ -23,7 +23,7 @@ if (iter != ordered_list.end()) {
 The library also offers users a way to fetch the underlying container for its
 specific functionality like so
 
-```
+```c++
 auto& inner_list = ordered_list.get();
 static_assert(std::is_same<
     std::list<int>,
