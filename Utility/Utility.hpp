@@ -103,6 +103,27 @@ public:
     const Derived& instance() const;
 };
 
+/**
+ * @class LessPtr
+ *
+ * A transparent comparator to compare two pointer like types by value of the
+ * things they point to
+ *
+ * For example, this can be used to order a set based on the values of the
+ * things pointed to by the pointers in the set
+ *
+ *      std::set<std::unique_ptr<int>, LessPtr> set_ptrs;
+ *      set_ptrs.insert(std::make_unique<int>(1));
+ *      set_ptrs.insert(std::make_unique<int>(0));
+ *
+ *      // output for the following always is "0 1"
+ *      for (const auto& ptr : set_ptrs) {
+ *          cout << *ptr << ' ';
+ *      }
+ *      cout << endl;
+ */
+class LessPtr;
+
 } // namespace sharp
 
 #include <sharp/Utility/Utility.ipp>

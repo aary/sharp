@@ -309,37 +309,3 @@ for_each(tup, [](auto& member) {
 ```C++
 static_assert(std::is_same<MatchReference_t<int&&, double>, double&&>::value);
 ```
-
-#### `sharp::match_forward`
-
-```C++
-template <typename Something, typename Else>
-void foo(Something&&, Else&& else) {
-    bar(sharp::match_forward<Something, Else>(else));
-}
-```
-
-#### `sharp::Crtp`
-
-```C++
-template <typename Derived>
-class SomeCrtpMixin : public sharp::Crtp<Derived> {
-public:
-    std::string serialize() const {
-        auto ss = std::stringstream{};
-        ss << this->this_instance().data;
-        return ss.str();
-    }
-};
-```
-
-#### `sharp::move_if_movable`
-
-```C++
-template <typename T>
-void Something::push_to_global(T& object) {
-    // move the object into the vector if it's constructible from an rvalue,
-    // else copy it
-    this->container.push_back(std::move_if_movable(object));
-}
-```

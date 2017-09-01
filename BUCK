@@ -5,7 +5,6 @@ cxx_library(
         "//Executor:Executor",
         "//Functional:Functional",
         "//Future:Future",
-        "//LessPtr:LessPtr",
         "//LockedData:LockedData",
         "//OrderedContainer:OrderedContainer",
         "//Range:Range",
@@ -13,6 +12,7 @@ cxx_library(
         "//Threads:Threads",
         "//TransparentList:TransparentList",
         "//TypeSet:TypeSet",
+        "//Overload:Overload",
     ],
     visibility = [
         "PUBLIC",
