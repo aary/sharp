@@ -81,5 +81,8 @@ documentation on the exact workings of the algorithm and utility
 
 ### Performance benchmarks
 
+Tuple-like loops are unrolled manually and cause an O(1) template
+instantiation overhead.  So build times are not greatly affected
+
 Further performance benchmarks show that the library performs just as well as
 a native loop and in some cases can even be faster.
