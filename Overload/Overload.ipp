@@ -40,11 +40,8 @@ namespace overload_detail {
          * This only participates in overload resolution if the function
          * arguments can be forwarded properly to the function stored
          */
-        template <typename... Types, std::enable_if_t<std::is_same<
-                    decltype(std::declval<FPtr_t>()(std::declval<Types>()...)),
-                    ReturnType>::value>* = nullptr>
-        decltype(auto) operator()(Types&&... args) const {
-            return this->func(std::forward<Types>(args)...);
+        ReturnType operator()(Args... args) const {
+            return this->func(std::forward<Args>(args)...);
         }
 
     private:
