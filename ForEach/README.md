@@ -48,7 +48,7 @@ Iterate through a list and peek forwards and backwards with iterators
 
 ```c++
 auto range = std::list<int>{1, 2, 3};
-sharp::for_each(range, [](auto element, auto index, auto iterator) {
+sharp::for_each(range, [&](auto element, auto index, auto iterator) {
     if (should_remove(element, index)) {
         range.erase(iterator);
     }
