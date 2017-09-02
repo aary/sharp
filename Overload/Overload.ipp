@@ -10,6 +10,7 @@
 namespace sharp {
 namespace overload_detail {
 
+
     /**
      * return true if the type is a function pointer type
      */
@@ -27,10 +28,32 @@ namespace overload_detail {
         !IsFunctionPtr<std::decay_t<Func>>::value>;
 
     /**
+     * An incccesible integral_constant-ish type that is used to distinguish
+     * between user code return types and make pretend return types.  This is
+     * used to determine which overload should be preferred
+     */
+    template <typename T, T Value>
+    class InaccessibleConstant : public std::integral_constant<T, Value> {};
+
+    /**
      * The overload detector for function pointers
      */
     template <int current, typename... Tail>
     class FunctionOverloadDetector;
+    template <int current, typename Func, typename... Tail>
+    class FunctionOverloadDetector<current, Func, Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+
+        /**
+         * Declare the current impl to just be using the operator() of the
+         * functor, since that will never be able to return an
+         * InaccessibleConstant this can be used to distinguish between
+         * whether a function is being called or a functor
+         */
+        using Func::operator();
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
     template <int current,
               typename ReturnType, typename... Args,
               typename... Tail>
@@ -42,17 +65,22 @@ namespace overload_detail {
          * Declare the current impl, use the return type as a guide for which
          * overload was called
          *
+         * This will return an inaccessible constant which will be used to
+         * determine whether or not a function pointer is the one overload
+         * resolution happens to and also determine which function pointer
+         * overload resolution dispatches to
+         *
          * And then import all the other impl functions as well
          */
-        static std::integral_constant<int, current> impl(Args...);
-        using FunctionOverloadDetector<current + 1, Tail...>::impl;
+        InaccessibleConstant<int, current> operator()(Args...);
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
     };
     template <int current>
     class FunctionOverloadDetector<current> {
     private:
         class Inaccessible{};
     public:
-        static std::integral_constant<int, current> impl(Inaccessible);
+        InaccessibleConstant<int, current> operator()(Inaccessible);
     };
 
     /**
@@ -90,25 +118,41 @@ namespace overload_detail {
         using Overload<Funcs...>::operator();
     };
 
-    // template <typename Func>
-    // class Overload<Func> : public Func {
-    // public:
-        // template <typename F>
-        // explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
+    template <typename Func>
+    class Overload<Func> : public Func {
+    public:
+        template <typename F>
+        explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
 
-        // using Func::operator();
-    // };
+        using Func::operator();
+    };
 
     /**
-     * Base case, use the overload resolution helper to deduce the return type
-     * index and then use that to call the appropriate function
+     * Overload cases for function pointer types, this makes a list of the
+     * function pointer types and checks if any of the function pointers are
+     * callable with the types passed into the function, and if they are then
+     * a template function that accepts a variadic list of forwarding
+     * references is instantiated and the arguments passed to the appropriate
+     * overload
+     *
+     * TODO This also needs to check the return type of the functors and make
+     * sure that they are not the ones being called by enabling the variadic
+     * function above only if the return type of the overload being called is
+     * an instantiation of InaccessibleConstant<>, to do this the first thing
+     * that needs to be done before the overloads are instantiated is to
+     * generate a OverloadDetector with all the types and then pass that
+     * overload detector to the Overload class
      */
-    template <typename ReturnType, typename... Args, typename... Tail>
-    class Overload<ReturnType (*) (Args...), Tail...> {
+    template <typename ReturnTypeOne, typename... ArgsOne,
+              typename ReturnTypeTwo, typename... ArgsTwo, typename... Tail>
+    class Overload<ReturnTypeOne (*) (ArgsOne...),
+                   ReturnTypeTwo (*) (ArgsTwo...), Tail...> {
     public:
 
-        using Head = ReturnType (*) (Args...);
-        using OverloadDetector = FunctionOverloadDetector<0, Head, Tail...>;
+        using HeadOne = ReturnTypeOne (*) (ArgsOne...);
+        using HeadTwo = ReturnTypeTwo (*) (ArgsTwo...);
+        using OverloadDetector = FunctionOverloadDetector<0, HeadOne, HeadTwo,
+                                                          Tail...>;
 
         template <typename... FPtrs>
         explicit Overload(FPtrs&&... fs) {
@@ -118,13 +162,13 @@ namespace overload_detail {
             this->function_pointers = FPtrTupleType{fs...};
         }
 
-        template <typename... Ts, sharp::void_t<
-            decltype(OverloadDetector::impl(std::declval<Ts>()...))>* = nullptr>
+        template <typename... Ts, sharp::void_t<decltype(std::declval<
+                OverloadDetector>()(std::declval<Ts>()...))>* = nullptr>
         decltype(auto) operator()(Ts&&... args) {
 
             // get the index with the function overload detector
-            using IndexType =
-                decltype(OverloadDetector::impl(std::forward<Ts>(args)...));
+            using IndexType = decltype(std::declval<OverloadDetector>()(
+                        std::forward<Ts>(args)...));
 
             // and then call the appropriate function
             return std::get<IndexType::value>(this->function_pointers)(
@@ -136,7 +180,35 @@ namespace overload_detail {
         /**
          * All the function pointers stored here
          */
-        std::tuple<Head, Tail...> function_pointers;
+        std::tuple<HeadOne, HeadTwo, Tail...> function_pointers;
+    };
+    /**
+     * Base case two, when there is only one function pointer, this is needed
+     * to solve some ambiguity
+     */
+    template <typename ReturnType, typename... Args>
+    class Overload<ReturnType (*) (Args...)> {
+    public:
+
+        using FPtr_t = ReturnType (*) (Args...);
+
+        template <typename FPtr>
+        explicit Overload(FPtr&& f) : f_ptr{std::forward<FPtr_t>(f)} {}
+
+        template <typename... Ts, sharp::void_t<
+            decltype(std::declval<FPtr_t>()(std::declval<Ts>()...))>* = nullptr>
+        decltype(auto) operator()(Ts&&... args) {
+
+            // and then call the appropriate function
+            return this->f_ptr(std::forward<Args>(args)...);
+        }
+
+    private:
+
+        /**
+         * All the function pointers stored here
+         */
+        FPtr_t f_ptr;
     };
 
     /**

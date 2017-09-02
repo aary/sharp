@@ -17,22 +17,41 @@ namespace {
         int operator()(double) { return 1; }
     };
     void foo() {}
-    double bar(int) { return 1.0; }
+    int bar(int) { return 1; }
+    // void baz(int) {}
 
     template <typename...> struct WhichType;
 
 } // namespace <anonymous>
 
-TEST(Overload, BasicOverloadTest) {
+TEST(Overload, BasicFunctorOverloadTest) {
     auto overloaded = sharp::make_overload(
         [](int a) { return a; },
-        [](double d) { return d; },
-        foo);
+        [](double d) { return d; });
 
     EXPECT_EQ(overloaded(1), 1);
     EXPECT_EQ(overloaded(2.1), 2.1);
+}
+
+TEST(Overload, BasicFunctionOverloadTesT) {
+    auto overloaded = sharp::make_overload(foo, bar);
+    EXPECT_EQ(overloaded(1), 1);
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
+
+TEST(Overload, BasicOneFunctorTwoFunctionTest) {
+    auto overloaded = sharp::make_overload(
+        [](double d) { return d; },
+        foo, bar);
+    EXPECT_EQ(overloaded(1.2), 1.2);
+    EXPECT_EQ(overloaded(1), 1);
+    EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
+}
+
+// TEST(Overload, BasicOneFunctorOneFunctionTest) {
+    // auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
+    // EXPECT_EQ(overloaded(1.2), 1.2);
+// }
 
 TEST(Overload, TestInternalSplitLists) {
 
@@ -53,5 +72,5 @@ TEST(Overload, TestInternalSplitArgs) {
         decltype(args)>::impl(args);
 
     EXPECT_TRUE((std::is_same<decltype(split_args), std::tuple<One&,
-                Two&&, void (&) (), double (&) (int)>>::value));
+                Two&&, void (&) (), int (&) (int)>>::value));
 }
