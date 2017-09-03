@@ -18,7 +18,7 @@ namespace {
     };
     void foo() {}
     int bar(int) { return 1; }
-    // void baz(int) {}
+    void baz(int) {}
 
     template <typename...> struct WhichType;
 
@@ -42,16 +42,18 @@ TEST(Overload, BasicFunctionOverloadTesT) {
 TEST(Overload, BasicOneFunctorTwoFunctionTest) {
     auto overloaded = sharp::make_overload(
         [](double d) { return d; },
-        foo, bar);
+        bar);
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1.2)), double>::value));
     EXPECT_EQ(overloaded(1.2), 1.2);
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1)), int>::value));
     EXPECT_EQ(overloaded(1), 1);
-    EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
 
-// TEST(Overload, BasicOneFunctorOneFunctionTest) {
-    // auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
-    // EXPECT_EQ(overloaded(1.2), 1.2);
-// }
+TEST(Overload, BasicOneFunctorOneFunctionTest) {
+    auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
+    EXPECT_EQ(overloaded(1.2), 1.2);
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1)), void>::value));
+}
 
 TEST(Overload, TestInternalSplitLists) {
 
