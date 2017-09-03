@@ -90,9 +90,18 @@ namespace overload_detail {
      */
     template <int current>
     class FunctionOverloadDetector<current> {
-    private:
-        class Inaccessible{};
-    public:
+    protected:
+
+        /**
+         * This is never callable as the user can never supply an Inaccessible
+         * argument (or more like should not)
+         *
+         * Further the class Inaccessible is not a complete type, so it can
+         * never be instantiated in any code
+         *
+         * Also the member is protected so is not visible in user score
+         */
+        class Inaccessible;
         InaccessibleConstant<current> operator()(Inaccessible);
     };
 
@@ -165,7 +174,10 @@ namespace overload_detail {
      * should be a better match and nothing tricky should happen, but make
      * sure of this and maybe just add in an EnableIfFunctorPreferred to the
      * operator() of the functors and make the using operator() in the functor
-     * specializations private
+     * specializations private.  This will require a layer of CRTP over all
+     * the overloads so that the base classes (i.e. the more terminating
+     * specialization) can import things from the classes above them.  And I
+     * am not sure whether it will work
      */
     template <typename OverloadDetector,
               typename ReturnType, typename... Args, typename... Tail>
@@ -208,6 +220,7 @@ namespace overload_detail {
          */
         std::tuple<ReturnType (*) (Args...), Tail...> function_pointers;
     };
+
     /**
      * Base case two, when there is only one function pointer, this is needed
      * to solve some ambiguity
