@@ -12,25 +12,14 @@ namespace overload_detail {
 
 
     /**
-     * return true if the type is a function pointer type
-     */
-    template <typename Func>
-    struct IsFunctionPtr : public std::integral_constant<bool, false> {};
-    template <typename ReturnType, typename... Args>
-    struct IsFunctionPtr<ReturnType (*) (Args...)>
-        : public std::integral_constant<bool, true> {};
-
-    /**
-     * Enable if the function is a function pointer type
-     */
-    template <typename Func>
-    using EnableIfNotFunctionPointerType = std::enable_if_t<
-        !IsFunctionPtr<std::decay_t<Func>>::value>;
-
-    /**
      * An incccesible integral_constant-ish type that is used to distinguish
-     * between user code return types and make pretend return types.  This is
-     * used to determine which overload should be preferred
+     * between user code return types and make pretend return types.
+     *
+     * Since lambdas in user space cannot return this.  This is used as the
+     * return type for function pointer calls when constructing a list of
+     * possible function calls.  If overload resolution dispatches to
+     * something that returns an instance of InaccessibleConstant then it has
+     * to be a function pointer.
      */
     template <int Value>
     class InaccessibleConstant : public std::integral_constant<int, Value> {};
@@ -46,14 +35,21 @@ namespace overload_detail {
             : public std::integral_constant<bool, true> {};
 
     /**
-     * The overload detector for function pointers
+     * The overload detector, all this does is import the list of function
+     * calls in each type, if function type is a functor then operator() will
+     * be imported, and if the type is a function type the return type will be
+     * changed to InaccessibleConstant and a pretend operator() will be
+     * created
      */
     template <int current, typename... TypeList>
     class FunctionOverloadDetector;
+    /**
+     * Specialziation for function object types
+     */
     template <int current, typename Func, typename... Tail>
-    class FunctionOverloadDetector<current, std::tuple<Func, Tail...>>
+    class FunctionOverloadDetector<current, Func, Tail...>
             : public Func,
-            public FunctionOverloadDetector<current, std::tuple<Tail...>> {
+            public FunctionOverloadDetector<current, Tail...> {
     public:
 
         /**
@@ -63,13 +59,16 @@ namespace overload_detail {
          * whether a function is being called or a functor
          */
         using Func::operator();
-        using FunctionOverloadDetector<current, std::tuple<Tail...>>::operator();
+        using FunctionOverloadDetector<current, Tail...>::operator();
     };
+    /**
+     * Specialization for function pointer types
+     */
     template <int current,
               typename ReturnType, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, std::tuple<ReturnType (*) (Args...), Tail...>>
-            : public FunctionOverloadDetector<current + 1, std::tuple<Tail...>> {
+    class FunctionOverloadDetector<current, ReturnType (*) (Args...), Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
     public:
 
         /**
@@ -84,10 +83,13 @@ namespace overload_detail {
          * And then import all the other impl functions as well
          */
         InaccessibleConstant<current> operator()(Args...);
-        using FunctionOverloadDetector<current + 1, std::tuple<Tail...>>::operator();
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
     };
+    /**
+     * Base case just creates a never callable operator()
+     */
     template <int current>
-    class FunctionOverloadDetector<current, std::tuple<>> {
+    class FunctionOverloadDetector<current> {
     private:
         class Inaccessible{};
     public:
@@ -101,8 +103,8 @@ namespace overload_detail {
     template <typename OverloadDetector, typename... Ts>
     using EnableIfFunctionPointerBetterOverload = std::enable_if_t<
         IsInstantiationOfInaccessibleConstant<
-            decltype(std::declval<OverloadDetector>()(
-                        std::declval<Ts>()...))>::value>;
+            decltype(std::declval<OverloadDetector>()(std::declval<Ts>()...))>
+            ::value>;
 
     /**
      * The base overload template that is an incomplete type, this should
@@ -349,7 +351,7 @@ namespace overload_detail {
         // whether or not a function pointer will be dispatched to and if so
         // which function pointer in the list that will be
         using OverloadDetector = FunctionOverloadDetector<
-            0, std::tuple<std::decay_t<FuncArgs>...>>;
+            0, std::decay_t<FuncArgs>...>;
 
         // call the overload impl, which will detect the type of function
         // argument and then dispatch to the appropriate function
