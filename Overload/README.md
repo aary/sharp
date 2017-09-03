@@ -36,3 +36,10 @@ int main() {
         variant);
 }
 ```
+
+### Performance
+
+This utility has no runtime performance hit.  The overload dispatching is
+done at compile time and the empty base optimizations are applied everywhere.
+However, there is a non trivial O(n) template instantiation overhead, where n
+are the number of functions or functors passed to the utility.
