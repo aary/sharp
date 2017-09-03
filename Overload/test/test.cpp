@@ -16,11 +16,15 @@ namespace {
     class Two {
         int operator()(double) { return 1; }
     };
+
     void foo() {}
     int bar(int) { return 1; }
     void baz(int) {}
 
-    template <typename...> struct WhichType;
+    int lvalue(int&) { return 1; }
+    int const_lvalue(const int&) { return 2; }
+    int rvalue(int&&) { return 3; }
+    int const_rvalue(const int&&) { return 4; }
 
 } // namespace <anonymous>
 
@@ -41,6 +45,12 @@ TEST(Overload, BasicFunctionOverloadTesT) {
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
 
+TEST(Overload, BasicOneFunctorOneFunctionTest) {
+    auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
+    EXPECT_EQ(overloaded(1.2), 1.2);
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1)), void>::value));
+}
+
 TEST(Overload, BasicOneFunctorTwoFunctionTest) {
     auto overloaded = sharp::make_overload(
         [](double d) { return d; },
@@ -51,10 +61,108 @@ TEST(Overload, BasicOneFunctorTwoFunctionTest) {
     EXPECT_EQ(overloaded(1), 1);
 }
 
-TEST(Overload, BasicOneFunctorOneFunctionTest) {
-    auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
+TEST(Overload, BasicInterleavedTest) {
+    auto overloaded = sharp::make_overload(
+        [](double d) { return d; },
+        bar,
+        [](char ch) { return ch; },
+        foo);
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1.2)), double>::value));
     EXPECT_EQ(overloaded(1.2), 1.2);
-    EXPECT_TRUE((std::is_same<decltype(overloaded(1)), void>::value));
+    EXPECT_TRUE((std::is_same<decltype(overloaded(1)), int>::value));
+    EXPECT_EQ(overloaded(1), 1);
+    EXPECT_TRUE((std::is_same<decltype(overloaded('a')), char>::value));
+    EXPECT_EQ(overloaded('a'), 'a');
+    EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
+}
+
+TEST(Overload, TestRefnessWithFunctors) {
+    auto overloaded = sharp::make_overload(
+        [](int&) { return 1; },
+        [](const int&) { return 2; },
+        [](int&&) { return 3; },
+        [](const int&&) { return 4; });
+
+    auto integer = 1;
+    const auto& integer_const_ref = integer;
+    EXPECT_EQ(overloaded(integer), 1);
+    EXPECT_EQ(overloaded(integer_const_ref), 2);
+    EXPECT_EQ(overloaded(std::move(integer)), 3);
+    EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+}
+
+TEST(Overload, TestRefnessWithFunctions) {
+    auto overloaded = sharp::make_overload(lvalue, const_lvalue, rvalue,
+            const_rvalue);
+
+    auto integer = 1;
+    const auto& integer_const_ref = integer;
+    EXPECT_EQ(overloaded(integer), 1);
+    EXPECT_EQ(overloaded(integer_const_ref), 2);
+    EXPECT_EQ(overloaded(std::move(integer)), 3);
+    EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+}
+
+TEST(Overload, TestRefnessIntertwined) {
+    {
+        auto overloaded = sharp::make_overload(
+            [](int&) { return 1; },
+            const_lvalue,
+            rvalue,
+            [](const int&&) { return 4; });
+
+        auto integer = 1;
+        const auto& integer_const_ref = integer;
+        EXPECT_EQ(overloaded(integer), 1);
+        EXPECT_EQ(overloaded(integer_const_ref), 2);
+        EXPECT_EQ(overloaded(std::move(integer)), 3);
+        EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+    }
+
+    {
+        auto overloaded = sharp::make_overload(
+            lvalue,
+            [](const int&) { return 2; },
+            [](int&&) { return 3; },
+            const_rvalue);
+
+        auto integer = 1;
+        const auto& integer_const_ref = integer;
+        EXPECT_EQ(overloaded(integer), 1);
+        EXPECT_EQ(overloaded(integer_const_ref), 2);
+        EXPECT_EQ(overloaded(std::move(integer)), 3);
+        EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+    }
+
+    {
+        auto overloaded = sharp::make_overload(
+            lvalue,
+            [](const int&) { return 2; },
+            rvalue,
+            [](const int&&) { return 4; });
+
+        auto integer = 1;
+        const auto& integer_const_ref = integer;
+        EXPECT_EQ(overloaded(integer), 1);
+        EXPECT_EQ(overloaded(integer_const_ref), 2);
+        EXPECT_EQ(overloaded(std::move(integer)), 3);
+        EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+    }
+
+    {
+        auto overloaded = sharp::make_overload(
+            [](int&) { return 1; },
+            const_lvalue,
+            [](int&&) { return 3; },
+            const_rvalue);
+
+        auto integer = 1;
+        const auto& integer_const_ref = integer;
+        EXPECT_EQ(overloaded(integer), 1);
+        EXPECT_EQ(overloaded(integer_const_ref), 2);
+        EXPECT_EQ(overloaded(std::move(integer)), 3);
+        EXPECT_EQ(overloaded(std::move(integer_const_ref)), 4);
+    }
 }
 
 TEST(Overload, TestInternalSplitLists) {
