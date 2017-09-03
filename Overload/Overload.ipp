@@ -309,7 +309,6 @@ namespace overload_detail {
      * A trait that gets a value list corresponding to all the function
      * pointers in the type list
      */
-    template <typename...> struct WhichType;
     template <typename TupleType>
     struct SplitFunctorAndFunctionPointers;
     template <typename... Args>
