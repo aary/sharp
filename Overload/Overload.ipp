@@ -156,23 +156,19 @@ namespace overload_detail {
      * references is instantiated and the arguments passed to the appropriate
      * overload
      *
-     * TODO This also needs to check the return type of the functors and make
-     * sure that they are not the ones being called by enabling the variadic
-     * function above only if the return type of the overload being called is
-     * an instantiation of InaccessibleConstant<>, to do this the first thing
-     * that needs to be done before the overloads are instantiated is to
-     * generate a OverloadDetector with all the types and then pass that
-     * overload detector to the Overload class
+     * TODO Maybe add a check here that only enables the operator() of the
+     * functors if they are not the ones being overload resolved to.  In
+     * all(most?) cases when the functors are not being preferred over a
+     * function pointer below, then the variadic forwarding reference template
+     * should be a better match and nothing tricky should happen, but make
+     * sure of this and maybe just add in an EnableIfFunctorPreferred to the
+     * operator() of the functors and make the using operator() in the functor
+     * specializations private
      */
     template <typename OverloadDetector,
-              typename ReturnTypeOne, typename... ArgsOne,
-              typename ReturnTypeTwo, typename... ArgsTwo, typename... Tail>
-    class Overload<OverloadDetector, ReturnTypeOne (*) (ArgsOne...),
-                   ReturnTypeTwo (*) (ArgsTwo...), Tail...> {
+              typename ReturnType, typename... Args, typename... Tail>
+    class Overload<OverloadDetector, ReturnType (*) (Args...), Tail...> {
     public:
-
-        using HeadOne = ReturnTypeOne (*) (ArgsOne...);
-        using HeadTwo = ReturnTypeTwo (*) (ArgsTwo...);
 
         template <typename... FPtrs>
         explicit Overload(FPtrs&&... fs) {
@@ -208,7 +204,7 @@ namespace overload_detail {
         /**
          * All the function pointers stored here
          */
-        std::tuple<HeadOne, HeadTwo, Tail...> function_pointers;
+        std::tuple<ReturnType (*) (Args...), Tail...> function_pointers;
     };
     /**
      * Base case two, when there is only one function pointer, this is needed
@@ -220,9 +216,16 @@ namespace overload_detail {
 
         using FPtr_t = ReturnType (*) (Args...);
 
+        /**
+         * Constructor stores the function pointer
+         */
         template <typename F>
         explicit Overload(F&& f) : f_ptr{std::forward<FPtr_t>(f)} {}
 
+        /**
+         * Enable this function only if the function pointers are a better
+         * match than any of the lambdas
+         */
         template <typename... Ts,
                   EnableIfFunctionPointerBetterOverload<OverloadDetector,
                                                         Ts...>* = nullptr>
