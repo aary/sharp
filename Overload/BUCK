@@ -1,16 +1,15 @@
 cxx_library(
     name = "Overload",
     header_namespace = "sharp/Overload",
-    headers = [
-        "Overload.hpp",
-        "Overload.ipp",
-    ],
     exported_headers = [
         "Overload.hpp",
         "Overload.ipp",
     ],
     visibility = [
         "PUBLIC",
+    ],
+    deps = [
+        "//Traits:Traits",
     ],
 
     tests = [
