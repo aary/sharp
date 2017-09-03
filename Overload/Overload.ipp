@@ -36,13 +36,23 @@ namespace overload_detail {
     class InaccessibleConstant : public std::integral_constant<T, Value> {};
 
     /**
+     * Check if the type is an instantiation of InaccessibleConstant
+     */
+    template <typename T>
+    struct IsInstantiationOfInaccessibleConstant
+            : public std::integral_constant<bool, false> {};
+    template <typename T, template <T, T...> class Constant>
+    struct IsInstantiationOfInaccessibleConstant<Constant>
+            : public std::integral_constant<bool, true> {};
+
+    /**
      * The overload detector for function pointers
      */
-    template <int current, typename... Tail>
+    template <int current, typename... TypeList>
     class FunctionOverloadDetector;
     template <int current, typename Func, typename... Tail>
-    class FunctionOverloadDetector<current, Func, Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current, std::tuple<Func, Tail...>>
+            : public FunctionOverloadDetector<current + 1, std::tuple<Tail...>> {
     public:
 
         /**
@@ -52,13 +62,13 @@ namespace overload_detail {
          * whether a function is being called or a functor
          */
         using Func::operator();
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using FunctionOverloadDetector<current + 1, std::tuple<Tail...>>::operator();
     };
     template <int current,
               typename ReturnType, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, ReturnType (*) (Args...), Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current, std::tuple<ReturnType (*) (Args...), Tail...>>
+            : public FunctionOverloadDetector<current + 1, std::tuple<Tail...>> {
     public:
 
         /**
@@ -73,10 +83,10 @@ namespace overload_detail {
          * And then import all the other impl functions as well
          */
         InaccessibleConstant<int, current> operator()(Args...);
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using FunctionOverloadDetector<current + 1, std::tuple<Tail...>>::operator();
     };
     template <int current>
-    class FunctionOverloadDetector<current> {
+    class FunctionOverloadDetector<current, std::tuple<>> {
     private:
         class Inaccessible{};
     public:
@@ -87,7 +97,7 @@ namespace overload_detail {
      * The base overload template that is an incomplete type, this should
      * never be instantiated.  And even if it is, it should cause a hard error
      */
-    template <typename... Funcs>
+    template <typename OverloadDetector, typename... Funcs>
     class Overload;
 
     /**
@@ -99,15 +109,15 @@ namespace overload_detail {
      * class.  The most derived class will have imported all the important
      * operator() methods into the current scope
      */
-    template <typename Func, typename... Funcs>
-    class Overload<Func, Funcs...>
+    template <typename OverloadDetector, typename Func, typename... Funcs>
+    class Overload<OverloadDetector, Func, Funcs...>
             : public Func,
-              public Overload<Funcs...> {
+              public Overload<OverloadDetector, Funcs...> {
     public:
         template <typename F, typename... Fs>
         explicit Overload(F&& f, Fs&&... fs)
             : Func{std::forward<F>(f)},
-            Overload<Funcs...>{std::forward<Fs>(fs)...} {}
+            Overload<OverloadDetector, Funcs...>{std::forward<Fs>(fs)...} {}
 
         /**
          * Import operator() of the current functor, whatever that may be
@@ -115,11 +125,11 @@ namespace overload_detail {
          * operator() aggregated recursively
          */
         using Func::operator();
-        using Overload<Funcs...>::operator();
+        using Overload<OverloadDetector, Funcs...>::operator();
     };
 
-    template <typename Func>
-    class Overload<Func> : public Func {
+    template <typename OverloadDetector, typename Func>
+    class Overload<OverloadDetector, Func> : public Func {
     public:
         template <typename F>
         explicit Overload(F&& f) : Func{std::forward<F>(f)} {}
@@ -143,16 +153,15 @@ namespace overload_detail {
      * generate a OverloadDetector with all the types and then pass that
      * overload detector to the Overload class
      */
-    template <typename ReturnTypeOne, typename... ArgsOne,
+    template <typename OverloadDetector,
+              typename ReturnTypeOne, typename... ArgsOne,
               typename ReturnTypeTwo, typename... ArgsTwo, typename... Tail>
-    class Overload<ReturnTypeOne (*) (ArgsOne...),
+    class Overload<OverloadDetector, ReturnTypeOne (*) (ArgsOne...),
                    ReturnTypeTwo (*) (ArgsTwo...), Tail...> {
     public:
 
         using HeadOne = ReturnTypeOne (*) (ArgsOne...);
         using HeadTwo = ReturnTypeTwo (*) (ArgsTwo...);
-        using OverloadDetector = FunctionOverloadDetector<0, HeadOne, HeadTwo,
-                                                          Tail...>;
 
         template <typename... FPtrs>
         explicit Overload(FPtrs&&... fs) {
@@ -162,13 +171,30 @@ namespace overload_detail {
             this->function_pointers = FPtrTupleType{fs...};
         }
 
-        template <typename... Ts, sharp::void_t<decltype(std::declval<
-                OverloadDetector>()(std::declval<Ts>()...))>* = nullptr>
+        /**
+         * Enable if the return type of overload detector is an instantiation
+         * of InaccessibleConstant
+         */
+        template <typename... Args>
+        using EnableIfFunctionPointerBetterOverload = std::enable_if_t<
+            IsInstantiationOfInaccessibleConstant<
+                decltype(std::declval<OverloadDetector>()(
+                            std::declval<Args>()...))>::value>;
+
+        /**
+         * Enable this function that is essentially a catch all only if a
+         * function is a better call as opposed to a lambda, and if that is
+         * the case then the lambda should never be called because a template
+         * will always be a better candidate.  And when this template function
+         * is called, the right function will be dispatched to
+         */
+        template <typename... Ts,
+                  EnableIfFunctionPointerBetterOverload<Ts...>* = nullptr>
         decltype(auto) operator()(Ts&&... args) {
 
             // get the index with the function overload detector
             using IndexType = decltype(std::declval<OverloadDetector>()(
-                        std::forward<Ts>(args)...));
+                        std::declval<Ts>()...));
 
             // and then call the appropriate function
             return std::get<IndexType::value>(this->function_pointers)(
@@ -186,8 +212,8 @@ namespace overload_detail {
      * Base case two, when there is only one function pointer, this is needed
      * to solve some ambiguity
      */
-    template <typename ReturnType, typename... Args>
-    class Overload<ReturnType (*) (Args...)> {
+    template <typename OverloadDetector, typename ReturnType, typename... Args>
+    class Overload<OverloadDetector, ReturnType (*) (Args...)> {
     public:
 
         using FPtr_t = ReturnType (*) (Args...);
@@ -313,7 +339,17 @@ namespace overload_detail {
     template <typename... FuncArgs, int... Indices>
     auto make_overload_impl(std::tuple<FuncArgs...>& args,
                             std::integer_sequence<int, Indices...>) {
-        return overload_detail::Overload<std::decay_t<FuncArgs>...>{
+
+        // generate an overload detector type that will be used to determine
+        // whether or not a function pointer will be dispatched to and if so
+        // which function pointer in the list that will be
+        using OverloadDetector = FunctionOverloadDetector<
+            0, std::tuple<std::decay_t<FuncArgs>...>>;
+
+        // call the overload impl, which will detect the type of function
+        // argument and then dispatch to the appropriate function
+        return overload_detail::Overload<OverloadDetector,
+                                         std::decay_t<FuncArgs>...>{
             std::get<Indices>(std::move(args))...};
     }
 
