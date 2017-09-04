@@ -41,10 +41,14 @@ namespace overload_detail {
      * changed to InaccessibleConstant and a pretend operator() will be
      * created
      */
-    template <int current, typename... TypeList>
+    template <int current, typename... Funcs>
     class FunctionOverloadDetector;
     /**
-     * Specialziation for function object types
+     * Specialziation for function object types, dont increment the counter
+     * because the counter is used for indexing into a tuple of function
+     * pointers and then getting the right function pointer to call and all
+     * the function pointers are going to be together with no functor in
+     * between or after them in the tail
      */
     template <int current, typename Func, typename... Tail>
     class FunctionOverloadDetector<current, Func, Tail...>
