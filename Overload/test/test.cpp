@@ -186,3 +186,23 @@ TEST(Overload, TestInternalSplitArgs) {
     EXPECT_TRUE((std::is_same<decltype(split_args), std::tuple<One&,
                 Two&&, void (&) (), int (&) (int)>>::value));
 }
+
+TEST(Overload, TestFunctionOverloadDetector) {
+    using namespace sharp::overload_detail;
+
+    auto one = [](double) {};
+    auto two = +[](int&&) {};
+    auto three = [](char) {};
+    auto four = +[](const int&) {};
+
+    using DetectorOne = FunctionOverloadDetector<0,
+          decltype(one), decltype(two), decltype(three), decltype(four)>;
+    using DetectorTwo = FunctionOverloadDetector<0,
+          decltype(two), decltype(three), decltype(one), decltype(four)>;
+
+    auto integer = 1;
+    EXPECT_TRUE((std::is_same<decltype(std::declval<DetectorOne>()(1)),
+                              InaccessibleConstant<0>>::value));
+    EXPECT_TRUE((std::is_same<decltype(std::declval<DetectorTwo>()(integer)),
+                              InaccessibleConstant<1>>::value));
+}
