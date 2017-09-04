@@ -7,14 +7,14 @@ char foo(char ch) {
 }
 
 int main() {
-    auto overload = sharp::make_overload(
+    auto overloaded = sharp::overload(
         [&](double d) { return d; },
         [&](std::string str) { return str; },
         foo);
 
-    assert(overload(1.2) == 1.2
-    assert(overload("something") == "something");
-    assert(overload('a') == 'a');
+    assert(overloaded(1.2) == 1.2
+    assert(overloaded("something") == "something");
+    assert(overloaded('a') == 'a');
 }
 ```
 
@@ -29,10 +29,8 @@ int main() {
     // ...
 
     auto variant = std::variant<int, double, std::string>{};
-    std::visit(sharp::make_overload(
-            [&some_state](std::string&) {},
-            handle_int,
-            handle_double),
+    std::visit(
+        sharp::overload([&](std::string&) {}, handle_int, handle_double),
         variant);
 }
 ```

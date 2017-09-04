@@ -29,7 +29,7 @@ namespace {
 } // namespace <anonymous>
 
 TEST(Overload, BasicFunctorOverloadTest) {
-    auto overloaded = sharp::make_overload(
+    auto overloaded = sharp::overload(
         [](int a) { return a; },
         [](double d) { return d; });
 
@@ -40,19 +40,19 @@ TEST(Overload, BasicFunctorOverloadTest) {
 }
 
 TEST(Overload, BasicFunctionOverloadTesT) {
-    auto overloaded = sharp::make_overload(foo, bar);
+    auto overloaded = sharp::overload(foo, bar);
     EXPECT_EQ(overloaded(1), 1);
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
 
 TEST(Overload, BasicOneFunctorOneFunctionTest) {
-    auto overloaded = sharp::make_overload([](double d) { return d; }, baz);
+    auto overloaded = sharp::overload([](double d) { return d; }, baz);
     EXPECT_EQ(overloaded(1.2), 1.2);
     EXPECT_TRUE((std::is_same<decltype(overloaded(1)), void>::value));
 }
 
 TEST(Overload, BasicOneFunctorTwoFunctionTest) {
-    auto overloaded = sharp::make_overload(
+    auto overloaded = sharp::overload(
         [](double d) { return d; },
         bar);
     EXPECT_TRUE((std::is_same<decltype(overloaded(1.2)), double>::value));
@@ -62,7 +62,7 @@ TEST(Overload, BasicOneFunctorTwoFunctionTest) {
 }
 
 TEST(Overload, BasicInterleavedTest) {
-    auto overloaded = sharp::make_overload(
+    auto overloaded = sharp::overload(
         [](double d) { return d; },
         bar,
         [](char ch) { return ch; },
@@ -77,7 +77,7 @@ TEST(Overload, BasicInterleavedTest) {
 }
 
 TEST(Overload, TestRefnessWithFunctors) {
-    auto overloaded = sharp::make_overload(
+    auto overloaded = sharp::overload(
         [](int&) { return 1; },
         [](const int&) { return 2; },
         [](int&&) { return 3; },
@@ -92,7 +92,7 @@ TEST(Overload, TestRefnessWithFunctors) {
 }
 
 TEST(Overload, TestRefnessWithFunctions) {
-    auto overloaded = sharp::make_overload(lvalue, const_lvalue, rvalue,
+    auto overloaded = sharp::overload(lvalue, const_lvalue, rvalue,
             const_rvalue);
 
     auto integer = 1;
@@ -105,7 +105,7 @@ TEST(Overload, TestRefnessWithFunctions) {
 
 TEST(Overload, TestRefnessIntertwined) {
     {
-        auto overloaded = sharp::make_overload(
+        auto overloaded = sharp::overload(
             [](int&) { return 1; },
             const_lvalue,
             rvalue,
@@ -120,7 +120,7 @@ TEST(Overload, TestRefnessIntertwined) {
     }
 
     {
-        auto overloaded = sharp::make_overload(
+        auto overloaded = sharp::overload(
             lvalue,
             [](const int&) { return 2; },
             [](int&&) { return 3; },
@@ -135,7 +135,7 @@ TEST(Overload, TestRefnessIntertwined) {
     }
 
     {
-        auto overloaded = sharp::make_overload(
+        auto overloaded = sharp::overload(
             lvalue,
             [](const int&) { return 2; },
             rvalue,
@@ -150,7 +150,7 @@ TEST(Overload, TestRefnessIntertwined) {
     }
 
     {
-        auto overloaded = sharp::make_overload(
+        auto overloaded = sharp::overload(
             [](int&) { return 1; },
             const_lvalue,
             [](int&&) { return 3; },

@@ -360,7 +360,7 @@ namespace overload_detail {
     };
 
     template <typename... FuncArgs, int... Indices>
-    auto make_overload_impl(std::tuple<FuncArgs...>& args,
+    auto overload_impl(std::tuple<FuncArgs...>& args,
                             std::integer_sequence<int, Indices...>) {
 
         // generate an overload detector type that will be used to determine
@@ -379,7 +379,7 @@ namespace overload_detail {
 } // namespace overload_detail
 
 template <typename... Funcs>
-auto make_overload(Funcs&&... funcs) {
+auto overload(Funcs&&... funcs) {
     // pack the arguments in a tuple
     auto args = std::forward_as_tuple(std::forward<Funcs>(funcs)...);
     using FuncTypes = decltype(args);
@@ -390,7 +390,7 @@ auto make_overload(Funcs&&... funcs) {
         overload_detail::SplitFunctorAndFunctionPointers<FuncTypes>::impl(args);
 
     constexpr auto size = std::tuple_size<FuncTypes>::value;
-    return overload_detail::make_overload_impl(functor_function_ptrs,
+    return overload_detail::overload_impl(functor_function_ptrs,
             std::make_integer_sequence<int, size>{});
 }
 

@@ -12,7 +12,7 @@ namespace sharp {
 /**
  * Overload lambda expressions into one functor, example:
  *
- *  auto overloaded = sharp::make_overload(
+ *  auto overloaded = sharp::overload(
  *      [&](int a) { return a; },
  *      [&](double d) { return d; });
  *
@@ -23,9 +23,9 @@ namespace sharp {
  * dispatch, variant visiting, etc, for example
  *
  *  auto variant = std::variant<int, double>{1};
- *  std::visit(sharp::make_overload([](int) {}, [](double) {}), variant);
+ *  std::visit(sharp::overload([](int) {}, [](double) {}), variant);
  *
- * In C++17 the implementation of make_overload is trivial because of new
+ * In C++17 the implementation of overload is trivial because of new
  * aggregate type rules
  *
  *  template <typename... Funcs>
@@ -49,7 +49,7 @@ namespace sharp {
  * the above does not work.  So this version has been provided as a workaround
  */
 template <typename... Funcs>
-auto make_overload(Funcs&&... funcs);
+auto overload(Funcs&&... funcs);
 
 } // namespace sharp
 
