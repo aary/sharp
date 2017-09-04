@@ -39,7 +39,11 @@ int main() {
 
 ### Performance
 
-This utility has no runtime performance hit.  The overload dispatching is
-done at compile time and the empty base optimizations are applied everywhere.
+This utility has no runtime performance hit.  The overload dispatching is done
+at compile time and the empty base optimizations are applied everywhere.  The
+size of overloaded functor instances is also just a single byte when no
+captures are done.  The memory cost for functions however is a single pointer
+for each function.
+
 However, there is a non trivial O(n) template instantiation overhead, where n
 are the number of functions or functors passed to the utility.
