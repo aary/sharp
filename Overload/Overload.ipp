@@ -240,7 +240,8 @@ namespace overload_detail {
     public:
         template <typename F, typename... Fs>
         explicit OverloadImpl(F&& f, Fs&&... fs)
-            : OverloadGenerator<OverloadDetector, Index, Func>{std::forward<F>(f)},
+            : OverloadGenerator<OverloadDetector, Index, Func>{
+                  std::forward<F>(f)},
               OverloadImpl<OverloadDetector, Index + 1, Funcs...>{
                   std::forward<Fs>(fs)...} {}
 
