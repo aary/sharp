@@ -39,7 +39,7 @@ TEST(Overload, BasicFunctorOverloadTest) {
     EXPECT_TRUE((std::is_same<decltype(overloaded(2.1)), double>::value));
 }
 
-TEST(Overload, BasicFunctionOverloadTesT) {
+TEST(Overload, BasicFunctionOverloadTest) {
     auto overloaded = sharp::overload(foo, bar);
     EXPECT_EQ(overloaded(1), 1);
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
@@ -176,15 +176,22 @@ TEST(Overload, TestInternalSplitLists) {
             std::pair<ValueList<0, 2>, ValueList<1, 3>>>::value));
 }
 
-TEST(Overload, TestInternalSplitArgs) {
-    auto one = One{};
-    auto two = Two{};
-    auto args = std::forward_as_tuple(one, foo, std::move(two), bar);
-    auto split_args = overload_detail::SplitFunctorAndFunctionPointers<
-        decltype(args)>::impl(args);
+// TEST(Overload, TestAmbiguousOverload) {
+    // auto integer = 2;
+    // auto overloaded = sharp::overload(
+        // +[](const int&) { return 0; },
+        // +[](int) { return 1; });
+        // // [](int) { return 2; });
 
-    EXPECT_TRUE((std::is_same<decltype(split_args), std::tuple<One&,
-                Two&&, void (&) (), int (&) (int)>>::value));
+    // EXPECT_EQ(overloaded(1), 0);
+// }
+
+TEST(Overload, TestFallbackLambdaForwarding) {
+    auto overloaded = sharp::overload(
+        [](auto&&...) { return 1; },
+        +[](int&&) { return 0; });
+
+    EXPECT_EQ(overloaded(1), 0);
 }
 
 TEST(Overload, TestFunctionOverloadDetector) {
@@ -203,6 +210,28 @@ TEST(Overload, TestFunctionOverloadDetector) {
     auto integer = 1;
     EXPECT_TRUE((std::is_same<decltype(std::declval<DetectorOne>()(1)),
                               InaccessibleConstant<0>>::value));
-    EXPECT_TRUE((std::is_same<decltype(std::declval<DetectorTwo>()(integer)),
+    EXPECT_TRUE((std::is_same<
+                decltype(std::declval<DetectorTwo>()(integer)),
+                InaccessibleConstant<1>>::value));
+}
+
+TEST(Overload, TestOverloadFunctionImpl) {
+    using namespace sharp::overload_detail;
+
+    auto one = +[]() { return 1; };
+    auto two = +[](int&&) { return 0; };
+
+    using Detector = FunctionOverloadDetector<0,
+          decltype(one),  decltype(two)>;
+
+    EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(1)),
                               InaccessibleConstant<1>>::value));
+    EXPECT_TRUE((std::is_same<
+                decltype(std::declval<Detector>()()),
+                InaccessibleConstant<0>>::value));
+
+    auto overload_impl_function = OverloadImpl<Detector, 0,
+         decltype(one),  decltype(two)>{one, two};
+    EXPECT_EQ(overload_impl_function(), 1);
+    EXPECT_EQ(overload_impl_function(1), 0);
 }
