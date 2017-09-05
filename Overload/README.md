@@ -18,8 +18,8 @@ int main() {
 }
 ```
 
-This can be very useful and can be used to make code readable and maintainable
-with complex double dispatch and visitor patterns
+This can be useful and can be used to make code readable and maintainable with
+complex double dispatch and visitor patterns
 
 ```c++
 void handle_int(int) {}
