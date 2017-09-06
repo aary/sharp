@@ -35,7 +35,7 @@ cases
 ```c++
 auto vec_locked = LockedData<std::vector<int>>{};
 // ...
-auto& ele = vec_locked.execute_atomic([&](auto& v) { return v[0]; });
+auto& ele = vec_locked.atomic([&](auto& v) { return v[0]; });
 ```
 
 #### Lock proxy like `std::weak_ptr`
