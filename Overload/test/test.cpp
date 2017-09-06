@@ -194,6 +194,21 @@ TEST(Overload, TestFallbackLambdaForwarding) {
     EXPECT_EQ(overloaded(1), 0);
 }
 
+TEST(Overload, TestRecursiveOverloading) {
+    auto overloaded_one = sharp::overload(
+        [](int) { return 0; }, [](double) { return 1; });
+
+    EXPECT_EQ(overloaded_one(5), 0);
+    EXPECT_EQ(overloaded_one(3.2), 1);
+
+    auto overloaded_two = sharp::overload(
+        [](char) { return 2; }, overloaded_one);
+
+    EXPECT_EQ(overloaded_two(5), 0);
+    EXPECT_EQ(overloaded_two(3.2), 1);
+    EXPECT_EQ(overloaded_two('a'), 2);
+}
+
 TEST(Overload, TestFunctionOverloadDetector) {
     using namespace sharp::overload_detail;
 
