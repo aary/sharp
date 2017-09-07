@@ -7,7 +7,6 @@
 #include <type_traits>
 #include <tuple>
 
-template <typename...> struct WhichType;
 namespace sharp {
 namespace overload_detail {
 
