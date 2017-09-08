@@ -122,7 +122,7 @@ namespace overload_detail {
      * dispatch
      */
     template <typename Detector, typename... Args>
-    using EnableIfFunctionPointerOverloadPreferred = std::enable_if_t<
+    using EnableIfFunctionPreferred = std::enable_if_t<
         IsInstantiationOfInaccessibleConstant<
             decltype(std::declval<Detector>()(std::declval<Args>()...))>
         ::value>;
@@ -132,7 +132,7 @@ namespace overload_detail {
      * overload will be preferred
      */
     template <typename Detector, typename... Args>
-    using EnableIfFunctorOverloadPreferred = std::enable_if_t<
+    using EnableIfFunctorPreferred = std::enable_if_t<
         !IsInstantiationOfInaccessibleConstant<
             decltype(std::declval<Detector>()(std::declval<Args>()...))>
         ::value>;
@@ -215,6 +215,8 @@ namespace overload_detail {
               typename ReturnType, typename... Args>
     class OverloadGenerator<Detector, Index, ReturnType (*) (Args...)> {
     public:
+        using FPtr_t = ReturnType (*) (Args...);
+
         template <typename F>
         OverloadGenerator(F&& f) : f_ptr{std::forward<F>(f)} {}
 
@@ -227,7 +229,7 @@ namespace overload_detail {
         }
 
     private:
-        ReturnType (*f_ptr) (Args...);
+        FPtr_t f_ptr;
     };
 
     /**
@@ -282,6 +284,17 @@ namespace overload_detail {
                           Funcs...> {
     public:
         /**
+         * Typedefs for the functions and functors that are going to be used
+         * to store the function pointers and the functors
+         */
+        using Functors = OverloadImpl<
+            Detector, 0,
+            std::tuple_element_t<IndicesFunctors, std::tuple<Funcs...>>...>;
+        using Functions = OverloadImpl<
+            Detector, 0,
+            std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>...>;
+
+        /**
          * Only use this constructor when the instance is is a tuple-like
          * thing decomposable using std::get
          */
@@ -292,39 +305,30 @@ namespace overload_detail {
         {}
 
         /**
-         * The templated function call operator, make sure that the
-         * Detector resolution is not an error and then forward the
-         * arguments to the Overload class
+         * The templated function call operator, make sure that the Detector
+         * resolution is not an error and then forward the arguments to the
+         * Overload class
          */
         template <typename... Args,
-                  EnableIfFunctionPointerOverloadPreferred<Detector,
-                                                           Args...>* = nullptr>
-        decltype(auto) operator()(Args&&... args) const {
+                  EnableIfFunctionPreferred<Detector, Args...>* = nullptr>
+        auto operator()(Args&&... args) const
+                -> decltype(std::declval<Functions>()(
+                            std::declval<Args>()...)) {
             static_assert(overload_well_formed<Detector, Args...>, "");
             return this->functions(std::forward<Args>(args)...);
         }
 
         template <typename... Args,
-                  EnableIfFunctorOverloadPreferred<Detector,
-                                                   Args...>* = nullptr>
-        decltype(auto) operator()(Args&&... args) const {
+                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+        auto operator()(Args&&... args) const
+                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
             static_assert(overload_well_formed<Detector, Args...>, "");
             return this->functors(std::forward<Args>(args)...);
         }
 
     private:
-        /**
-         * Store instances of the OverloadImpl classes, forward all function
-         * calls here
-         */
-        OverloadImpl<
-            Detector, 0,
-            std::tuple_element_t<IndicesFunctors, std::tuple<Funcs...>>...
-        > functors;
-        OverloadImpl<
-            Detector, 0,
-            std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>...
-        > functions;
+        Functors functors;
+        Functions functions;
     };
 
 } // namespace overload_detail
