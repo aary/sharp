@@ -209,6 +209,23 @@ TEST(Overload, TestRecursiveOverloading) {
     EXPECT_EQ(overloaded_two('a'), 2);
 }
 
+TEST(Overload, TestMutableLambdas) {
+    auto i = 1;
+    auto overloaded_one = sharp::overload(
+        [i](int) mutable { ++i; return 0; },
+        [i](double) mutable { ++i; return 1; });
+
+    EXPECT_EQ(overloaded_one(5), 0);
+    EXPECT_EQ(overloaded_one(3.2), 1);
+
+    auto overloaded_two = sharp::overload(
+        [](char) { return 2; }, overloaded_one);
+
+    EXPECT_EQ(overloaded_two(5), 0);
+    EXPECT_EQ(overloaded_two(3.2), 1);
+    EXPECT_EQ(overloaded_two('a'), 2);
+}
+
 TEST(Overload, TestFunctionOverloadDetector) {
     using namespace sharp::overload_detail;
 
