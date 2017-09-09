@@ -334,8 +334,8 @@ namespace overload_detail {
         }
 
     private:
-        Functors functors;
-        Functions functions;
+        mutable Functors functors;
+        mutable Functions functions;
     };
 
 } // namespace overload_detail

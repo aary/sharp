@@ -188,10 +188,24 @@ TEST(Overload, TestInternalSplitLists) {
 
 TEST(Overload, TestFallbackLambdaForwarding) {
     auto overloaded = sharp::overload(
-        [](auto&&...) { return 1; },
-        +[](int&&) { return 0; });
+        [](auto&&...) { return 2; },
+        +[](int&&) { return 0; },
+        +[](double&&) { return 1; });
 
     EXPECT_EQ(overloaded(1), 0);
+    EXPECT_EQ(overloaded(1.2), 1);
+}
+
+TEST(Overload, TestCopyConstructorWorks) {
+    auto overloaded = sharp::overload([](int) {}, [](double) {});
+    auto copied = overloaded;
+    static_cast<void>(copied);
+}
+
+TEST(Overload, TestMoveConstructorWorks) {
+    auto overloaded = sharp::overload([](int) {}, [](double) {});
+    auto moved = std::move(overloaded);
+    static_cast<void>(moved);
 }
 
 TEST(Overload, TestRecursiveOverloading) {
@@ -213,13 +227,14 @@ TEST(Overload, TestMutableLambdas) {
     auto i = 1;
     auto overloaded_one = sharp::overload(
         [i](int) mutable { ++i; return 0; },
-        [i](double) mutable { ++i; return 1; });
+        [i](double) mutable { ++i; return 1; },
+        []() {});
 
     EXPECT_EQ(overloaded_one(5), 0);
     EXPECT_EQ(overloaded_one(3.2), 1);
 
     auto overloaded_two = sharp::overload(
-        [](char) { return 2; }, overloaded_one);
+        [](char) { return 2; }, std::move(overloaded_one));
 
     EXPECT_EQ(overloaded_two(5), 0);
     EXPECT_EQ(overloaded_two(3.2), 1);
@@ -233,18 +248,34 @@ TEST(Overload, TestFunctionOverloadDetector) {
     auto two = +[](int&&) {};
     auto three = [](char) {};
     auto four = +[](const int&) {};
+    auto five = [](auto&&...) {};
 
-    using DetectorOne = FunctionOverloadDetector<0,
-          decltype(one), decltype(two), decltype(three), decltype(four)>;
-    using DetectorTwo = FunctionOverloadDetector<0,
-          decltype(two), decltype(three), decltype(one), decltype(four)>;
+    {
+        using Detector = FunctionOverloadDetector<0,
+              decltype(one), decltype(two), decltype(three), decltype(four),
+              decltype(five)>;
 
-    auto integer = 1;
-    EXPECT_TRUE((std::is_same<decltype(std::declval<DetectorOne>()(1)),
-                              InaccessibleConstant<0>>::value));
-    EXPECT_TRUE((std::is_same<
-                decltype(std::declval<DetectorTwo>()(integer)),
-                InaccessibleConstant<1>>::value));
+        EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(1)),
+                                  InaccessibleConstant<0>>::value));
+    }
+    {
+        const auto& lvalue = 1;
+        using Detector = FunctionOverloadDetector<0,
+              decltype(two), decltype(three), decltype(one), decltype(four),
+              decltype(five)>;
+        EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(lvalue)),
+                                  InaccessibleConstant<1>>::value));
+    }
+}
+
+TEST(Overload, TestFunctionOverloadDetectorFallback) {
+    using namespace sharp::overload_detail;
+    auto one = +[](int) {};
+    auto two = [](auto&&...) {};
+
+    using Detector = FunctionOverloadDetector<0, decltype(one), decltype(two)>;
+    EXPECT_TRUE((!std::is_same<decltype(std::declval<Detector>()(1.2)),
+                               InaccessibleConstant<0>>::value));
 }
 
 TEST(Overload, TestOverloadFunctionImpl) {
