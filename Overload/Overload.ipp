@@ -143,6 +143,9 @@ namespace overload_detail {
     template <typename Type>
     using EnableIfTuple =  sharp::void_t<
         decltype(std::get<0>(std::declval<Type>()))>;
+    template <typename Type, typename Self>
+    using EnableIfNotSelf = std::enable_if_t<!std::is_same<
+        std::decay_t<Type>, std::decay_t<Self>>::value>;
     /**
      * Check to see if the overload resolution is well defined
      */
@@ -207,7 +210,7 @@ namespace overload_detail {
     class OverloadGenerator : public Func {
     public:
         template <typename F>
-        OverloadGenerator(F&& f) : Func{std::forward<F>(f)} {}
+        explicit OverloadGenerator(F&& f) : Func{std::forward<F>(f)} {}
 
         using Func::operator();
     };
@@ -218,7 +221,7 @@ namespace overload_detail {
         using FPtr_t = ReturnType (*) (Args...);
 
         template <typename F>
-        OverloadGenerator(F&& f) : f_ptr{std::forward<F>(f)} {}
+        explicit OverloadGenerator(F&& f) : f_ptr{std::forward<F>(f)} {}
 
         template <typename... Ts,
                   EnableIfThisFunctionPointerBestOverload<Detector,
@@ -244,7 +247,9 @@ namespace overload_detail {
             : public OverloadGenerator<Detector, Index, Func>,
             public OverloadImpl<Detector, Index + 1, Funcs...> {
     public:
-        template <typename F, typename... Fs>
+
+        template <typename F, typename... Fs,
+                  EnableIfNotSelf<F, OverloadImpl>* = nullptr>
         explicit OverloadImpl(F&& f, Fs&&... fs)
             : OverloadGenerator<Detector, Index, Func>{std::forward<F>(f)},
               OverloadImpl<Detector, Index + 1, Funcs...>{
@@ -260,7 +265,9 @@ namespace overload_detail {
     class OverloadImpl<Detector, Index, Func>
             : public OverloadGenerator<Detector, Index, Func> {
     public:
-        template <typename F>
+
+        template <typename F,
+                  EnableIfNotSelf<F, OverloadImpl>* = nullptr>
         explicit OverloadImpl(F&& f)
             : OverloadGenerator<Detector, Index, Func>{std::forward<F>(f)} {}
 
