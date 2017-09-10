@@ -209,7 +209,8 @@ namespace overload_detail {
     template <typename Detector, int Index, typename Func>
     class OverloadGenerator : public Func {
     public:
-        template <typename F>
+        template <typename F,
+                  EnableIfNotSelf<F, OverloadGenerator>* = nullptr>
         explicit OverloadGenerator(F&& f) : Func{std::forward<F>(f)} {}
 
         using Func::operator();
@@ -220,7 +221,8 @@ namespace overload_detail {
     public:
         using FPtr_t = ReturnType (*) (Args...);
 
-        template <typename F>
+        template <typename F,
+                  EnableIfNotSelf<F, OverloadGenerator>* = nullptr>
         explicit OverloadGenerator(F&& f) : f_ptr{std::forward<F>(f)} {}
 
         template <typename... Ts,
