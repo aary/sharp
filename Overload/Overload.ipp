@@ -302,6 +302,8 @@ namespace overload_detail {
         using Functions = OverloadImpl<
             Detector, 0,
             std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>...>;
+        using FunctionsStorage = std::tuple<std::decay_t<
+            std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>>...>;
 
         /**
          * Only use this constructor when the instance is is a tuple-like
@@ -310,7 +312,8 @@ namespace overload_detail {
         template <typename Args, EnableIfTuple<Args>* = nullptr>
         explicit CheckAndForward(Args&& args)
             : functors{std::get<IndicesFunctors>(std::forward<Args>(args))...},
-            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...}
+            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...},
+            fptrs{std::get<IndicesFunctions>(std::forward<Args>(args))...}
         {}
 
         /**
@@ -327,39 +330,146 @@ namespace overload_detail {
             return this->functions(std::forward<Args>(args)...);
         }
 
+        /**
+         * 4 overloads corresponding to const, non-const lvalue and rvalue
+         * overloads for the operator() member function
+         */
         template <typename... Args,
                   EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
-        auto operator()(Args&&... args) const
+        auto operator()(Args&&... args) const &&
+                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
+            static_assert(overload_well_formed<Detector, Args...>, "");
+            return this->functors(std::forward<Args>(args)...);
+        }
+        template <typename... Args,
+                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+        auto operator()(Args&&... args) const &
+                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
+            static_assert(overload_well_formed<Detector, Args...>, "");
+            return this->functors(std::forward<Args>(args)...);
+        }
+        template <typename... Args,
+                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+        auto operator()(Args&&... args) &
+                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
+            static_assert(overload_well_formed<Detector, Args...>, "");
+            return this->functors(std::forward<Args>(args)...);
+        }
+        template <typename... Args,
+                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+        auto operator()(Args&&... args) &&
                 -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
             static_assert(overload_well_formed<Detector, Args...>, "");
             return this->functors(std::forward<Args>(args)...);
         }
 
-    private:
-        mutable Functors functors;
-        mutable Functions functions;
+        /**
+         * The instances of OverloadImpl objects
+         */
+        Functors functors;
+        Functions functions;
+
+        /**
+         * Store the function pointers for ease
+         */
+        FunctionsStorage fptrs;
     };
+
+    /**
+     * Checks if the type is an instantiation of CheckAndForward
+     */
+    template <typename T>
+    struct IsInstantiationCheckForward
+        : public std::integral_constant<bool, false> {};
+    template <typename One, typename Two, typename Three, typename... Funcs>
+    struct IsInstantiationCheckForward<
+        CheckAndForward<One, Two, Three, Funcs...>>
+        : public std::integral_constant<bool, true> {};
+    /**
+     * Enable if the type is an instantiation of CheckAndForward
+     */
+    template <typename Type>
+    using EnableIfCheckForward = std::enable_if_t<IsInstantiationCheckForward<
+        Type>::value>;
+
+    /**
+     * The implementation of the overload function that actually returns the
+     * overload object.  This does some template preprocessing on the type
+     * lists and creates some stuff required by the CheckAndForward handle
+     * class that will be held by the user
+     */
+    template <typename... Funcs>
+    auto overload_impl(std::tuple<Funcs...>&& funcs) {
+        // get the overload detector
+        using Detector = overload_detail::FunctionOverloadDetector<
+            0, std::decay_t<Funcs>...>;
+
+	    // get the value list of the functions and the functors
+        using SplitValueLists = typename overload_detail::SplitLists<
+            ValueList<>, ValueList<>, 0, std::decay_t<Funcs>...>::type;
+        using FunctorVList = typename SplitValueLists::first_type;
+        using FPtrVList = typename SplitValueLists::second_type;
+
+        // return the overloaded object
+        return overload_detail::CheckAndForward<Detector,
+                                                FPtrVList, FunctorVList,
+                                                std::decay_t<Funcs>...>{
+            std::move(funcs)};
+    }
+
+    /**
+     * Decompose a CheckAndForward instance into a tuple of function pointers
+     * and a function object, and for the rest just make a tuple only of that
+     * element
+     */
+    template <typename T>
+    auto decompose(sharp::preferred_dispatch<0>, T&& instance) {
+        return std::forward_as_tuple(std::forward<T>(instance));
+    }
+    template <typename T, EnableIfCheckForward<std::decay_t<T>>* = nullptr>
+    auto decompose(sharp::preferred_dispatch<1>, T&& instance) {
+
+        // get the function pointers and the function object out into tuples
+        // and concatenate them
+        auto fptrs = instance.fptrs;
+        auto&& functor = std::forward<T>(instance).functors;
+        auto functors = std::forward_as_tuple(
+                std::forward<decltype(functor)>(functor));
+
+        return std::tuple_cat(std::move(fptrs), std::move(functors));
+    }
+
+    /**
+     * Individually decompose each argument into a tuple, concatenate those
+     * and return the concatenated tuple
+     */
+    template <std::size_t... Indices, typename TupleParams>
+    auto decompose_args(std::index_sequence<Indices...>,
+                        TupleParams&& params) {
+        auto decomposed_args = std::tuple_cat(decompose(
+                    sharp::preferred_dispatch<1>{},
+                    std::get<Indices>(std::forward<TupleParams>(params)))...);
+        return decomposed_args;
+    }
 
 } // namespace overload_detail
 
 template <typename... Funcs>
 auto overload(Funcs&&... funcs) {
 
-    // get the overload detector
-    using Detector =
-        overload_detail::FunctionOverloadDetector<0, std::decay_t<Funcs>...>;
+    using namespace overload_detail;
 
-	// get the value list of the functions and the functors
-    using SplitValueLists = typename overload_detail::SplitLists<
-        ValueList<>, ValueList<>, 0, std::decay_t<Funcs>...>::type;
-    using FunctorVList = typename SplitValueLists::first_type;
-    using FPtrVList = typename SplitValueLists::second_type;
+    // decompose any CheckAndForward instances in the arguments into flag
+    // arguments that include the functors and the function pointers that
+    // compose that instance, this leads to a flag structure of overload
+    // resolution and not a very vertical one with lots of inheritance with
+    // recursive overload generation
+    auto args = decompose_args(
+            std::index_sequence_for<Funcs...>{},
+            std::forward_as_tuple(std::forward<Funcs>(funcs)...));
 
-    // return the overloaded object
-    return overload_detail::CheckAndForward<Detector,
-                                            FPtrVList, FunctorVList,
-                                            std::decay_t<Funcs>...>{
-        std::forward_as_tuple(std::forward<Funcs>(funcs)...)};
+    // forward the args to the overload impl function
+    return overload_impl(std::move(args));
 }
 
 } // namespace sharp

@@ -26,6 +26,19 @@ namespace {
     int rvalue(int&&) { return 3; }
     int const_rvalue(const int&&) { return 4; }
 
+    /**
+     * Do different things with const overloads
+     */
+    class ConstOverloadedFunctor {
+    public:
+        int operator()() {
+            return 0;
+        }
+        int operator()() const {
+            return 1;
+        }
+    };
+
 } // namespace <anonymous>
 
 TEST(Overload, BasicFunctorOverloadTest) {
@@ -176,15 +189,15 @@ TEST(Overload, TestInternalSplitLists) {
             std::pair<ValueList<0, 2>, ValueList<1, 3>>>::value));
 }
 
-// TEST(Overload, TestAmbiguousOverload) {
-    // auto integer = 2;
-    // auto overloaded = sharp::overload(
-        // +[](const int&) { return 0; },
-        // +[](int) { return 1; });
-        // // [](int) { return 2; });
+// // TEST(Overload, TestAmbiguousOverload) {
+    // // auto integer = 2;
+    // // auto overloaded = sharp::overload(
+        // // +[](const int&) { return 0; },
+        // // +[](int) { return 1; });
+        // // // [](int) { return 2; });
 
-    // EXPECT_EQ(overloaded(1), 0);
-// }
+    // // EXPECT_EQ(overloaded(1), 0);
+// // }
 
 TEST(Overload, TestFallbackLambdaForwarding) {
     auto overloaded = sharp::overload(
@@ -233,12 +246,57 @@ TEST(Overload, TestMutableLambdas) {
     EXPECT_EQ(overloaded_one(5), 0);
     EXPECT_EQ(overloaded_one(3.2), 1);
 
-    auto overloaded_two = sharp::overload(
+    /* const */ auto overloaded_two = sharp::overload(
         [](char) { return 2; }, std::move(overloaded_one));
 
     EXPECT_EQ(overloaded_two(5), 0);
     EXPECT_EQ(overloaded_two(3.2), 1);
-    EXPECT_EQ(overloaded_two('a'), 2);
+    // EXPECT_EQ(overloaded_two('a'), 2);
+}
+
+TEST(Overload, ConstOverloadFunctor) {
+    auto overloaded = sharp::overload(ConstOverloadedFunctor{});
+    const auto& overloaded_const = overloaded;
+    EXPECT_EQ(overloaded(), 0);
+    EXPECT_EQ(overloaded_const(), 1);
+}
+
+TEST(Overload, TestDecomposer) {
+    using namespace sharp::overload_detail;
+    {
+        auto args = decompose_args(std::make_index_sequence<2>{},
+                std::forward_as_tuple(foo, bar));
+        EXPECT_TRUE((std::is_same<decltype(args),
+                                  std::tuple<void (&) (), int (&) (int)>
+            >::value));
+    }
+    {
+        auto one = +[] {};
+        auto two = +[](int) {};
+        auto args = decompose_args(std::make_index_sequence<2>{},
+                std::forward_as_tuple(std::move(one), std::move(two)));
+        EXPECT_TRUE((std::is_same<decltype(args),
+                                   std::tuple<void (*&&) (), void (*&&) (int)>
+            >::value));
+    }
+    {
+        auto one = [] {};
+        auto two = [](int) {};
+        auto args = decompose_args(std::make_index_sequence<2>{},
+                std::forward_as_tuple(std::move(one), two));
+        EXPECT_TRUE((std::is_same<decltype(args),
+                                   std::tuple<decltype(one)&&, decltype(two)&>
+            >::value));
+    }
+    {
+        auto one = [] {};
+        auto two = +[](int) {};
+        auto args = decompose_args(std::make_index_sequence<2>{},
+                std::forward_as_tuple(std::move(one), two));
+        EXPECT_TRUE((std::is_same<decltype(args),
+                                   std::tuple<decltype(one)&&, void (*&) (int)>
+            >::value));
+    }
 }
 
 TEST(Overload, TestFunctionOverloadDetector) {
@@ -265,6 +323,17 @@ TEST(Overload, TestFunctionOverloadDetector) {
               decltype(five)>;
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(lvalue)),
                                   InaccessibleConstant<1>>::value));
+    }
+
+    {
+        auto one = [](int) mutable { return int{}; };
+        auto two = [](double) mutable { return double{}; };
+        auto three = [](char) { return char{}; };
+        using Detector = const FunctionOverloadDetector<0,
+              decltype(one), decltype(two), decltype(three)>;
+
+        EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()('a')), char>
+                    ::value));
     }
 }
 
