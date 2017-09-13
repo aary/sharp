@@ -246,12 +246,15 @@ TEST(Overload, TestMutableLambdas) {
     EXPECT_EQ(overloaded_one(5), 0);
     EXPECT_EQ(overloaded_one(3.2), 1);
 
-    /* const */ auto overloaded_two = sharp::overload(
+    const auto overloaded_two = sharp::overload(
         [](char) { return 2; }, std::move(overloaded_one));
 
-    EXPECT_EQ(overloaded_two(5), 0);
-    EXPECT_EQ(overloaded_two(3.2), 1);
-    // EXPECT_EQ(overloaded_two('a'), 2);
+    // TODO
+    // This does not throw a warning, idk why, should throw a literal
+    // conversion warning
+    EXPECT_EQ(overloaded_two(5), 2);
+    EXPECT_EQ(overloaded_two(3.2), 2);
+    EXPECT_EQ(overloaded_two('a'), 2);
 }
 
 TEST(Overload, ConstOverloadFunctor) {

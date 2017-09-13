@@ -326,7 +326,7 @@ namespace overload_detail {
         auto operator()(Args&&... args) const
                 -> decltype(std::declval<Functions>()(
                             std::declval<Args>()...)) {
-            static_assert(overload_well_formed<Detector, Args...>, "");
+            static_assert(overload_well_formed<const Detector, Args...>, "");
             return this->functions(std::forward<Args>(args)...);
         }
 
@@ -335,31 +335,36 @@ namespace overload_detail {
          * overloads for the operator() member function
          */
         template <typename... Args,
-                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+                  EnableIfFunctorPreferred<const Detector&&, Args...>*
+                      = nullptr>
         auto operator()(Args&&... args) const &&
-                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
-            static_assert(overload_well_formed<Detector, Args...>, "");
-            return this->functors(std::forward<Args>(args)...);
+                -> decltype(std::declval<const Functors&&>()(
+                            std::declval<Args>()...)) {
+            static_assert(overload_well_formed<const Detector&&, Args...>, "");
+            return std::move(this->functors)(std::forward<Args>(args)...);
         }
         template <typename... Args,
-                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+                  EnableIfFunctorPreferred<const Detector&, Args...>* = nullptr>
         auto operator()(Args&&... args) const &
-                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
-            static_assert(overload_well_formed<Detector, Args...>, "");
+                -> decltype(std::declval<const Functors&>()(
+                            std::declval<Args>()...)) {
+            static_assert(overload_well_formed<const Detector&, Args...>, "");
             return this->functors(std::forward<Args>(args)...);
         }
         template <typename... Args,
-                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
-        auto operator()(Args&&... args) &
-                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
-            static_assert(overload_well_formed<Detector, Args...>, "");
-            return this->functors(std::forward<Args>(args)...);
-        }
-        template <typename... Args,
-                  EnableIfFunctorPreferred<Detector, Args...>* = nullptr>
+                  EnableIfFunctorPreferred<Detector&&, Args...>* = nullptr>
         auto operator()(Args&&... args) &&
-                -> decltype(std::declval<Functors>()(std::declval<Args>()...)) {
-            static_assert(overload_well_formed<Detector, Args...>, "");
+                -> decltype(std::declval<Functors&&>()(
+                            std::declval<Args>()...)) {
+            static_assert(overload_well_formed<Detector&&, Args...>, "");
+            return std::move(this->functors)(std::forward<Args>(args)...);
+        }
+        template <typename... Args,
+                  EnableIfFunctorPreferred<Detector&, Args...>* = nullptr>
+        auto operator()(Args&&... args) &
+                -> decltype(std::declval<Functors&>()(
+                            std::declval<Args>()...)) {
+            static_assert(overload_well_formed<Detector&, Args...>, "");
             return this->functors(std::forward<Args>(args)...);
         }
 
