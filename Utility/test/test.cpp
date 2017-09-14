@@ -66,6 +66,12 @@ TEST(Utility, BasicAsConstTest) {
                 ::value));
 }
 
+TEST(Utility, BasicDecayCopyTest) {
+    auto integer = 1;
+    auto&& copied_or_what = sharp::decay_copy(integer);
+    EXPECT_NE(&integer, &copied_or_what);
+}
+
 TEST(Traits, match_forward_lvalue_to_lvalue) {
 
     int to_cast;

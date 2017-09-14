@@ -77,6 +77,26 @@ template <typename Type, typename>
 decltype(auto) move_if_movable(Type&& object);
 
 /**
+ * @function as_const
+ *
+ * Like the proposed std::as_const, this basically just const casts an object
+ * into a const lvalue reference state
+ */
+template <typename Type>
+std::add_const_t<Type>& as_const(Type& instance) noexcept;
+template <typename Type>
+void as_const(const Type&&) = delete;
+
+/**
+ * @function decay_copy
+ *
+ * Modeled after the DECAY_COPY macro found in the standard and in
+ * cppreference
+ */
+template <typename Type>
+std::decay_t<Type> decay_copy(Type&&);
+
+/**
  * @class Crtp
  *
  * This class is a utility class that makes making CRTP base classes just a

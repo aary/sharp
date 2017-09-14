@@ -94,8 +94,13 @@ decltype(auto) move_if_movable(const Type& object) {
 }
 
 template <typename Type>
-constexpr std::add_const_t<Type>& as_const(Type& instance) noexcept {
+std::add_const_t<Type>& as_const(Type& instance) noexcept {
     return instance;
+}
+
+template <typename Type>
+std::decay_t<Type> decay_copy(Type&& instance) {
+    return std::forward<Type>(instance);
 }
 
 template <template <typename> class Base, typename Derived>
