@@ -60,6 +60,12 @@ TEST(Utility, MoveIfMovableBasic) {
             const NotMoveConstructible&>::value));
 }
 
+TEST(Utility, BasicAsConstTest) {
+    auto integer = 1;
+    EXPECT_TRUE((std::is_same<decltype(sharp::as_const(integer)), const int&>
+                ::value));
+}
+
 TEST(Traits, match_forward_lvalue_to_lvalue) {
 
     int to_cast;

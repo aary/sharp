@@ -93,6 +93,11 @@ decltype(auto) move_if_movable(const Type& object) {
     return object;
 }
 
+template <typename Type>
+constexpr std::add_const_t<Type>& as_const(Type& instance) noexcept {
+    return instance;
+}
+
 template <template <typename> class Base, typename Derived>
 Derived& Crtp<Base<Derived>>::instance() {
     return static_cast<Derived&>(*this);
