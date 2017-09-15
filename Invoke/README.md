@@ -66,18 +66,19 @@ not supplied, the optional type will be used to provide a default value.
 STRONG_TYPEDEF(int, Port);
 STRONG_TYPEDEF(std::string, Host);
 
-auto make_server(std::optional<Port> port, std::optional<Host> host,
-                 const std::variant<int, double>& options) {
-    return std::visit(std::overload(
-        [](int a) {
-            return Server{port.value_or(80), host.value_or("localhost"), a, 1.};
-        },
-        [](double d) {
-            return Server{port.value_or(80), host.value_or("localhost"), 1, d};
-        }
-    ));
+auto make_server(std::optional<Port> port, std::variant<int, double> options) {}
+
+int main() {
+    // valid
+    sharp::invoke(make_server, Port{80}, 2);
+    sharp::invoke(make_server, Port{80}, 3.2);
+
+    // invalid, will not compile
+    sharp::invoke(make_server, 2.1, 2);
+    sharp::invoke(make_server, Port{80}, 2, 2.1);
 }
 ```
 
 `std::variant` can be stressed to emphasize that only one of many arguments is
 required, and the library will `static_assert` to ensure that's the case
+
