@@ -264,10 +264,10 @@ TEST(Overload, ConstOverloadFunctor) {
     EXPECT_EQ(overloaded_const(), 1);
 }
 
-TEST(Overload, TestDecomposer) {
+TEST(Overload, TestFlattener) {
     using namespace sharp::overload_detail;
     {
-        auto args = decompose_args(std::make_index_sequence<2>{},
+        auto args = flatten_args(std::make_index_sequence<2>{},
                 std::forward_as_tuple(foo, bar));
         EXPECT_TRUE((std::is_same<decltype(args),
                                   std::tuple<void (&) (), int (&) (int)>
@@ -276,7 +276,7 @@ TEST(Overload, TestDecomposer) {
     {
         auto one = +[] {};
         auto two = +[](int) {};
-        auto args = decompose_args(std::make_index_sequence<2>{},
+        auto args = flatten_args(std::make_index_sequence<2>{},
                 std::forward_as_tuple(std::move(one), std::move(two)));
         EXPECT_TRUE((std::is_same<decltype(args),
                                    std::tuple<void (*&&) (), void (*&&) (int)>
@@ -285,7 +285,7 @@ TEST(Overload, TestDecomposer) {
     {
         auto one = [] {};
         auto two = [](int) {};
-        auto args = decompose_args(std::make_index_sequence<2>{},
+        auto args = flatten_args(std::make_index_sequence<2>{},
                 std::forward_as_tuple(std::move(one), two));
         EXPECT_TRUE((std::is_same<decltype(args),
                                    std::tuple<decltype(one)&&, decltype(two)&>
@@ -294,7 +294,7 @@ TEST(Overload, TestDecomposer) {
     {
         auto one = [] {};
         auto two = +[](int) {};
-        auto args = decompose_args(std::make_index_sequence<2>{},
+        auto args = flatten_args(std::make_index_sequence<2>{},
                 std::forward_as_tuple(std::move(one), two));
         EXPECT_TRUE((std::is_same<decltype(args),
                                    std::tuple<decltype(one)&&, void (*&) (int)>

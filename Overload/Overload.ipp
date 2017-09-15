@@ -378,16 +378,16 @@ namespace overload_detail {
     }
 
     /**
-     * Decompose a CheckAndForward instance into a tuple of function pointers
+     * Flatten a CheckAndForward instance into a tuple of function pointers
      * and a function object, and for the rest just make a tuple only of that
      * element
      */
     template <typename T>
-    auto decompose(sharp::preferred_dispatch<0>, T&& instance) {
+    auto flatten(sharp::preferred_dispatch<0>, T&& instance) {
         return std::forward_as_tuple(std::forward<T>(instance));
     }
     template <typename T, EnableIfCheckForward<std::decay_t<T>>* = nullptr>
-    auto decompose(sharp::preferred_dispatch<1>, T&& instance) {
+    auto flatten(sharp::preferred_dispatch<1>, T&& instance) {
 
         // get the function pointers and the function object out into tuples
         // and concatenate them
@@ -400,16 +400,15 @@ namespace overload_detail {
     }
 
     /**
-     * Individually decompose each argument into a tuple, concatenate those
+     * Individually flatten each argument into a tuple, concatenate those
      * and return the concatenated tuple
      */
     template <std::size_t... Indices, typename TupleParams>
-    auto decompose_args(std::index_sequence<Indices...>,
-                        TupleParams&& params) {
-        auto decomposed_args = std::tuple_cat(decompose(
+    auto flatten_args(std::index_sequence<Indices...>, TupleParams&& params) {
+        auto flattened_args = std::tuple_cat(flatten(
                     sharp::preferred_dispatch<1>{},
                     std::get<Indices>(std::forward<TupleParams>(params)))...);
-        return decomposed_args;
+        return flattened_args;
     }
 
 } // namespace overload_detail
@@ -419,12 +418,12 @@ auto overload(Funcs&&... funcs) {
 
     using namespace overload_detail;
 
-    // decompose any CheckAndForward instances in the arguments into flag
+    // Flatten any CheckAndForward instances in the arguments into flag
     // arguments that include the functors and the function pointers that
     // compose that instance, this leads to a flag structure of overload
     // resolution and not a very vertical one with lots of inheritance with
     // recursive overload generation
-    auto args = decompose_args(
+    auto args = flatten_args(
             std::index_sequence_for<Funcs...>{},
             std::forward_as_tuple(std::forward<Funcs>(funcs)...));
 
