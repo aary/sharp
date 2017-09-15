@@ -203,77 +203,37 @@ namespace overload_detail {
     };
 
     /**
-     * The operator() generator, this just imports operator() for functors and
-     * writes a SFINAE enabled operator() for functions
-     */
-    template <typename Detector, int Index, typename Func>
-    class OverloadGenerator : public Func {
-    public:
-        template <typename F,
-                  EnableIfNotSelf<F, OverloadGenerator>* = nullptr>
-        explicit OverloadGenerator(F&& f) : Func{std::forward<F>(f)} {}
-
-        using Func::operator();
-    };
-    template <typename Detector, int Index,
-              typename ReturnType, typename... Args>
-    class OverloadGenerator<Detector, Index, ReturnType (*) (Args...)> {
-    public:
-        using FPtr_t = ReturnType (*) (Args...);
-
-        template <typename F,
-                  EnableIfNotSelf<F, OverloadGenerator>* = nullptr>
-        explicit OverloadGenerator(F&& f) : f_ptr{std::forward<F>(f)} {}
-
-        template <typename... Ts,
-                  EnableIfThisFunctionPointerBestOverload<Detector,
-                                                          Index,
-                                                          Ts...>* = nullptr>
-        decltype(auto) operator()(Ts&&... args) const {
-            return this->f_ptr(std::forward<Ts>(args)...);
-        }
-
-    private:
-        FPtr_t f_ptr;
-    };
-
-    /**
      * The implementation for function pointers, this contains a forwarding
      * reference variadic operator() that is only enabled if the current
      * function pointer is the best overload
      */
-    template <typename Detector, int Index, typename... Funcs>
+    template <typename Detector, typename... Funcs>
     class OverloadImpl {};
-    template <typename Detector, int Index, typename Func, typename... Funcs>
-    class OverloadImpl<Detector, Index, Func, Funcs...>
-            : public OverloadGenerator<Detector, Index, Func>,
-            public OverloadImpl<Detector, Index + 1, Funcs...> {
+    template <typename Detector, typename Func, typename... Funcs>
+    class OverloadImpl<Detector, Func, Funcs...>
+            : public Func, public OverloadImpl<Detector, Funcs...> {
     public:
 
         template <typename F, typename... Fs,
                   EnableIfNotSelf<F, OverloadImpl>* = nullptr>
         explicit OverloadImpl(F&& f, Fs&&... fs)
-            : OverloadGenerator<Detector, Index, Func>{std::forward<F>(f)},
-              OverloadImpl<Detector, Index + 1, Funcs...>{
-                  std::forward<Fs>(fs)...} {}
+            : Func{std::forward<F>(f)},
+              OverloadImpl<Detector, Funcs...>{
+                std::forward<Fs>(fs)...} {}
 
-        using OverloadGenerator<Detector, Index, Func>::operator();
-        using OverloadImpl<Detector, Index + 1, Funcs...>::operator();
+        using Func::operator();
+        using OverloadImpl<Detector, Funcs...>::operator();
     };
     /**
      * Base case, do not inherit from anything and do not import anything
      */
-    template <typename Detector, int Index, typename Func>
-    class OverloadImpl<Detector, Index, Func>
-            : public OverloadGenerator<Detector, Index, Func> {
+    template <typename Detector, typename Func>
+    class OverloadImpl<Detector, Func> : public Func {
     public:
+        template <typename F, EnableIfNotSelf<F, OverloadImpl>* = nullptr>
+        explicit OverloadImpl(F&& f) : Func{std::forward<F>(f)} {}
 
-        template <typename F,
-                  EnableIfNotSelf<F, OverloadImpl>* = nullptr>
-        explicit OverloadImpl(F&& f)
-            : OverloadGenerator<Detector, Index, Func>{std::forward<F>(f)} {}
-
-        using OverloadGenerator<Detector, Index, Func>::operator();
+        using Func::operator();
     };
 
     /**
@@ -297,12 +257,9 @@ namespace overload_detail {
          * to store the function pointers and the functors
          */
         using Functors = OverloadImpl<
-            Detector, 0,
+            Detector,
             std::tuple_element_t<IndicesFunctors, std::tuple<Funcs...>>...>;
-        using Functions = OverloadImpl<
-            Detector, 0,
-            std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>...>;
-        using FunctionsStorage = std::tuple<std::decay_t<
+        using Functions = std::tuple<std::decay_t<
             std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>>...>;
 
         /**
@@ -312,22 +269,25 @@ namespace overload_detail {
         template <typename Args, EnableIfTuple<Args>* = nullptr>
         explicit CheckAndForward(Args&& args)
             : functors{std::get<IndicesFunctors>(std::forward<Args>(args))...},
-            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...},
-            fptrs{std::get<IndicesFunctions>(std::forward<Args>(args))...}
+            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...}
         {}
 
         /**
-         * The templated function call operator, make sure that the Detector
-         * resolution is not an error and then forward the arguments to the
-         * Overload class
+         * The templated function call operator, make sure that one of the
+         * function pointers are going to be called and then forward the
+         * arguments to the appropriate function pointer, as determined by the
+         * function overload detector
          */
         template <typename... Args,
-                  EnableIfFunctionPreferred<Detector, Args...>* = nullptr>
+                  EnableIfFunctionPreferred<Detector, Args...>* = nullptr,
+                  int Index = decltype(std::declval<Detector>()(
+                                       std::declval<Args>()...))::value>
         auto operator()(Args&&... args) const
-                -> decltype(std::declval<Functions>()(
+                -> decltype(std::get<Index>(std::declval<Functions>())(
                             std::declval<Args>()...)) {
+            using std::get;
             static_assert(overload_well_formed<const Detector, Args...>, "");
-            return this->functions(std::forward<Args>(args)...);
+            return get<Index>(this->functions)(std::forward<Args>(args)...);
         }
 
         /**
@@ -373,11 +333,6 @@ namespace overload_detail {
          */
         Functors functors;
         Functions functions;
-
-        /**
-         * Store the function pointers for ease
-         */
-        FunctionsStorage fptrs;
     };
 
     /**
@@ -436,12 +391,12 @@ namespace overload_detail {
 
         // get the function pointers and the function object out into tuples
         // and concatenate them
-        auto fptrs = instance.fptrs;
+        auto functions = instance.functions;
         auto&& functor = std::forward<T>(instance).functors;
         auto functors = std::forward_as_tuple(
                 std::forward<decltype(functor)>(functor));
 
-        return std::tuple_cat(std::move(fptrs), std::move(functors));
+        return std::tuple_cat(std::move(functions), std::move(functors));
     }
 
     /**

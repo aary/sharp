@@ -349,24 +349,3 @@ TEST(Overload, TestFunctionOverloadDetectorFallback) {
     EXPECT_TRUE((!std::is_same<decltype(std::declval<Detector>()(1.2)),
                                InaccessibleConstant<0>>::value));
 }
-
-TEST(Overload, TestOverloadFunctionImpl) {
-    using namespace sharp::overload_detail;
-
-    auto one = +[]() { return 1; };
-    auto two = +[](int&&) { return 0; };
-
-    using Detector = FunctionOverloadDetector<0,
-          decltype(one),  decltype(two)>;
-
-    EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(1)),
-                              InaccessibleConstant<1>>::value));
-    EXPECT_TRUE((std::is_same<
-                decltype(std::declval<Detector>()()),
-                InaccessibleConstant<0>>::value));
-
-    auto overload_impl_function = OverloadImpl<Detector, 0,
-         decltype(one),  decltype(two)>{one, two};
-    EXPECT_EQ(overload_impl_function(), 1);
-    EXPECT_EQ(overload_impl_function(1), 0);
-}
