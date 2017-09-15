@@ -1,0 +1,10 @@
+cxx_test(
+    name = "test",
+    srcs = [
+        "test.cpp",
+    ],
+    deps = [
+        "//MoveInto:MoveInto",
+        "//Traits:Traits",
+    ],
+)
