@@ -1,0 +1,15 @@
+cxx_library(
+    name = "MoveInto",
+    header_namespace = "sharp/MoveInto",
+    exported_headers = [
+        "MoveInto.ipp",
+        "MoveInto.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//MoveInto/test:test",
+    ],
+)
