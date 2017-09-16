@@ -206,6 +206,19 @@ namespace overload_detail {
      * The implementation for function pointers, this contains a forwarding
      * reference variadic operator() that is only enabled if the current
      * function pointer is the best overload
+     *
+     * In C++17 this can be made a lot simpler
+     *
+     *      template<class... Ts>
+     *      struct overloaded : Ts... {
+     *          using Ts::operator()...;
+     *      };
+     *      template<class... Ts>
+     *      overloaded(Ts...) -> overloaded<Ts...>;
+     *
+     * This makes convenient use of template argument deduction via template
+     * arguments and the pack expansion on using statements that does not
+     * currently exist
      */
     template <typename Detector, typename... Funcs>
     class OverloadImpl {};
