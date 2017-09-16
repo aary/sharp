@@ -360,6 +360,35 @@ namespace detail {
         using type = sharp::Promise<typename std::decay_t<F>::value_type>;
     };
 
+    /**
+     * Waits for all the input futures to finish being set asynchronusly
+     */
+    template <typename Futures, typename Bookkeeping, typename  Func>
+    void wait_for_all(Futures&& futures, Bookkeeping& bookkeeping, Func f) {
+
+        // iterate through all the futures and signal the promsise when all of
+        // them have been satisfied
+        sharp::for_each(futures, [&bookkeeping, &f](auto& future, auto index) {
+            // when the future is complete move it into the tuple of ready
+            // futures, which will at the end contain all the futures that are
+            // ready at a stage where you can signal to the user
+            future.then([bookkeeping, index, f](auto future) {
+                sharp::fetch(bookkeeping->return_promises, index)
+                    .set_value(future.get());
+
+                // if all the futures have been completed, signal
+                ++bookkeeping->counter;
+                if (f(bookkeeping->counter.load())) {
+                    bookkeeping->promise.set_value(
+                        std::move(bookkeeping->return_futures));
+                }
+
+                // return to make the future code not error out
+                return 0;
+            });
+        });
+    }
+
     template <typename Func, typename... Futures>
     auto when_impl_variadic(Func f, Futures&&... args) {
 
@@ -391,27 +420,9 @@ namespace detail {
         auto bookkeeping = std::make_shared<Bookkeeping>();
         auto future = bookkeeping->promise.get_future();
 
-        // iterate through all the futures and signal the promsise when all of
-        // them have been satisfied
-        sharp::for_each(futures, [&bookkeeping, &f](auto& future, auto index) {
-            // when the future is complete move it into the tuple of ready
-            // futures, which will at the end contain all the futures that are
-            // ready at a stage where you can signal to the user
-            future.then([bookkeeping, index, f](auto future) {
-                std::get<static_cast<int>(index)>(bookkeeping->return_promises)
-                    .set_value(future.get());
-
-                // if all the futures have been completed, signal
-                ++bookkeeping->counter;
-                if (f(bookkeeping->counter.load())) {
-                    bookkeeping->promise.set_value(
-                        std::move(bookkeeping->return_futures));
-                }
-
-                // return to make the future code not error out
-                return 0;
-            });
-        });
+        // wait for all the futures to finish asynchronously by attaching
+        // callbacks on all the input futures
+        wait_for_all(futures, bookkeeping, f);
 
         return future;
     }
@@ -453,22 +464,7 @@ namespace detail {
         // iterate through all the futures in the bookkeeping struct and then
         // set callbacks on them via .then(), when sufficient futures have
         // finished, signal via the promise that the task has been done
-        sharp::for_each(sharp::range(first, last),
-                [&bookkeeping, &f](auto& future, auto index) {
-
-            future.then([bookkeeping, index, f](auto future) {
-                bookkeeping->return_promises[static_cast<int>(index)]
-                    .set_value(future.get());
-
-                ++bookkeeping->counter;
-                if (f(bookkeeping->counter.load())) {
-                    bookkeeping->promise.set_value(
-                        std::move(bookkeeping->return_futures));
-                }
-
-                return 0;
-            });
-        });
+        wait_for_all(sharp::range(first, last), bookkeeping, f);
 
         return future;
     }
