@@ -1,0 +1,129 @@
+cxx_library(
+    name = "boost",
+
+    # Expose only the libraries needed for coroutines
+    exported_deps = [
+        "//boost:boost_headers",
+        "//boost:chrono",
+        "//boost:context",
+        "//boost:coroutine",
+        "//boost:system",
+        "//boost:thread",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+cxx_library(
+    name = "boost_headers",
+    header_namespace = "",
+
+    exported_headers = subdir_glob([
+        ("boost", "**/*.hpp"),
+        ("boost", "**/*.h"),
+        ("boost", "**/*.ipp"),
+    ]),
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+# These prebuilt libraries will be built by ./build.sh
+prebuilt_cxx_library(
+    name = "boost_chrono",
+    lib_dir = "boost/stage/lib",
+)
+prebuilt_cxx_library(
+    name = "boost_context",
+    lib_dir = "boost/stage/lib",
+)
+prebuilt_cxx_library(
+    name = "boost_coroutine",
+    lib_dir = "boost/stage/lib",
+)
+prebuilt_cxx_library(
+    name = "boost_system",
+    lib_dir = "boost/stage/lib",
+)
+prebuilt_cxx_library(
+    name = "boost_thread",
+    lib_dir = "boost/stage/lib",
+)
+
+cxx_library(
+    name = "chrono",
+    header_namespace = "",
+    deps = [
+        "//boost:boost_headers",
+    ],
+    exported_deps = [
+        ":boost_chrono",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+cxx_library(
+    name = "context",
+    header_namespace = "",
+    deps = [
+        "//boost:boost_headers",
+    ],
+    exported_deps = [
+        ":boost_context",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+cxx_library(
+    name = "coroutine",
+    header_namespace = "",
+    deps = [
+        "//boost:boost_headers",
+    ],
+    exported_deps = [
+        ":boost_coroutine",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+cxx_library(
+    name = "system",
+    header_namespace = "",
+    deps = [
+        "//boost:boost_headers",
+    ],
+    exported_deps = [
+        ":boost_system",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+cxx_library(
+    name = "thread",
+    header_namespace = "",
+    deps = [
+        "//boost:boost_headers",
+    ],
+    exported_deps = [
+        ":boost_thread",
+    ],
+
+    visibility = [
+        "PUBLIC",
+    ],
+)
