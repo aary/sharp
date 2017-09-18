@@ -33,6 +33,16 @@ namespace {
     struct LessThanSize {
         static constexpr const bool value = sizeof(One) < sizeof(Two);
     };
+
+    class MemberFunctions {
+    public:
+        void a() {}
+        void b() const{}
+        void c() & {}
+        void d() const & {}
+        void e() && {}
+        void f() const && {}
+    };
 } // namespace <anonymous>
 
 template <typename Tag>
@@ -419,4 +429,35 @@ TEST(Traits, Sort) {
                                                 std::uint16_t>>,
                               std::tuple<std::uint8_t, std::uint16_t,
                                          std::uint32_t>>::value));
+}
+
+TEST(Traits, WhichInvocableType) {
+    auto functor = []{};
+    using Functor = decltype(functor);
+    auto function_pointer = +[]{};
+    using FunctionPointer = decltype(function_pointer);
+
+    using A = decltype(&MemberFunctions::a);
+    using B = decltype(&MemberFunctions::b);
+    using C = decltype(&MemberFunctions::c);
+    using D = decltype(&MemberFunctions::d);
+    using E = decltype(&MemberFunctions::e);
+    using F = decltype(&MemberFunctions::f);
+
+    EXPECT_EQ((sharp::WhichInvocableType<FunctionPointer>::value),
+              sharp::InvocableType::F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<Functor>::value),
+              sharp::InvocableType::FUNCTOR);
+    EXPECT_EQ((sharp::WhichInvocableType<A>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<B>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<C>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<D>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<E>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
+    EXPECT_EQ((sharp::WhichInvocableType<F>::value),
+              sharp::InvocableType::MEMBER_F_PTR);
 }

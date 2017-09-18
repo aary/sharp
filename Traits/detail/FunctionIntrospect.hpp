@@ -25,6 +25,17 @@
 
 namespace sharp {
 
+/**
+ * MEMBER_F_PTR -> member function pointer
+ * F_PTR        -> function pointer
+ * FUNCTOR      -> functor
+ */
+enum InvocableType {
+    MEMBER_F_PTR,
+    F_PTR,
+    FUNCTOR,
+};
+
 namespace detail {
 
     /**
@@ -105,6 +116,31 @@ namespace detail {
         using type = std::tuple<Args...>;
     };
 
+    template <typename F>
+    struct WhichInvocableTypeImpl
+            : std::integral_constant<InvocableType, FUNCTOR> {};
+    template <typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (*) (Args...)>
+            : std::integral_constant<InvocableType, F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...)>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...) &>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const &>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...) &&>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+    template <typename Class, typename Return, typename... Args>
+    struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const &&>
+            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+
 } // namespace detail
 
 /**
@@ -132,6 +168,16 @@ struct Arguments {
 
     using type = typename detail::ArgumentsImpl<std::decay_t<Func>>::type;
 };
+
+/**
+ * @class InvocableType
+ *
+ * Determines what type of function pointer the thing is, whether a functor, a
+ * member function pointer or a plain function
+ */
+template <typename T>
+struct WhichInvocableType : public std::integral_constant<InvocableType,
+        detail::WhichInvocableTypeImpl<T>::value> {};
 
 /**
  * Convenience template for uniformity with the standard library type traits,
