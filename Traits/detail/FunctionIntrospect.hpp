@@ -30,11 +30,9 @@ namespace sharp {
  * F_PTR        -> function pointer
  * FUNCTOR      -> functor
  */
-enum InvocableType {
-    MEMBER_F_PTR,
-    F_PTR,
-    FUNCTOR,
-};
+constexpr auto MEMBER_F_PTR = 0;
+constexpr auto F_PTR = 1;
+constexpr auto FUNCTOR = 2;
 
 namespace detail {
 
@@ -118,28 +116,28 @@ namespace detail {
 
     template <typename F>
     struct WhichInvocableTypeImpl
-            : std::integral_constant<InvocableType, FUNCTOR> {};
+            : std::integral_constant<int, FUNCTOR> {};
     template <typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (*) (Args...)>
-            : std::integral_constant<InvocableType, F_PTR> {};
+            : std::integral_constant<int, F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...)>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...) &>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const &>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...) &&>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
     template <typename Class, typename Return, typename... Args>
     struct WhichInvocableTypeImpl<Return (Class::*) (Args...) const &&>
-            : std::integral_constant<InvocableType, MEMBER_F_PTR> {};
+            : std::integral_constant<int, MEMBER_F_PTR> {};
 
 } // namespace detail
 
@@ -176,8 +174,8 @@ struct Arguments {
  * member function pointer or a plain function
  */
 template <typename T>
-struct WhichInvocableType : public std::integral_constant<InvocableType,
-        detail::WhichInvocableTypeImpl<T>::value> {};
+struct WhichInvocableType : public std::integral_constant<int,
+        detail::WhichInvocableTypeImpl<std::decay_t<T>>::value> {};
 
 /**
  * Convenience template for uniformity with the standard library type traits,
@@ -188,6 +186,8 @@ using ReturnType_t = typename ReturnType<Func>::type;
 template <typename Func>
 using Arguments_t = typename Arguments<Func>::type;
 
+template <typename Func>
+constexpr auto WhichInvocableType_v = WhichInvocableType<Func>::value;
 /*******************************************************************************
  * Testing things
  ******************************************************************************/
