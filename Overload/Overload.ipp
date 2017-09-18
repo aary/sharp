@@ -17,27 +17,44 @@ namespace overload_detail {
      * Since lambdas in user space cannot return this.  This is used as the
      * return type for function pointer calls when constructing a list of
      * possible function calls.  If overload resolution dispatches to
-     * something that returns an instance of InaccessibleConstant then it has
+     * something that returns an instance of FPtrConstant then it has
      * to be a function pointer.
      */
     template <int Value>
-    class InaccessibleConstant : public std::integral_constant<int, Value> {};
+    class FPtrConstant : public std::integral_constant<int, Value> {};
+    template <int Value>
+    class MemberFPtrConstant : public std::integral_constant<int, Value> {};
 
     /**
-     * Check if the type is an instantiation of InaccessibleConstant
+     * Check if the type is an instantiation of FPtrConstant
      */
     template <typename T>
-    struct IsInstantiationOfInaccessibleConstant
+    struct IsInstantiationOfFPtrConstant
             : public std::integral_constant<bool, false> {};
     template <int Value>
-    struct IsInstantiationOfInaccessibleConstant<InaccessibleConstant<Value>>
+    struct IsInstantiationOfFPtrConstant<FPtrConstant<Value>>
+            : public std::integral_constant<bool, true> {};
+    template <typename T>
+    struct IsInstantiationOfMemberFPtrConstant
+            : public std::integral_constant<bool, false> {};
+    template <int Value>
+    struct IsInstantiationOfMemberFPtrConstant<MemberFPtrConstant<Value>>
             : public std::integral_constant<bool, true> {};
 
+    /**
+     * Invoke a member function pointer
+     */
+    template <typename MemFunc, typename Instance, typename... Args>
+    decltype(auto) invoke_mem_func(MemFunc func, Instance&& instance,
+                                   Args&&... args) {
+        return (std::forward<Instance>(instance).*func)(
+                    std::forward<Args>(args)...);
+    }
     /**
      * The overload detector, all this does is import the list of function
      * calls in each type, if function type is a functor then operator() will
      * be imported, and if the type is a function type the return type will be
-     * changed to InaccessibleConstant and a pretend operator() will be
+     * changed to FPtrConstant and a pretend operator() will be
      * created
      */
     template <int current, typename... Funcs>
@@ -58,7 +75,7 @@ namespace overload_detail {
         /**
          * Declare the current impl to just be using the operator() of the
          * functor, since that will never be able to return an
-         * InaccessibleConstant this can be used to distinguish between
+         * FPtrConstant this can be used to distinguish between
          * whether a function is being called or a functor
          */
         using Func::operator();
@@ -85,9 +102,87 @@ namespace overload_detail {
          *
          * And then import all the other impl functions as well
          */
-        InaccessibleConstant<current> operator()(Args...) const;
+        FPtrConstant<current> operator()(Args...) const;
         using FunctionOverloadDetector<current + 1, Tail...>::operator();
     };
+
+    /**
+     * Specializations for member function pointers, unfortunately all these
+     * are needed
+     *
+     * I probably need to write twice these many for volatile but who needs that
+     */
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current, Return (Class::*) (Args...),
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = std::decay_t<Class>;
+        MemberFPtrConstant<current> operator()(RightClassType&, Args...) const;
+        MemberFPtrConstant<current> operator()(RightClassType&&, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current, Return (Class::*) (Args...) const,
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = const std::decay_t<Class>;
+        MemberFPtrConstant<current> operator()(RightClassType&, Args...) const;
+        MemberFPtrConstant<current> operator()(RightClassType&&, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current, Return (Class::*) (Args...) &,
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = std::decay_t<Class>&;
+        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current,
+                                   Return (Class::*) (Args...) const &,
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = const std::decay_t<Class>&;
+        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current, Return (Class::*) (Args...) &&,
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = std::decay_t<Class>&&;
+        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+    template <int current,
+              typename Return, typename Class, typename... Args,
+              typename... Tail>
+    class FunctionOverloadDetector<current,
+                                   Return (Class::*) (Args...) const &&,
+                                   Tail...>
+            : public FunctionOverloadDetector<current + 1, Tail...> {
+    public:
+        using RightClassType = const std::decay_t<Class>&&;
+        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
+        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+    };
+
     /**
      * Base case just creates a never callable operator()
      */
@@ -105,35 +200,44 @@ namespace overload_detail {
          * Also the member is protected so is not visible in user score
          */
         class Inaccessible;
-        InaccessibleConstant<current> operator()(Inaccessible) const;
+        FPtrConstant<current> operator()(Inaccessible) const;
     };
 
     /**
      * Enable if the return type of overload detector is an instantiation
-     * of InaccessibleConstant
+     * of FPtrConstant
      */
     template <typename Detector, int Index, typename... Ts>
     using EnableIfThisFunctionPointerBestOverload = std::enable_if_t<
         std::is_same<
             decltype(std::declval<Detector>()(std::declval<Ts>()...)),
-            InaccessibleConstant<Index>>::value>;
+            FPtrConstant<Index>>::value>;
     /**
      * Enable if a function pointer type is the type preferred in overload
      * dispatch
      */
     template <typename Detector, typename... Args>
     using EnableIfFunctionPreferred = std::enable_if_t<
-        IsInstantiationOfInaccessibleConstant<
+        IsInstantiationOfFPtrConstant<
             decltype(std::declval<Detector>()(std::declval<Args>()...))>
         ::value>;
     /**
      * Enable if a functor overload is preferred, if the overload dispatch
-     * does not return an instantiation of InaccessibleConstant then a functor
+     * does not return an instantiation of FPtrConstant then a functor
      * overload will be preferred
      */
     template <typename Detector, typename... Args>
     using EnableIfFunctorPreferred = std::enable_if_t<
-        !IsInstantiationOfInaccessibleConstant<
+        !IsInstantiationOfFPtrConstant<
+            decltype(std::declval<Detector>()(std::declval<Args>()...))>
+        ::value>;
+    /**
+     * Enable if a member function pointer type is the type preferred in
+     * overload dispatch
+     */
+    template <typename Detector, typename... Args>
+    using EnableIfMemFuncPreferred = std::enable_if_t<
+        IsInstantiationOfMemberFPtrConstant<
             decltype(std::declval<Detector>()(std::declval<Args>()...))>
         ::value>;
     /**
@@ -162,43 +266,68 @@ namespace overload_detail {
     /**
      * Base case
      */
-    template <typename FunctorVList, typename FPtrVList, int current,
-              typename... Funcs>
-    struct SplitLists {
+    template <typename FunctorVList, typename FPtrVList, typename MemFPtrVList,
+              int current, typename T>
+    struct SplitLists;
+    template <typename FunctorVList, typename FPtrVList, typename MemFPtrVList,
+              int current>
+    struct SplitLists<FunctorVList, FPtrVList, MemFPtrVList, current,
+                      ValueList<>> {
         static_assert(current >= 0, "");
-        using type = std::pair<FunctorVList, FPtrVList>;
+        using type = std::tuple<FunctorVList, FPtrVList, MemFPtrVList>;
     };
-    template <typename FunctorVList, typename FPtrVList,
-              int current, typename Head, typename... Funcs>
-    struct SplitLists<FunctorVList, FPtrVList, current, Head, Funcs...> {
+    template <typename FunctorVList, typename FPtrVList, typename MemFPtrVList,
+              int current, int... Types>
+    struct SplitLists<FunctorVList, FPtrVList, MemFPtrVList,
+                      current, ValueList<FUNCTOR, Types...>> {
         static_assert(current >= 0, "");
 
         // in the default case the head is a functor so concatenate the empty
         // value list with 0
         using NewFunctorVList = Concatenate_t<FunctorVList, ValueList<current>>;
+        using NewMemFPtrVlist = MemFPtrVList;
         using NewFPtrVList = FPtrVList;
 
-        using Next = SplitLists<NewFunctorVList, NewFPtrVList, current + 1,
-                                Funcs...>;
+        using Next = SplitLists<NewFunctorVList, NewFPtrVList, NewMemFPtrVlist,
+                                current + 1,
+                                ValueList<Types...>>;
         using type = typename Next::type;
     };
     /**
      * Specialization for function pointers
      */
-    template <typename FunctorVList, typename FPtrVList,
-              int current,
-              typename ReturnType, typename... Args, typename... Funcs>
-    struct SplitLists<FunctorVList, FPtrVList, current,
-                      ReturnType (*) (Args...), Funcs...> {
+    template <typename FunctorVList, typename FPtrVList, typename MemFPtrVList,
+              int current, int... Types>
+    struct SplitLists<FunctorVList, FPtrVList, MemFPtrVList,
+                      current, ValueList<F_PTR, Types...>> {
         static_assert(current >= 0, "");
 
         // in the default case the head is a functor so concatenate the empty
         // value list with 0
         using NewFunctorVList = FunctorVList;
         using NewFPtrVList = Concatenate_t<FPtrVList, ValueList<current>>;
+        using NewMemFPtrVlist = MemFPtrVList;
 
-        using Next = SplitLists<NewFunctorVList, NewFPtrVList, current + 1,
-                                Funcs...>;
+        using Next = SplitLists<NewFunctorVList, NewFPtrVList, NewMemFPtrVlist,
+                                current + 1,
+                                ValueList<Types...>>;
+        using type = typename Next::type;
+    };
+    template <typename FunctorVList, typename FPtrVList, typename MemFPtrVList,
+              int current, int... Types>
+    struct SplitLists<FunctorVList, FPtrVList, MemFPtrVList,
+                      current, ValueList<MEMBER_F_PTR, Types...>> {
+        static_assert(current >= 0, "");
+
+        // in the default case the head is a functor so concatenate the empty
+        // value list with 0
+        using NewFunctorVList = FunctorVList;
+        using NewFPtrVList = FPtrVList;
+        using NewMemFPtrVlist = Concatenate_t<MemFPtrVList, ValueList<current>>;
+
+        using Next = SplitLists<NewFunctorVList, NewFPtrVList, NewMemFPtrVlist,
+                                current + 1,
+                                ValueList<Types...>>;
         using type = typename Next::type;
     };
 
@@ -256,13 +385,15 @@ namespace overload_detail {
      */
     template <typename Detector,
               typename ValueListFunctions, typename ValueListFunctors,
-              typename... Funcs>
+              typename ValueListMemFuncs, typename... Funcs>
     class CheckAndForward;
     template <typename Detector, int... IndicesFunctions,
-              int... IndicesFunctors, typename... Funcs>
+              int... IndicesFunctors, int... IndicesMemFuncs,
+              typename... Funcs>
     class CheckAndForward<Detector,
                           ValueList<IndicesFunctions...>,
                           ValueList<IndicesFunctors...>,
+                          ValueList<IndicesMemFuncs...>,
                           Funcs...> {
     public:
         /**
@@ -274,6 +405,8 @@ namespace overload_detail {
             std::tuple_element_t<IndicesFunctors, std::tuple<Funcs...>>...>;
         using Functions = std::tuple<std::decay_t<
             std::tuple_element_t<IndicesFunctions, std::tuple<Funcs...>>>...>;
+        using MemFuncs = std::tuple<std::decay_t<
+            std::tuple_element_t<IndicesMemFuncs, std::tuple<Funcs...>>>...>;
 
         /**
          * Only use this constructor when the instance is is a tuple-like
@@ -282,7 +415,8 @@ namespace overload_detail {
         template <typename Args, EnableIfTuple<Args>* = nullptr>
         explicit CheckAndForward(Args&& args)
             : functors{std::get<IndicesFunctors>(std::forward<Args>(args))...},
-            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...}
+            functions{std::get<IndicesFunctions>(std::forward<Args>(args))...},
+            mem_funcs{std::get<IndicesMemFuncs>(std::forward<Args>(args))...}
         {}
 
         /**
@@ -301,6 +435,26 @@ namespace overload_detail {
             using std::get;
             static_assert(overload_well_formed<const Detector, Args...>, "");
             return get<Index>(this->functions)(std::forward<Args>(args)...);
+        }
+
+        /**
+         * The templated function call operator, make sure that one of the
+         * function pointers are going to be called and then forward the
+         * arguments to the appropriate function pointer, as determined by the
+         * function overload detector
+         */
+        template <typename Instance, typename... Args,
+                  EnableIfMemFuncPreferred<Detector, Instance, Args...>*
+                      = nullptr,
+                  int Index = decltype(std::declval<Detector>()(
+                                       std::declval<Instance>(),
+                                       std::declval<Args>()...))::value>
+        decltype(auto) operator()(Instance&& instance, Args&&... args) const {
+            using std::get;
+            static_assert(overload_well_formed<Detector, Instance, Args...>,"");
+            return invoke_mem_func(get<Index>(this->mem_funcs),
+                    std::forward<Instance>(instance),
+                    std::forward<Args>(args)...);
         }
 
         /**
@@ -346,6 +500,7 @@ namespace overload_detail {
          */
         Functors functors;
         Functions functions;
+        MemFuncs mem_funcs;
     };
 
     /**
@@ -354,9 +509,10 @@ namespace overload_detail {
     template <typename T>
     struct IsInstantiationCheckForward
         : public std::integral_constant<bool, false> {};
-    template <typename One, typename Two, typename Three, typename... Funcs>
+    template <typename One, typename Two, typename Three, typename Four,
+              typename... Funcs>
     struct IsInstantiationCheckForward<
-        CheckAndForward<One, Two, Three, Funcs...>>
+        CheckAndForward<One, Two, Three, Four, Funcs...>>
         : public std::integral_constant<bool, true> {};
     /**
      * Enable if the type is an instantiation of CheckAndForward
@@ -378,14 +534,18 @@ namespace overload_detail {
             0, std::decay_t<Funcs>...>;
 
 	    // get the value list of the functions and the functors
-        using SplitValueLists = typename overload_detail::SplitLists<
-            ValueList<>, ValueList<>, 0, std::decay_t<Funcs>...>::type;
-        using FunctorVList = typename SplitValueLists::first_type;
-        using FPtrVList = typename SplitValueLists::second_type;
+        using Split = typename overload_detail::SplitLists<
+            ValueList<>, ValueList<>, ValueList<>,
+            0,
+            ValueList<sharp::WhichInvocableType_v<Funcs>...>>::type;
+        using FunctorVList = std::tuple_element_t<0, Split>;
+        using FPtrVList = std::tuple_element_t<1, Split>;
+        using MemFPtrVList = std::tuple_element_t<2, Split>;
 
         // return the overloaded object
         return overload_detail::CheckAndForward<Detector,
                                                 FPtrVList, FunctorVList,
+                                                MemFPtrVList,
                                                 std::decay_t<Funcs>...>{
             std::move(funcs)};
     }
@@ -405,11 +565,13 @@ namespace overload_detail {
         // get the function pointers and the function object out into tuples
         // and concatenate them
         auto functions = instance.functions;
+        auto mem_funcs = instance.mem_funcs;
         auto&& functor = std::forward<T>(instance).functors;
         auto functors = std::forward_as_tuple(
                 std::forward<decltype(functor)>(functor));
 
-        return std::tuple_cat(std::move(functions), std::move(functors));
+        return std::tuple_cat(std::move(functions), std::move(functors),
+                std::move(mem_funcs));
     }
 
     /**

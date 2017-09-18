@@ -1,6 +1,9 @@
 #include <sharp/Overload/Overload.hpp>
+#include <sharp/Utility/Utility.hpp>
 
 #include <gtest/gtest.h>
+
+#include <cstdint>
 
 using namespace sharp;
 
@@ -25,6 +28,14 @@ namespace {
     int const_lvalue(const int&) { return 2; }
     int rvalue(int&&) { return 3; }
     int const_rvalue(const int&&) { return 4; }
+
+    class MemberFunctions {
+    public:
+        int lvalue(int&) { return 1; }
+        int const_lvalue(const int&) { return 2; }
+        int rvalue(int&&) { return 3; }
+        int const_rvalue(const int&&) { return 4; }
+    };
 
     /**
      * Do different things with const overloads
@@ -56,6 +67,20 @@ TEST(Overload, BasicFunctionOverloadTest) {
     auto overloaded = sharp::overload(foo, bar);
     EXPECT_EQ(overloaded(1), 1);
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
+}
+
+TEST(Overload, BasicMemberFunctionOverloadTest) {
+    auto overloaded = sharp::overload(
+        &MemberFunctions::lvalue, &MemberFunctions::rvalue,
+        &MemberFunctions::const_lvalue, &MemberFunctions::const_rvalue );
+
+    auto instance = MemberFunctions{};
+    auto integer = 1;
+    const auto const_integer = 2;
+    EXPECT_EQ(overloaded(instance, integer), 1);
+    EXPECT_EQ(overloaded(instance, const_integer), 2);
+    EXPECT_EQ(overloaded(instance, 1), 3);
+    EXPECT_EQ(overloaded(instance, std::move(const_integer)), 4);
 }
 
 TEST(Overload, BasicOneFunctorOneFunctionTest) {
@@ -181,23 +206,22 @@ TEST(Overload, TestRefnessIntertwined) {
 TEST(Overload, TestInternalSplitLists) {
 
     EXPECT_TRUE((std::is_same<
-            typename overload_detail::SplitLists<ValueList<>, ValueList<>, 0,
-                                One,
-                                void (*) (),
-                                Two,
-                                int (*) (double)>::type,
-            std::pair<ValueList<0, 2>, ValueList<1, 3>>>::value));
+            typename overload_detail::SplitLists<
+                ValueList<>, ValueList<>, ValueList<>,
+                0,
+                sharp::ValueList<FUNCTOR, F_PTR, FUNCTOR, F_PTR>>::type,
+            std::tuple<ValueList<0, 2>, ValueList<1, 3>, ValueList<>>>::value));
 }
 
-// // TEST(Overload, TestAmbiguousOverload) {
-    // // auto integer = 2;
-    // // auto overloaded = sharp::overload(
-        // // +[](const int&) { return 0; },
-        // // +[](int) { return 1; });
-        // // // [](int) { return 2; });
+// TEST(Overload, TestAmbiguousOverload) {
+    // auto integer = 2;
+    // auto overloaded = sharp::overload(
+        // +[](const int&) { return 0; },
+        // +[](int) { return 1; });
+        // // [](int) { return 2; });
 
-    // // EXPECT_EQ(overloaded(1), 0);
-// // }
+    // EXPECT_EQ(overloaded(1), 0);
+// }
 
 TEST(Overload, TestFallbackLambdaForwarding) {
     auto overloaded = sharp::overload(
@@ -317,7 +341,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
               decltype(five)>;
 
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(1)),
-                                  InaccessibleConstant<0>>::value));
+                                  FPtrConstant<0>>::value));
     }
     {
         const auto& lvalue = 1;
@@ -325,7 +349,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
               decltype(two), decltype(three), decltype(one), decltype(four),
               decltype(five)>;
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(lvalue)),
-                                  InaccessibleConstant<1>>::value));
+                                  FPtrConstant<1>>::value));
     }
 
     {
@@ -338,6 +362,39 @@ TEST(Overload, TestFunctionOverloadDetector) {
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()('a')), char>
                     ::value));
     }
+
+    {
+        auto one = &MemberFunctions::lvalue;
+        auto two = &MemberFunctions::const_lvalue;
+        auto three = &MemberFunctions::rvalue;
+        auto four = &MemberFunctions::const_rvalue;
+
+        using Detector = FunctionOverloadDetector<0,
+              decltype(one), decltype(two), decltype(three), decltype(four)>;
+
+        auto i = 1;
+        auto instance = MemberFunctions{};
+        EXPECT_TRUE((std::is_same<
+                    decltype(std::declval<Detector>()(
+                            instance,
+                            i)),
+                    MemberFPtrConstant<0>>::value));
+        EXPECT_TRUE((std::is_same<
+                    decltype(std::declval<Detector>()(
+                            instance,
+                            sharp::as_const(i))),
+                    MemberFPtrConstant<1>>::value));
+        EXPECT_TRUE((std::is_same<
+                    decltype(std::declval<Detector>()(
+                            instance,
+                            sharp::decay_copy(i))),
+                    MemberFPtrConstant<2>>::value));
+        EXPECT_TRUE((std::is_same<
+                    decltype(std::declval<Detector>()(
+                            instance,
+                            static_cast<const int&&>(i))),
+                    MemberFPtrConstant<3>>::value));
+    }
 }
 
 TEST(Overload, TestFunctionOverloadDetectorFallback) {
@@ -347,5 +404,5 @@ TEST(Overload, TestFunctionOverloadDetectorFallback) {
 
     using Detector = FunctionOverloadDetector<0, decltype(one), decltype(two)>;
     EXPECT_TRUE((!std::is_same<decltype(std::declval<Detector>()(1.2)),
-                               InaccessibleConstant<0>>::value));
+                               FPtrConstant<0>>::value));
 }

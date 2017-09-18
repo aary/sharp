@@ -5,5 +5,6 @@ cxx_test(
     ],
     deps = [
         "//Overload:Overload",
+        "//Utility:Utility",
     ],
 )
