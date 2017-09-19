@@ -465,15 +465,15 @@ TEST(Traits, ReturnType_t) {
 
 TEST(Traits, Arguments_t) {
     EXPECT_TRUE((std::is_same<Arguments_t<Functor>,
-                               std::tuple<int, double>>::value));
+                               sharp::Args<int, double>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<decltype(some_function)>,
-                              std::tuple<int, char>>::value));
+                              sharp::Args<int, char>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<decltype(&some_function)>,
-                              std::tuple<int, char>>::value));
+                              sharp::Args<int, char>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<TemplatedFunctor>,
-                              std::tuple<sharp::Unspecified>>::value));
+                              sharp::Args<sharp::Unspecified>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<OverloadedFunctor>,
-                              std::tuple<sharp::Unspecified>>::value));
+                              sharp::Args<sharp::Unspecified>>::value));
 }
 
 TEST(Traits, WhichInvocableType) {

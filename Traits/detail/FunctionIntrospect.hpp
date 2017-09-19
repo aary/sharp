@@ -19,6 +19,7 @@
 
 #include <tuple>
 #include <type_traits>
+#include <cstddef>
 
 #include <sharp/Traits/detail/IsCallable.hpp>
 #include <sharp/Traits/detail/TypeLists.hpp>
@@ -41,6 +42,16 @@ constexpr auto FUNCTOR = 2;
  */
 struct Unspecified {};
 
+/**
+ * This type will be used to represent parameter packs, std::tuple cannot be
+ * used because it is used publically and might cause an issue when a function
+ * itself accepts a tuple, then the argument types might be misleading in
+ * recursive unpacking situations (for example see ConcatenateArgs in
+ * sharp/Overload/Overload.upp)
+ */
+template <typename... Types>
+struct Args;
+
 namespace detail {
 
     /**
@@ -51,6 +62,9 @@ namespace detail {
     template <typename Func>
     using EnableIfFunctorNotUnspecified = sharp::void_t<
         decltype(&std::decay_t<Func>::operator())>;
+    template <typename Func>
+    using EnableIfAlreadyHasArgumentList = sharp::void_t<
+        typename std::decay_t<Func>::ArgumentsList>;
 
     /**
      * The implementation trait for the return type trait, this has two
@@ -111,7 +125,20 @@ namespace detail {
      */
     template <typename Func, typename = sharp::void_t<>>
     struct ArgumentsImpl {
-        using type = std::tuple<Unspecified>;
+        /**
+         * An implementation in the case where the functor already contains
+         * information about the argument list types it holds
+         */
+        template <typename F, typename = sharp::void_t<>>
+        struct ArgumentsImplImpl {
+            using type = sharp::Args<Unspecified>;
+        };
+        template <typename F>
+        struct ArgumentsImplImpl<F, EnableIfAlreadyHasArgumentList<F>> {
+            using type = typename std::decay_t<F>::ArgumentsList;
+        };
+
+        using type = typename ArgumentsImplImpl<Func>::type;
     };
     template <typename Func>
     struct ArgumentsImpl<Func, EnableIfFunctorNotUnspecified<Func>> {
@@ -124,27 +151,27 @@ namespace detail {
         struct ArgumentsImplFunctor;
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...)> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const &> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &&> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const&&> {
-            using type = std::tuple<Args...>;
+            using type = sharp::Args<Args...>;
         };
 
         using type = typename ArgumentsImplFunctor<
@@ -152,7 +179,7 @@ namespace detail {
     };
     template <typename ReturnType, typename... Args>
     struct ArgumentsImpl<ReturnType (*) (Args...), sharp::void_t<>> {
-        using type = std::tuple<Args...>;
+        using type = sharp::Args<Args...>;
     };
 
     template <typename F>
@@ -198,7 +225,7 @@ struct ReturnType {
  * @class Arguments
  *
  * Trait that inspects the function type passed in and returns all the
- * arguments to the function wrapped in a std::tuple
+ * arguments to the function wrapped in a sharp::Args type
  */
 template <typename Func>
 struct Arguments {
@@ -231,3 +258,20 @@ template <typename Func>
 constexpr auto WhichInvocableType_v = WhichInvocableType<Func>::value;
 
 } // namespace sharp
+
+/**
+ * Specialize tuple_element_t and tuple_size for Args in the std namespace..
+ * *yelp*
+ */
+namespace std {
+
+    template <std::size_t Index, typename... Types>
+    class tuple_element<Index, sharp::Args<Types...>> {
+    public:
+        using type = std::tuple_element_t<Index, std::tuple<Types...>>;
+    };
+    template <typename... Types>
+    class tuple_size<sharp::Args<Types...>>
+        : public std::integral_constant<std::size_t, sizeof...(Types)>
+    {};
+} // namespace std
