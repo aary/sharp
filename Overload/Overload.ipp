@@ -501,6 +501,11 @@ namespace overload_detail {
         Functors functors;
         Functions functions;
         MemFuncs mem_funcs;
+
+        /**
+         * The list of argument lists that are provided by this functor
+         */
+        using ArgumentsList = Concatenate_t<Arguments_t<Funcs>...>;
     };
 
     /**

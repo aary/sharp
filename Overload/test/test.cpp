@@ -247,7 +247,7 @@ TEST(Overload, TestMoveConstructorWorks) {
 
 TEST(Overload, TestRecursiveOverloading) {
     auto overloaded_one = sharp::overload(
-        [](int) { return 0; }, [](double) { return 1; });
+        +[](int) { return 0; }, [](double) { return 1; });
 
     EXPECT_EQ(overloaded_one(5), 0);
     EXPECT_EQ(overloaded_one(3.2), 1);
@@ -258,6 +258,11 @@ TEST(Overload, TestRecursiveOverloading) {
     EXPECT_EQ(overloaded_two(5), 0);
     EXPECT_EQ(overloaded_two(3.2), 1);
     EXPECT_EQ(overloaded_two('a'), 2);
+
+    EXPECT_TRUE((std::is_same<
+                decltype(overloaded_two)::ArgumentsList,
+                std::tuple<sharp::Args<char>, sharp::Args<int>,
+                           sharp::Args<double>>>::value));
 }
 
 TEST(Overload, TestMutableLambdas) {
