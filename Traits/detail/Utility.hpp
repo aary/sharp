@@ -42,9 +42,10 @@ namespace detail {
      */
     template <typename TypesContainerOne, typename TypesContainerTwo>
     struct ConcatenateImpl;
-    template <typename... TypesOne, typename... TypesTwo>
-    struct ConcatenateImpl<std::tuple<TypesOne...>, std::tuple<TypesTwo...>> {
-        using type = std::tuple<TypesOne..., TypesTwo...>;
+    template <template <typename...> class Container,
+              typename... TypesOne, typename... TypesTwo>
+    struct ConcatenateImpl<Container<TypesOne...>, Container<TypesTwo...>> {
+        using type = Container<TypesOne..., TypesTwo...>;
     };
     template <int... integers_one, int... integers_two>
     struct ConcatenateImpl<ValueList<integers_one...>,
@@ -57,13 +58,14 @@ namespace detail {
      */
     template <typename TypesContainer>
     struct PopFrontImpl;
-    template <typename Head, typename... Tail>
-    struct PopFrontImpl<std::tuple<Head, Tail...>> {
-        using type = std::tuple<Tail...>;
+    template <template <typename...> class Container,
+              typename Head, typename... Tail>
+    struct PopFrontImpl<Container<Head, Tail...>> {
+        using type = Container<Tail...>;
     };
-    template <>
-    struct PopFrontImpl<std::tuple<>> {
-        using type = std::tuple<>;
+    template <template <typename...> class Container>
+    struct PopFrontImpl<Container<>> {
+        using type = Container<>;
     };
     template <>
     struct PopFrontImpl<End> {
@@ -75,23 +77,26 @@ namespace detail {
      */
     template <int to_erase, typename TypesContainer>
     struct EraseImpl;
-    template <int to_erase, typename... Types>
-    struct EraseImpl<to_erase, std::tuple<Types...>> {
-        using type = std::tuple<Types...>;
+    template <int to_erase, template <typename...> class Container,
+              typename... Types>
+    struct EraseImpl<to_erase, Container<Types...>> {
+        using type = Container<Types...>;
     };
-    template <int to_erase, typename Head, typename... Types>
-    struct EraseImpl<to_erase, std::tuple<Head, Types...>> {
+    template <int to_erase, template <typename...> class Container,
+              typename Head, typename... Types>
+    struct EraseImpl<to_erase, Container<Head, Types...>> {
 
         static_assert(to_erase > 0, "Something went wrong in the "
                 "implementation of the Erase trait");
 
         using type = typename ConcatenateImpl<
-            std::tuple<Head>,
-            typename EraseImpl<to_erase - 1, std::tuple<Types...>>::type>::type;
+            Container<Head>,
+            typename EraseImpl<to_erase - 1, Container<Types...>>::type>::type;
     };
-    template <typename Head, typename... Types>
-    struct EraseImpl<0, std::tuple<Head, Types...>> {
-        using type = std::tuple<Types...>;
+    template <template <typename...> class Container,
+              typename Head, typename... Types>
+    struct EraseImpl<0, Container<Head, Types...>> {
+        using type = Container<Types...>;
     };
 
     /**
