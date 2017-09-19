@@ -22,19 +22,6 @@ namespace sharp {
 template <int... values>
 struct ValueList {};
 
-/**
- * @class End
- *
- * A tag that denotes the end of a type list range, similar to std::end() this
- * marks the end of a type list range.  This is used in cases where an
- * algorithm returns past the end of a range to denote that a value could not
- * be found.
- *
- * For example if the predicate passed to FindIf returns true for none of the
- * types then the algorithm returns an End tag to denote failure
- */
-struct End {};
-
 namespace detail {
 
     /**
@@ -66,10 +53,6 @@ namespace detail {
     template <template <typename...> class Container>
     struct PopFrontImpl<Container<>> {
         using type = Container<>;
-    };
-    template <>
-    struct PopFrontImpl<End> {
-        using type = std::tuple<>;
     };
 
     /**
