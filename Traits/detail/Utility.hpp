@@ -27,8 +27,17 @@ namespace detail {
     /**
      * Implemenation for the concatenate trait
      */
-    template <typename TypesContainerOne, typename TypesContainerTwo>
+    template <typename... Lists>
     struct ConcatenateImpl;
+    template <template <typename...> class Container,
+              typename... TypesOne, typename... TypesTwo,
+              typename... Lists>
+    struct ConcatenateImpl<Container<TypesOne...>, Container<TypesTwo...>,
+                           Lists...> {
+        using type = typename ConcatenateImpl<
+            Container<TypesOne..., TypesTwo...>,
+            Lists...>::type;
+    };
     template <template <typename...> class Container,
               typename... TypesOne, typename... TypesTwo>
     struct ConcatenateImpl<Container<TypesOne...>, Container<TypesTwo...>> {
@@ -38,6 +47,14 @@ namespace detail {
     struct ConcatenateImpl<ValueList<integers_one...>,
                            ValueList<integers_two...>> {
         using type = ValueList<integers_one..., integers_two...>;
+    };
+    template <int... integers_one, int... integers_two, typename... Lists>
+    struct ConcatenateImpl<ValueList<integers_one...>,
+                           ValueList<integers_two...>,
+                           Lists...> {
+        using type = typename ConcatenateImpl<
+            ValueList<integers_one..., integers_two...>,
+            Lists...>::type;
     };
 
     /**
@@ -126,10 +143,9 @@ namespace detail {
  * concatenates two type lists or two value lists, type lists are supported as
  * std::tuples and value lists are supported as sharp::ValueList
  */
-template <typename TypesContainerOne, typename TypesContainerTwo>
+template <typename... Lists>
 struct Concatenate {
-    using type = typename detail::ConcatenateImpl<TypesContainerOne,
-                                                  TypesContainerTwo>::type;
+    using type = typename detail::ConcatenateImpl<Lists...>::type;
 };
 
 /**
@@ -197,9 +213,8 @@ struct MatchReference {
  * Conventional typedefs, these end in the suffix _t, this is keeping in
  * convention with the C++ standard library features post and including C++17
  */
-template <typename TypesContainerOne, typename TypesContainerTwo>
-using Concatenate_t = typename Concatenate<TypesContainerOne, TypesContainerTwo>
-    ::type;
+template <typename... Lists>
+using Concatenate_t = typename Concatenate<Lists...>::type;
 template <typename TypeToRepeat, int n>
 using ConcatenateN_t = typename ConcatenateN<TypeToRepeat, n>::type;
 template <typename TypesContainer>
@@ -208,74 +223,5 @@ template <int to_erase, typename... Types>
 using Erase_t = typename Erase<to_erase, Types...>::type;
 template <typename TypeToMatch, typename Type>
 using MatchReference_t = typename MatchReference<TypeToMatch, Type>::type;
-
-/**
- * Tests for Concatenate
- */
-static_assert(std::is_same<Concatenate_t<std::tuple<int>, std::tuple<double>>,
-                                         std::tuple<int, double>>::value,
-        "sharp::Concatenate tests failed!");
-static_assert(std::is_same<Concatenate_t<ValueList<0>, ValueList<1>>,
-                                         ValueList<0, 1>>::value,
-        "sharp::Concatenate tests failed!");
-
-/**
- * Tests for PopFront
- */
-static_assert(std::is_same<PopFront_t<std::tuple<int, double>>,
-                           std::tuple<double>>::value,
-    "sharp::PopFront tests failed!");
-static_assert(std::is_same<PopFront_t<std::tuple<double>>,
-                           std::tuple<>>::value,
-    "sharp::PopFront tests failed!");
-static_assert(std::is_same<PopFront_t<std::tuple<>>,
-                           std::tuple<>>::value,
-    "sharp::PopFront tests failed!");
-
-/**
- * Tests for Erase
- */
-static_assert(std::is_same<Erase_t<0, std::tuple<int, double, char>>,
-                           std::tuple<double, char>>::value,
-    "sharp::Erase tests failed");
-static_assert(std::is_same<Erase_t<1, std::tuple<int, double, char>>,
-                           std::tuple<int, char>>::value,
-    "sharp::Erase tests failed");
-static_assert(std::is_same<Erase_t<2, std::tuple<int, double, char>>,
-                           std::tuple<int, double>>::value,
-    "sharp::Erase tests failed");
-static_assert(std::is_same<Erase_t<0, std::tuple<>>, std::tuple<>>::value,
-    "sharp::Erase tests failed");
-static_assert(std::is_same<Erase_t<1, std::tuple<>>, std::tuple<>>::value,
-    "sharp::Erase tests failed");
-
-/**
- * Tests for ConcatenateN
- */
-static_assert(std::is_same<ConcatenateN_t<int, 3>,
-                           std::tuple<int, int, int>>::value,
-    "sharp::detail::RepeatN tests failed");
-static_assert(std::is_same<ConcatenateN_t<int, 0>,
-                           std::tuple<>>::value,
-    "sharp::detail::RepeatN tests failed");
-
-static_assert(std::is_same<ConcatenateN_t<int, 1>,
-                           std::tuple<int>>::value,
-    "sharp::detail::RepeatN tests failed");
-
-/**
- * Tests for MatchReference
- */
-static_assert(std::is_same<MatchReference_t<int&, double>, double&>
-        ::value, "sharp::MatchReference tests failed");
-static_assert(std::is_same<MatchReference_t<const int&, double>,
-                           const double&>
-        ::value, "sharp::MatchReference tests failed");
-static_assert(std::is_same<MatchReference_t<int&&, double>, double&&>
-        ::value, "sharp::MatchReference tests failed");
-static_assert(std::is_same<MatchReference_t<const int&&, double>,
-                           const double&&>
-        ::value, "sharp::MatchReference tests failed");
-
 
 } // namespace sharp

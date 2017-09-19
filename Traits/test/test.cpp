@@ -450,6 +450,59 @@ TEST(Traits, Sort) {
                                          std::uint32_t>>::value));
 }
 
+TEST(Traits, Concatenate_t) {
+    EXPECT_TRUE((std::is_same<Concatenate_t<
+                std::tuple<int>, std::tuple<double>>,
+                std::tuple<int, double>>::value));
+    EXPECT_TRUE((std::is_same<Concatenate_t<ValueList<0>, ValueList<1>>,
+                                            ValueList<0, 1>>::value));
+    EXPECT_TRUE((std::is_same<Concatenate_t<std::tuple<char>, std::tuple<int>,
+                                            std::tuple<bool>, std::tuple<int>>,
+                              std::tuple<char, int, bool, int>>::value));
+    EXPECT_TRUE((std::is_same<Concatenate_t<ValueList<0>, ValueList<1>,
+                                            ValueList<2>, ValueList<3>>,
+                              ValueList<0, 1, 2, 3>>::value));
+}
+
+TEST(Traits, PopFront_t) {
+    EXPECT_TRUE((std::is_same<PopFront_t<std::tuple<int, double>>,
+                              std::tuple<double>>::value));
+    EXPECT_TRUE((std::is_same<PopFront_t<std::tuple<double>>,
+                              std::tuple<>>::value));
+    EXPECT_TRUE((std::is_same<PopFront_t<std::tuple<>>,
+                              std::tuple<>>::value));
+}
+
+TEST(Traits, Erase_t) {
+    EXPECT_TRUE((std::is_same<Erase_t<0, std::tuple<int, double, char>>,
+                              std::tuple<double, char>>::value));
+    EXPECT_TRUE((std::is_same<Erase_t<1, std::tuple<int, double, char>>,
+                               std::tuple<int, char>>::value));
+    EXPECT_TRUE((std::is_same<Erase_t<2, std::tuple<int, double, char>>,
+                               std::tuple<int, double>>::value));
+    EXPECT_TRUE((std::is_same<Erase_t<0, std::tuple<>>, std::tuple<>>::value));
+    EXPECT_TRUE((std::is_same<Erase_t<1, std::tuple<>>, std::tuple<>>::value));
+}
+
+TEST(Traits, ConcatenateN_t) {
+    EXPECT_TRUE((std::is_same<ConcatenateN_t<int, 3>,
+                              std::tuple<int, int, int>>::value));
+    EXPECT_TRUE((std::is_same<ConcatenateN_t<int, 0>,
+                              std::tuple<>>::value));
+    EXPECT_TRUE((std::is_same<ConcatenateN_t<int, 1>,
+                              std::tuple<int>>::value));
+}
+
+TEST(Traits, MatchReference_t) {
+    EXPECT_TRUE((std::is_same<MatchReference_t<int&, double>, double&>::value));
+    EXPECT_TRUE((std::is_same<MatchReference_t<const int&, double>,
+                              const double&>::value));
+    EXPECT_TRUE((std::is_same<MatchReference_t<int&&, double>, double&&>
+                ::value));
+    EXPECT_TRUE((std::is_same<MatchReference_t<const int&&, double>,
+                              const double&&>::value));
+}
+
 TEST(Traits, ReturnType_t) {
     static_cast<void>(some_function);
     EXPECT_TRUE((std::is_same<sharp::ReturnType_t<Functor>, int>::value));
