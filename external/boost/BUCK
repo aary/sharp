@@ -3,12 +3,12 @@ cxx_library(
 
     # Expose only the libraries needed for coroutines
     exported_deps = [
-        "//boost:boost_headers",
-        "//boost:chrono",
-        "//boost:context",
-        "//boost:coroutine",
-        "//boost:system",
-        "//boost:thread",
+        ":boost_headers",
+        ":chrono",
+        ":context",
+        ":coroutine",
+        ":system",
+        ":thread",
     ],
 
     visibility = [
@@ -57,7 +57,7 @@ cxx_library(
     name = "chrono",
     header_namespace = "",
     deps = [
-        "//boost:boost_headers",
+        ":boost_headers",
     ],
     exported_deps = [
         ":boost_chrono",
@@ -72,7 +72,7 @@ cxx_library(
     name = "context",
     header_namespace = "",
     deps = [
-        "//boost:boost_headers",
+        ":boost_headers",
     ],
     exported_deps = [
         ":boost_context",
@@ -87,7 +87,7 @@ cxx_library(
     name = "coroutine",
     header_namespace = "",
     deps = [
-        "//boost:boost_headers",
+        ":boost_headers",
     ],
     exported_deps = [
         ":boost_coroutine",
@@ -102,7 +102,7 @@ cxx_library(
     name = "system",
     header_namespace = "",
     deps = [
-        "//boost:boost_headers",
+        ":boost_headers",
     ],
     exported_deps = [
         ":boost_system",
@@ -117,7 +117,7 @@ cxx_library(
     name = "thread",
     header_namespace = "",
     deps = [
-        "//boost:boost_headers",
+        ":boost_headers",
     ],
     exported_deps = [
         ":boost_thread",
