@@ -50,7 +50,7 @@ struct Unspecified {};
  * sharp/Overload/Overload.upp)
  */
 template <typename... Types>
-struct Args;
+struct Args {};
 
 namespace detail {
 
@@ -131,7 +131,7 @@ namespace detail {
          */
         template <typename F, typename = sharp::void_t<>>
         struct ArgumentsImplImpl {
-            using type = sharp::Args<Unspecified>;
+            using type = std::tuple<sharp::Args<Unspecified>>;
         };
         template <typename F>
         struct ArgumentsImplImpl<F, EnableIfAlreadyHasArgumentList<F>> {
@@ -151,27 +151,27 @@ namespace detail {
         struct ArgumentsImplFunctor;
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...)> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const &> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &&> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
         template <typename Functor, typename Return, typename... Args>
         struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const&&> {
-            using type = sharp::Args<Args...>;
+            using type = std::tuple<sharp::Args<Args...>>;
         };
 
         using type = typename ArgumentsImplFunctor<
@@ -179,7 +179,7 @@ namespace detail {
     };
     template <typename ReturnType, typename... Args>
     struct ArgumentsImpl<ReturnType (*) (Args...), sharp::void_t<>> {
-        using type = sharp::Args<Args...>;
+        using type = std::tuple<sharp::Args<Args...>>;
     };
 
     template <typename F>

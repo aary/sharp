@@ -19,6 +19,28 @@ namespace sharp {
 
 namespace detail {
     /**
+     * Concepts-ish
+     */
+    /**
+     * Enable if the type is a fundamental type
+     */
+    template <typename Func>
+    using EnableIfFundamental = std::enable_if_t<
+        std::is_fundamental<Func>::value>;
+    /**
+     * Enable if the type is a function pointer
+     */
+    template <typename Func>
+    using EnableIfFunction = std::enable_if_t<
+        std::is_function<std::remove_pointer_t<std::decay_t<Func>>>::value>;
+    /**
+     * Enable if the type is a member function pointer
+     */
+    template <typename Func>
+    using EnableIfMemberFunction = std::enable_if_t<
+        std::is_member_function_pointer<std::decay_t<Func>>::value>;
+
+    /**
      * A functor to check if a passed in type is a functor
      *
      * It uses the member detection axiom to check for the presence of a
@@ -86,7 +108,7 @@ struct IsCallable {
  * without this specialization
  */
 template <typename Func>
-struct IsCallable<Func, std::enable_if_t<std::is_fundamental<Func>::value>>
+struct IsCallable<Func, detail::EnableIfFundamental<Func>>
     : std::integral_constant<bool, false> {};
 
 /**
@@ -95,8 +117,11 @@ struct IsCallable<Func, std::enable_if_t<std::is_fundamental<Func>::value>>
  * type
  */
 template <typename Func>
-struct IsCallable<Func, std::enable_if_t<
-        std::is_function<std::remove_pointer_t<Func>>::value>>
+struct IsCallable<Func, detail::EnableIfFunction<Func>>
+    : std::integral_constant<bool, true> {};
+
+template <typename Func>
+struct IsCallable<Func, detail::EnableIfMemberFunction<Func>>
     : std::integral_constant<bool, true> {};
 
 /**
@@ -107,62 +132,3 @@ template <typename Func>
 constexpr bool IsCallable_v = IsCallable<Func>::value;
 
 } // namespace sharp
-
-
-/**
- * Test cases for the above trait, evaluated at compile time
- */
-namespace sharp { namespace detail { namespace test {
-    struct FunctorOne {
-        void operator()() {}
-    };
-    struct FunctorTwo {
-        void operator()(int) {}
-    };
-    struct FunctorThree {
-        void operator()(int, int) {}
-    };
-    struct FunctorFour {
-        void operator()() {}
-        void operator()(int) {}
-    };
-    struct FunctorFive {
-        void operator()() {}
-        void operator()(int) {}
-        void operator()(int, int) {}
-    };
-    struct FunctorSix {
-        template <typename>
-        void operator()() {}
-    };
-    struct FunctorSeven {
-        template <typename>
-        void operator()() {}
-        template <typename>
-        void operator()(int) {}
-    };
-    void function_one() {}
-    struct NonCallable {};
-} } }
-
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorOne>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorTwo>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorThree>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorFour>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorFive>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorSix>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<sharp::detail::test::FunctorSeven>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<decltype(sharp::detail::test::function_one)>,
-        "sharp::IsCallable tests failed!");
-static_assert(sharp::IsCallable_v<decltype(&sharp::detail::test::function_one)>,
-        "sharp::IsCallable tests failed!");
-static_assert(!sharp::IsCallable_v<sharp::detail::test::NonCallable>,
-        "sharp::IsCallable tests failed!");
-static_assert(!sharp::IsCallable_v<int>, "sharp::IsCallable tests failed!");

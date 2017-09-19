@@ -62,6 +62,37 @@ namespace {
         void operator()(char) {}
     };
 
+    struct FunctorOne {
+        void operator()() {}
+    };
+    struct FunctorTwo {
+        void operator()(int) {}
+    };
+    struct FunctorThree {
+        void operator()(int, int) {}
+    };
+    struct FunctorFour {
+        void operator()() {}
+        void operator()(int) {}
+    };
+    struct FunctorFive {
+        void operator()() {}
+        void operator()(int) {}
+        void operator()(int, int) {}
+    };
+    struct FunctorSix {
+        template <typename>
+        void operator()() {}
+    };
+    struct FunctorSeven {
+        template <typename>
+        void operator()() {}
+        template <typename>
+        void operator()(int) {}
+    };
+    void function_one() {}
+    struct NonCallable {};
+
 } // namespace <anonymous>
 
 template <typename Tag>
@@ -518,15 +549,17 @@ TEST(Traits, ReturnType_t) {
 
 TEST(Traits, Arguments_t) {
     EXPECT_TRUE((std::is_same<Arguments_t<Functor>,
-                               sharp::Args<int, double>>::value));
+                              std::tuple<sharp::Args<int, double>>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<decltype(some_function)>,
-                              sharp::Args<int, char>>::value));
+                              std::tuple<sharp::Args<int, char>>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<decltype(&some_function)>,
-                              sharp::Args<int, char>>::value));
+                              std::tuple<sharp::Args<int, char>>>::value));
     EXPECT_TRUE((std::is_same<Arguments_t<TemplatedFunctor>,
-                              sharp::Args<sharp::Unspecified>>::value));
+                              std::tuple<sharp::Args<sharp::Unspecified>>>
+                              ::value));
     EXPECT_TRUE((std::is_same<Arguments_t<OverloadedFunctor>,
-                              sharp::Args<sharp::Unspecified>>::value));
+                              std::tuple<sharp::Args<sharp::Unspecified>>>
+                              ::value));
 }
 
 TEST(Traits, WhichInvocableType) {
@@ -558,4 +591,19 @@ TEST(Traits, WhichInvocableType) {
               sharp::MEMBER_F_PTR);
     EXPECT_EQ((sharp::WhichInvocableType_v<F>),
               sharp::MEMBER_F_PTR);
+}
+
+TEST(Traits, IsCallable_v) {
+    static_cast<void>(&function_one);
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorOne>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorTwo>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorThree>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorFour>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorFive>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorSix>));
+    EXPECT_TRUE((sharp::IsCallable_v<FunctorSeven>));
+    EXPECT_TRUE((sharp::IsCallable_v<decltype(function_one)>));
+    EXPECT_TRUE((sharp::IsCallable_v<decltype(&function_one)>));
+    EXPECT_FALSE((sharp::IsCallable_v<NonCallable>));
+    EXPECT_FALSE((sharp::IsCallable_v<int>));
 }

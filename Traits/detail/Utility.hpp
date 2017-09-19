@@ -29,6 +29,10 @@ namespace detail {
      */
     template <typename... Lists>
     struct ConcatenateImpl;
+    template <typename Container>
+    struct ConcatenateImpl<Container> {
+        using type = Container;
+    };
     template <template <typename...> class Container,
               typename... TypesOne, typename... TypesTwo,
               typename... Lists>
