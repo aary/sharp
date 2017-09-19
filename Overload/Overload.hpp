@@ -10,43 +10,36 @@
 namespace sharp {
 
 /**
- * Overload lambda expressions into one functor, example:
+ * Overload pretty much any invocable
  *
- *  auto overloaded = sharp::overload(
- *      [&](int a) { return a; },
- *      [&](double d) { return d; });
+ *      class Something {
+ *      public:
+ *          std::string identity(std::string in) { return in; }
+ *      };
  *
- *  assert(overloaded(1) == 1);
- *  assert(overloaded(2.1) == 2.1);
+ *      char foo(char ch) { return ch; }
+ *
+ *      auto overloaded = sharp::overload(
+ *          [&](int a) { return a; },
+ *          [&](double d) { return d; },
+ *          foo,
+ *          Something::print);
+ *
+ *      assert(overloaded(1) == 1);
+ *      assert(overloaded(2.1) == 2.1);
+ *      assert(overloaded('a') == 'a');
+ *      assert(overloaded(Something{}, "string"s) == "string"s);
  *
  * This can be useful in several scenarios, can be used to implement double
  * dispatch, variant visiting, etc, for example
  *
- *  auto variant = std::variant<int, double>{1};
- *  std::visit(sharp::overload([](int) {}, [](double) {}), variant);
+ *      auto variant = std::variant<int, double>{1};
+ *      std::visit(sharp::overload([](int) {}, [](double) {}), variant);
  *
- * In C++17 the implementation of overload is trivial because of new
- * aggregate type rules
- *
- *  template <typename... Funcs>
- *  class Overload : public Funcs... {
- *  public:
- *       using Funcs::operator()...;
- *  };
- *  template <typename... Funcs>
- *  Overload(Funcs&&...) -> Overload<std::decay_t<Funcs>...>;
- *
- * and then can be used directly with template constructor deduction rules
- *
- *  auto overloaded = Overload{
- *      [](int a) { return a; },
- *      [](double d) { return d; }};
- *
- *  assert(overloaded(1) == 1);
- *  assert(overloaded(2.1) == 2.1);
- *
- * But in the current versions of the compiler and even for clang in C++17
- * the above does not work.  So this version has been provided as a workaround
+ * This also contains the type lists of the functions it holds as a compile
+ * time tuple typedef, so it can be used in various function introspection
+ * methods, see Traits/detail/FunctionIntrospect.hpp for more details on how
+ * the argument deduction works
  */
 template <typename... Funcs>
 auto overload(Funcs&&... funcs);
