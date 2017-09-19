@@ -81,4 +81,3 @@ int main() {
 
 `std::variant` can be stressed to emphasize that only one of many arguments is
 required, and the library will `static_assert` to ensure that's the case
-
