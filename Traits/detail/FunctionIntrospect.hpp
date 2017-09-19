@@ -22,6 +22,7 @@
 
 #include <sharp/Traits/detail/IsCallable.hpp>
 #include <sharp/Traits/detail/TypeLists.hpp>
+#include <sharp/Traits/detail/VoidT.hpp>
 
 namespace sharp {
 
@@ -34,7 +35,22 @@ constexpr auto MEMBER_F_PTR = 0;
 constexpr auto F_PTR = 1;
 constexpr auto FUNCTOR = 2;
 
+/**
+ * This type is used when trying to deduce argument types of an overloaded
+ * functor, see Arguments_t
+ */
+struct Unspecified {};
+
 namespace detail {
+
+    /**
+     * Enable if the functor has a operator() method which can be
+     * introspected, if it has a templated one or if it is an overloaded
+     * member function then it cant be introspected
+     */
+    template <typename Func>
+    using EnableIfFunctorNotUnspecified = sharp::void_t<
+        decltype(&std::decay_t<Func>::operator())>;
 
     /**
      * The implementation trait for the return type trait, this has two
@@ -89,20 +105,45 @@ namespace detail {
     };
 
     /**
-     * Implementation for the Arguments trait
+     * Implementation trait that will be forwarded a pointer to a member
+     * function if Func is a functor, if Func is not a functor then it
+     * will go to the other implementation function
      */
-    template <typename Func>
+    template <typename Func, typename = sharp::void_t<>>
     struct ArgumentsImpl {
+        using type = std::tuple<Unspecified>;
+    };
+    template <typename Func>
+    struct ArgumentsImpl<Func, EnableIfFunctorNotUnspecified<Func>> {
 
         /**
-         * Implementation trait that will be forwarded a pointer to a member
-         * function if Func is a functor, if Func is not a fucntor then it
-         * will go to the other implementation function
+         * The implementation trait that is painfully partially specialized to
+         * the member function pointer type
          */
         template <typename FuncImpl>
         struct ArgumentsImplFunctor;
-        template <typename Functor, typename ReturnType, typename... Args>
-        struct ArgumentsImplFunctor<ReturnType (Functor::*) (Args...)> {
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...)> {
+            using type = std::tuple<Args...>;
+        };
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const> {
+            using type = std::tuple<Args...>;
+        };
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &> {
+            using type = std::tuple<Args...>;
+        };
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const &> {
+            using type = std::tuple<Args...>;
+        };
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...) &&> {
+            using type = std::tuple<Args...>;
+        };
+        template <typename Functor, typename Return, typename... Args>
+        struct ArgumentsImplFunctor<Return (Functor::*) (Args...) const&&> {
             using type = std::tuple<Args...>;
         };
 
@@ -110,7 +151,7 @@ namespace detail {
             decltype(&Func::operator())>::type;
     };
     template <typename ReturnType, typename... Args>
-    struct ArgumentsImpl<ReturnType (*) (Args...)> {
+    struct ArgumentsImpl<ReturnType (*) (Args...), sharp::void_t<>> {
         using type = std::tuple<Args...>;
     };
 
@@ -188,45 +229,5 @@ using Arguments_t = typename Arguments<Func>::type;
 
 template <typename Func>
 constexpr auto WhichInvocableType_v = WhichInvocableType<Func>::value;
-/*******************************************************************************
- * Testing things
- ******************************************************************************/
-namespace detail { namespace test {
-
-    class Functor {
-    public:
-        int operator()(int, double) { return int{}; }
-    };
-    double some_function(int, char) { return double{}; }
-}}
-
-/**
- * Tests for ReturnType_t
- */
-static_assert(std::is_same<sharp::ReturnType_t<detail::test::Functor>, int>
-        ::value, "sharp::ReturnType tests failed!");
-static_assert(std::is_same<sharp::ReturnType_t<
-        decltype(detail::test::some_function)>, double>::value,
-        "sharp::ReturnType tests failed!");
-static_assert(std::is_same<sharp::ReturnType_t<
-        decltype(&detail::test::some_function)>, double>::value,
-        "sharp::ReturnType tests failed!");
-// The following static_assert should give an error when uncommented because
-// int is not callable
-// static_assert(std::is_same<sharp::ReturnType_t<int>, double>::value,
-        // "sharp::ReturnType tests failed!");
-
-/**
- * Tests for Arguments
- */
-static_assert(std::is_same<Arguments_t<detail::test::Functor>,
-                           std::tuple<int, double>>::value,
-        "sharp::Arguments tests failed!");
-static_assert(std::is_same<Arguments_t<decltype(detail::test::some_function)>,
-                           std::tuple<int, char>>::value,
-        "sharp::Arguments tests failed!");
-static_assert(std::is_same<Arguments_t<decltype(&detail::test::some_function)>,
-                           std::tuple<int, char>>::value,
-        "sharp::Arguments tests failed!");
 
 } // namespace sharp

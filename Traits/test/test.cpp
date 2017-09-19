@@ -43,6 +43,25 @@ namespace {
         void e() && {}
         void f() const && {}
     };
+
+    class Functor {
+    public:
+        int operator()(int, double) { return int{}; }
+    };
+    double some_function(int, char) { return double{}; }
+
+    class TemplatedFunctor {
+    public:
+        template <typename T>
+        void operator()(T) {}
+    };
+
+    class OverloadedFunctor {
+    public:
+        void operator()(int) {}
+        void operator()(char) {}
+    };
+
 } // namespace <anonymous>
 
 template <typename Tag>
@@ -429,6 +448,32 @@ TEST(Traits, Sort) {
                                                 std::uint16_t>>,
                               std::tuple<std::uint8_t, std::uint16_t,
                                          std::uint32_t>>::value));
+}
+
+TEST(Traits, ReturnType_t) {
+    static_cast<void>(some_function);
+    EXPECT_TRUE((std::is_same<sharp::ReturnType_t<Functor>, int>::value));
+    EXPECT_TRUE((std::is_same<sharp::ReturnType_t<
+            decltype(some_function)>, double>::value));
+    EXPECT_TRUE((std::is_same<sharp::ReturnType_t<
+            decltype(&some_function)>, double>::value));
+
+    // The following static_assert should give an error when uncommented because
+    // int is not callable
+    // EXPECT_TRUE((std::is_same<sharp::ReturnType_t<int>, double>::value));
+}
+
+TEST(Traits, Arguments_t) {
+    EXPECT_TRUE((std::is_same<Arguments_t<Functor>,
+                               std::tuple<int, double>>::value));
+    EXPECT_TRUE((std::is_same<Arguments_t<decltype(some_function)>,
+                              std::tuple<int, char>>::value));
+    EXPECT_TRUE((std::is_same<Arguments_t<decltype(&some_function)>,
+                              std::tuple<int, char>>::value));
+    EXPECT_TRUE((std::is_same<Arguments_t<TemplatedFunctor>,
+                              std::tuple<sharp::Unspecified>>::value));
+    EXPECT_TRUE((std::is_same<Arguments_t<OverloadedFunctor>,
+                              std::tuple<sharp::Unspecified>>::value));
 }
 
 TEST(Traits, WhichInvocableType) {
