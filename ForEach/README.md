@@ -79,6 +79,34 @@ The loop code can remain the same no matter what.
 Take a look inside the headers `ForEach.hpp` and `ForEach.ipp` for more
 documentation on the exact workings of the algorithm and utility
 
+### Avoiding common looping pitfalls
+
+```c++
+for (const auto element : make_optional(vec).value()) {
+    cout << element << endl;
+}
+```
+
+Spot the bug?
+
+The expression on the right in the range based for loop is an xvalue, and an
+xvalue's lifetime is not guaranteed to be extended, and in this case it is not
+extended.  As a result you will be looping over a container that has already
+been destroyed.
+
+If however you were to use `sharp::for_each`, this problem would be alleviated
+
+```c++
+sharp::for_each(make_optional(vec).value(), [](auto element) {
+    cout << element << endl;
+});
+```
+
+Here the lifetime of the object bound to the function parameter of
+`sharp::for_each` will be extended until the function has finished executing.
+Therefore all looping code that you write will execute on a safe range that
+will be destroyed after the loop
+
 ### Performance benchmarks
 
 Tuple-like loops are unrolled manually and cause an O(1) template
