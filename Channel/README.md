@@ -140,7 +140,7 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
     while (should_continue) {
 
         sharp::channel_select(
-            std::make_pair(std::ref(c), [&] () -> int {
+            sharp::case(c, [&]() -> int {
 
                 auto to_send = x, new_y = x + y;
                 x = y;
@@ -149,7 +149,7 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
                 return to_send;
             }),
 
-            std::make_pair(std::ref(quit), [&](auto) {
+            sharp::case(quit, [&](auto) {
                 cout << "Quitting" << endl;
                 should_continue = false;
             })
