@@ -1,0 +1,3 @@
+@mode/debug
+--config
+cxx.ldflags=-fsanitize=address -fno-omit-frame-pointer
