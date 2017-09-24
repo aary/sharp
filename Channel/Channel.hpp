@@ -193,7 +193,7 @@ public:
      * mutex for the channel, and therefore there is some hooking involved
      */
     template <typename... SelectContexts>
-    friend void channel_select(SelectContexts&&...);
+    friend void select(SelectContexts&&...);
 
     /**
      * Register a read interest in the channel, this will essentially increase
@@ -344,7 +344,7 @@ private:
  * wait on a read or a write operation, and multiplexes I/O based on that
  */
 template <typename... SelectStatements>
-void channel_select(SelectStatements&&... statements);
+void select(SelectStatements&&... statements);
 
 } // namespace sharp
 

@@ -139,7 +139,7 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
     auto should_continue = true;
     while (should_continue) {
 
-        sharp::channel_select(
+        sharp::select(
             sharp::case(c, [&]() -> int {
 
                 auto to_send = x, new_y = x + y;

@@ -92,7 +92,7 @@ TEST(Channel, SelectBasicRead) {
     sharp::Channel<int> c{1};
     c.send(1);
     int val = 0;
-    sharp::channel_select(
+    sharp::select(
         std::make_pair(std::ref(c), [&val](auto value) {
             ++val;
             EXPECT_EQ(value, 1);
@@ -108,7 +108,7 @@ TEST(Channel, SelectBasicRead) {
 TEST(Channel, SelectBasicWrite) {
     sharp::Channel<int> c{1};
     int val = 0;
-    sharp::channel_select(
+    sharp::select(
         std::make_pair(std::ref(c), [](auto) {
             EXPECT_TRUE(false);
         }),
@@ -149,7 +149,7 @@ void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
     auto should_continue = true;
     while (should_continue) {
 
-        sharp::channel_select(
+        sharp::select(
             std::make_pair(std::ref(c), [&] () -> int {
 
                 auto to_send = x, new_y = x + y;

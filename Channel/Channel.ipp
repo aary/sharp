@@ -360,7 +360,7 @@ namespace detail {
 } // namespace detail
 
 template <typename... SelectStatements>
-void channel_select(SelectStatements&&... statements) {
+void select(SelectStatements&&... statements) {
 
     // make a vector of functions that can be used to try and see if the read
     // or write has succeeded or not, then this vector will be filled with the
