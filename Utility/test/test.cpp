@@ -41,6 +41,17 @@ namespace {
         MoveConstructible(MoveConstructible&&) = default;
     };
 
+    template <typename One>
+    class OneMonad : sharp::VariantMonad<One> {
+    public:
+        template <typename T>
+        int test() {
+            auto&& ref = this->template get<T>();
+            static_cast<void>(ref);
+            return 1;
+        }
+    };
+
 } // namespace <anonymous>
 
 TEST(Utility, CrtpBasic) {
@@ -169,8 +180,13 @@ TEST(Utility, LessPtrTest) {
     EXPECT_NE(integer_ptrs.find(&TWO), integer_ptrs.end());
 }
 
-TEST(Utility, VariantMonadTest) {
-    auto int_double = sharp::VariantMonad<int, double>{};
-    new (&int_double.get<int>()) int{2};
-    EXPECT_EQ(int_double.get<int>(), 2);
+TEST(Utility, VariantMonadBasicTest) {
+    auto int_double_monad = sharp::VariantMonad<int, double>{};
+    new (&int_double_monad.get<int>()) int{2};
+    EXPECT_EQ(int_double_monad.get<int>(), 2);
+}
+
+TEST(Utility, VariantMonadTestNoTemplateKeywordRequired) {
+    auto int_monad = OneMonad<int>{};
+    EXPECT_EQ(int_monad.test<int>(), 1);
 }
