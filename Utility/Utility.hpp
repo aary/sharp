@@ -9,6 +9,7 @@
 #pragma once
 
 #include <type_traits>
+#include <sharp/Traits/detail/Algorithm.hpp>
 
 namespace sharp {
 
@@ -25,32 +26,32 @@ namespace sharp {
  * first one with the same reference-ness as the one with unknown
  * reference-ness.  The usage for this function is illustrated below
  *
- *  template <typename Something>
- *  decltype(auto) forward_another_thing(Something&& something) {
- *      auto&& another = std::forward<Something>(something).get_another();
- *      return sharp::match_forward<Something, decltype(another)>(another);
- *  }
+ *      template <typename Something>
+ *      decltype(auto) forward_another_thing(Something&& something) {
+ *          auto&& another = std::forward<Something>(something).get_another();
+ *          return sharp::match_forward<Something, decltype(another)>(another);
+ *      }
  *
  * With respect to the implementation of this function, there are several
  * possible cases, each corresponding to a combination of reference-ness of
  * the first template parameter of this function with that of the second,
  *
- *  TypeToMatch -> &   Type -> &
- *  TypeToMatch -> &   Type -> &&
- *  TypeToMatch -> &   Type ->
+ *      TypeToMatch -> &   Type -> &
+ *      TypeToMatch -> &   Type -> &&
+ *      TypeToMatch -> &   Type ->
  *
- *  TypeToMatch ->     Type -> &
- *  TypeToMatch ->     Type -> &&
- *  TypeToMatch ->     Type ->
+ *      TypeToMatch ->     Type -> &
+ *      TypeToMatch ->     Type -> &&
+ *      TypeToMatch ->     Type ->
  *
- *  TypeToMatch -> &&  Type -> &
- *  TypeToMatch -> &&  Type -> &&
- *  TypeToMatch -> &&  Type ->
+ *      TypeToMatch -> &&  Type -> &
+ *      TypeToMatch -> &&  Type -> &&
+ *      TypeToMatch -> &&  Type ->
  *
  * Of these cases the following cases are invalid and should throw errors
  *
- *  TypeToMatch -> &   Type -> &&
- *  TypeToMatch -> &   Type ->
+ *      TypeToMatch -> &   Type -> &&
+ *      TypeToMatch -> &   Type ->
  *
  * Since these two cases will result in the function forwarding an lvalue as
  * an rvalue, which can lead to dangling referneces and the like.  In these
@@ -143,6 +144,51 @@ public:
  *      cout << endl;
  */
 class LessPtr;
+
+/**
+ * @class VariantMonad
+ *
+ * A helper mixin class that can be used to represent one of many types.  i.e.
+ * a union.  This also helps in providing good ref qualifications on the
+ * return values so it can be efficiently used to forward types where needed.
+ *
+ * Also unlike std::variant this does not do any checks to make sure that the
+ * type being asked for is actually the one stored, that is left up to the
+ * class using this
+ */
+template <typename... Types>
+class VariantMonad {
+public:
+
+    /**
+     * Assert that none of the types stored in the monad are of reference
+     * type, idk, i just feel like that is not right, why would you make a
+     * discriminated reference thingy?
+     */
+    static_assert(sharp::NoneOf_v<std::is_reference, std::tuple<Types...>>, "");
+
+    /**
+     * Casts the internal storage used to return a reference to the right type
+     * of instance.  This is dangerous, and does not do any checks to make
+     * sure that any reinterpret_cast used internally is casting the right POD
+     * type storage to the type it is being used to store
+     */
+    template <typename Type>
+    Type& get() &;
+    template <typename Type>
+    const Type& get() const &;
+    template <typename Type>
+    Type&& get() &&;
+    template <typename Type>
+    const Type&& get() const &&;
+
+private:
+    /**
+     * The internal union that is used as storage for one of the many possible
+     * types
+     */
+    std::aligned_union_t<0, Types...> storage;
+};
 
 } // namespace sharp
 

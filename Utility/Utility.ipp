@@ -141,4 +141,34 @@ public:
     using is_transparent = std::less<void>::is_transparent;
 };
 
+template <typename... Types>
+template <typename Type>
+Type& VariantMonad<Types...>::get() & {
+    // weird if the user does this since reference types are not allowed
+    static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
+                                std::tuple<>>::value, "");
+    return *reinterpret_cast<Type*>(&this->storage);
+}
+template <typename... Types>
+template <typename Type>
+const Type& VariantMonad<Types...>::get() const & {
+    static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
+                                std::tuple<>>::value, "");
+    return *reinterpret_cast<const Type*>(&this->storage);
+}
+template <typename... Types>
+template <typename Type>
+Type&& VariantMonad<Types...>::get() && {
+    static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
+                                std::tuple<>>::value, "");
+    return std::move(*reinterpret_cast<Type*>(&this->storage));
+}
+template <typename... Types>
+template <typename Type>
+const Type&& VariantMonad<Types...>::get() const && {
+    static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
+                                std::tuple<>>::value, "");
+    return std::move(*reinterpret_cast<const Type*>(&this->storage));
+}
+
 } // namespace sharp
