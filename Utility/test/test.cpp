@@ -168,3 +168,9 @@ TEST(Utility, LessPtrTest) {
     EXPECT_NE(integer_ptrs.find(&ONE), integer_ptrs.end());
     EXPECT_NE(integer_ptrs.find(&TWO), integer_ptrs.end());
 }
+
+TEST(Utility, VariantMonadTest) {
+    auto int_double = sharp::VariantMonad<int, double>{};
+    new (&int_double.get<int>()) int{2};
+    EXPECT_EQ(int_double.get<int>(), 2);
+}

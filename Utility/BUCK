@@ -5,6 +5,9 @@ cxx_library(
         "Utility.ipp",
         "Utility.hpp",
     ],
+    deps = [
+        "//Traits:Traits",
+    ],
     visibility = [
         "PUBLIC",
     ],
