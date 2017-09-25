@@ -8,8 +8,9 @@
 
 #pragma once
 
-#include <type_traits>
 #include <sharp/Traits/detail/Algorithm.hpp>
+
+#include <type_traits>
 
 namespace sharp {
 
