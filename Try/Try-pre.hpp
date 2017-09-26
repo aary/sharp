@@ -17,7 +17,7 @@ namespace sharp {
 /**
  * Forward declaration to allow checking if a type is an instantiation of Try<>
  */
-template <typename T>
+template <typename T, typename ExceptionPtr>
 class Try;
 
 namespace try_detail {

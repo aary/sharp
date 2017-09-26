@@ -29,8 +29,8 @@ public:
  *
  * A Try represents either a value, an exception or an empty state.
  */
-template <typename T>
-class Try : public sharp::VariantMonad<T, std::exception_ptr> {
+template <typename T, typename ExceptionPtr = std::exception_ptr>
+class Try : public sharp::VariantMonad<T, ExceptionPtr> {
 public:
 
     /**
@@ -50,7 +50,7 @@ public:
     /**
      * Destructor destroys the Try object by triggering the destructor for the
      * value contained if the Try contains a value, otherwise if the Try
-     * contains an exception ~std::exception_ptr() is called.
+     * contains an exception ~ExceptionPtr() is called.
      *
      * If the Try is in an empty state then the destructor is a no-op
      */
@@ -142,7 +142,7 @@ public:
      *
      * Upon calling get() the Try will throw an exception
      */
-    Try(std::exception_ptr ptr);
+    Try(ExceptionPtr ptr);
 
     /**
      * Construct a Try with a nullptr, this leaves the Try in a null state,
@@ -241,11 +241,11 @@ public:
      * If the Try does not contain an exception then a BadTryAccess error will
      * be thrown to reflect an error on the programmers part
      */
-    std::exception_ptr exception() const;
+    ExceptionPtr exception() const;
 
 private:
 
-    using Super = VariantMonad<T, std::exception_ptr>;
+    using Super = VariantMonad<T, ExceptionPtr>;
 
     /**
      * Helper function that constructs the try from another try object
@@ -284,7 +284,6 @@ private:
     /**
      * Storage used for the Try
      */
-    std::aligned_union_t<0, T, std::exception_ptr> storage;
     State state{State::EMPTY};
 };
 
