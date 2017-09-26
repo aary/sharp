@@ -14,4 +14,8 @@ cxx_library(
     visibility = [
         "PUBLIC",
     ],
+
+    tests = [
+        "//Try/test:test",
+    ],
 )
