@@ -1065,7 +1065,9 @@ namespace std {
 
     template <typename Type>
     using optional = std::experimental::optional<Type>;
+    using in_place_t = std::experimental::in_place_t;
     constexpr auto nullopt = std::experimental::nullopt;
+    constexpr auto in_place = std::experimental::in_place;
 
 } // namespace std
 #endif
