@@ -15,9 +15,9 @@ Try<T>::Try() {}
 template <typename T>
 Try<T>::~Try() {
     if (this->has_value()) {
-        this->template get<T>().~T();
+        this->template cast<T>().~T();
     } else if (this->has_exception()) {
-        this->template get<std::exception_ptr>().~std::exception_ptr();
+        this->template cast<std::exception_ptr>().~exception_ptr();
     }
 }
 
@@ -31,10 +31,11 @@ Try<T>::Try(Try&& other) {
     this->construct_from_try(std::move(other));
 }
 
+template <typename T>
 template <typename OtherTry,
           try_detail::EnableIfIsTry<OtherTry>*,
-          try_detail::EnableIfNotSelf<Try, OtherTry>*>
-explicit Try(OtherTry&& other) {
+          try_detail::EnableIfNotSelf<Try<T>, OtherTry>*>
+Try<T>::Try(OtherTry&& other) {
     this->construct_from_try(std::forward<OtherTry>(other));
 }
 
@@ -57,13 +58,13 @@ Try<T>::Try(std::in_place_t, Args&&... args) {
 template <typename T>
 template <typename U, typename... Args>
 Try<T>::Try(std::in_place_t, std::initializer_list<U> il, Args&&... args) {
-    this->emplace(il, std::forward<Args>(args));
+    this->emplace(il, std::forward<Args>(args)...);
 }
 
 template <typename T>
 Try<T>::Try(std::exception_ptr ptr) {
     this->state = State::EXCEPTION;
-    new (&this->template get<std::exception_ptr>()) std::exception_ptr{ptr};
+    new (&this->template cast<std::exception_ptr>()) std::exception_ptr{ptr};
 }
 
 template <typename T>
@@ -73,16 +74,16 @@ template <typename T>
 template <typename... Args>
 T& Try<T>::emplace(Args&&... args) {
     this->state = State::VALUE;
-    auto ptr = new (&this->template get<T>()) T{std::forward<Args>(args)...};
+    auto ptr = new (&this->template cast<T>()) T{std::forward<Args>(args)...};
     return *ptr;
 }
 
 template <typename T>
-template <typename U, typename... Args>
-T& Try<T>::emplace(std::initializer_list<U> il, Args&&... args) {
+template <typename U, typename... Ts>
+T& Try<T>::emplace(std::initializer_list<U> il, Ts&&... args) {
     this->state = State::VALUE;
-    auto p = new (&this->template get<T>()) T{il, std::forward<Args>(args)...};
-    return *p;
+    auto ptr = new (&this->template cast<T>()) T{il, std::forward<Ts>(args)...};
+    return *ptr;
 }
 
 template <typename T>
@@ -96,7 +97,7 @@ bool Try<T>::is_ready() const noexcept {
 }
 
 template <typename T>
-bool Try<T>::operator bool() const noexcept {
+Try<T>::operator bool() const noexcept {
     return this->valid();
 }
 
@@ -151,33 +152,33 @@ const T&& Try<T>::get() const && {
 }
 
 template <typename T>
-T& operator*() & {
-    return this->template get<T>();
+T& Try<T>::operator*() & {
+    return this->template cast<T>();
 }
 
 template <typename T>
-const T& operator*() const & {
-    return this->template get<T>();
+const T& Try<T>::operator*() const & {
+    return this->template cast<T>();
 }
 
 template <typename T>
-T&& operator*() && {
-    return std::move(this->template get<T>());
+T&& Try<T>::operator*() && {
+    return std::move(this->template cast<T>());
 }
 
 template <typename T>
-const T&& operator*() const && {
-    return std::move(this->template get<T>());
+const T&& Try<T>::operator*() const && {
+    return std::move(this->template cast<T>());
 }
 
 template <typename T>
 T* Try<T>::operator->() {
-    return std::addressof(this->template get<T>());
+    return std::addressof(this->template cast<T>());
 }
 
 template <typename T>
 const T* Try<T>::operator->() const {
-    return std::addressof(this->template get<T>());
+    return std::addressof(this->template cast<T>());
 }
 
 template <typename T>
@@ -185,29 +186,33 @@ std::exception_ptr Try<T>::exception() const {
     if (!this->has_exception()) {
         throw BadTryAccess{"Try does not contain an exception"};
     }
-    return this->template get<std::exception_ptr>();
+    return this->template cast<std::exception_ptr>();
 }
 
 template <typename T>
-template <typename TryType>
-void Try<T>::construct_from_try(TryType&& other) {
-    this->state = other.instance;
+template <typename Other>
+void Try<T>::construct_from_try(Other&& other) {
+    this->state = other.state;
     if (this->has_value()) {
-        new (&this->template get<T>())
-            T{std::forward<TryType>(other).template get<T>()};
+        new (&this->template cast<T>())
+            T{std::forward<Other>(other).template cast<T>()};
     } else if (this->has_exception()) {
-        new (&this->template get<std::exception_ptr>()) std::exception_ptr{
-            std::forward<TryType>(other).template get<std::exception_ptr>()};
+        new (&this->template cast<std::exception_ptr>()) std::exception_ptr{
+            std::forward<Other>(other).template cast<std::exception_ptr>()};
     }
 }
 
 template <typename T>
 template <typename This>
 decltype(auto) Try<T>::value_impl(This&& this_ref) {
-    this_ref.throw_if_has_exception();
+    if (this_ref.has_exception()) {
+        std::rethrow_exception(std::forward<This>(this_ref)
+                .template cast<std::exception_ptr>());
+    }
     if (this_ref.has_value()) {
-        return std::forward<This>(this_ref).template get<T>();
+        return std::forward<This>(this_ref).template cast<T>();
     }
     throw BadTryAccess{"Try is empty"};
 }
+
 } // namespace sharp

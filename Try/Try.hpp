@@ -36,7 +36,7 @@ public:
     /**
      * Customary typedefs, similar to what std::optional provides
      */
-    using value_type = T:
+    using value_type = T;
 
     /**
      * Default constructs a try, this has no significance, such a try has no
@@ -109,7 +109,7 @@ public:
      *      // try now has a copy of something
      */
     explicit Try(T&& instance);
-    explicit Try(const T&& instance);
+    explicit Try(const T& instance);
 
     /**
      * Emplace construct a try with the arguments needed for the type
@@ -230,7 +230,7 @@ public:
     T&& operator*() &&;
     const T&& operator*() const &&;
     T* operator->();
-    T* operator->() const;
+    const T* operator->() const;
 
     /**
      * If the try contains an exception this function will return the
@@ -244,6 +244,8 @@ public:
     std::exception_ptr exception() const;
 
 private:
+
+    using Super = VariantMonad<T, std::exception_ptr>;
 
     /**
      * Helper function that constructs the try from another try object
@@ -260,8 +262,15 @@ private:
     /**
      * Implementation for the value() function
      */
-    template <typename TryType>
+    template <typename This>
     static decltype(auto) value_impl(This&& this_ref);
+
+    /**
+     * Implementation for the VariantMonad::get<>() function, this is shadowed
+     * by the class's get() function so this is provided as a workaround
+     */
+    template <typename Type, typename This>
+    static decltype(auto) get_monad(This&& this_ref);
 
     /**
      * The possible states for the Try
@@ -280,3 +289,5 @@ private:
 };
 
 } // namespace sharp
+
+#include <sharp/Try/Try.ipp>
