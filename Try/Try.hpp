@@ -15,6 +15,19 @@
 
 namespace sharp {
 
+namespace try_detail {
+
+    /**
+     * The possible states for the Try
+     */
+    enum class State : std::int8_t {
+        EMPTY,
+        VALUE,
+        EXCEPTION
+    };
+
+} // namespace try_detail
+
 /**
  * This error is thrown when the user tries to fetch a value or exception from
  * the Try when the Try does not have a value or exception to return
@@ -37,6 +50,7 @@ public:
      * Customary typedefs, similar to what std::optional provides
      */
     using value_type = T;
+    using exception_type = ExceptionPtr;
 
     /**
      * Default constructs a try, this has no significance, such a try has no
@@ -243,6 +257,12 @@ public:
      */
     ExceptionPtr exception() const;
 
+    /**
+     * Make friends with all classes that are an instantiation of Try
+     */
+    template <typename Type, typename E>
+    friend class sharp::Try;
+
 private:
 
     using Super = VariantMonad<T, ExceptionPtr>;
@@ -266,25 +286,9 @@ private:
     static decltype(auto) value_impl(This&& this_ref);
 
     /**
-     * Implementation for the VariantMonad::get<>() function, this is shadowed
-     * by the class's get() function so this is provided as a workaround
-     */
-    template <typename Type, typename This>
-    static decltype(auto) get_monad(This&& this_ref);
-
-    /**
-     * The possible states for the Try
-     */
-    enum class State : std::int8_t {
-        EMPTY,
-        VALUE,
-        EXCEPTION
-    };
-
-    /**
      * Storage used for the Try
      */
-    State state{State::EMPTY};
+    try_detail::State state{try_detail::State::EMPTY};
 };
 
 } // namespace sharp

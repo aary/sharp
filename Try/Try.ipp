@@ -57,13 +57,14 @@ Try<T, ExceptionPtr>::Try(std::in_place_t, Args&&... args) {
 
 template <typename T, typename ExceptionPtr>
 template <typename U, typename... Args>
-Try<T, ExceptionPtr>::Try(std::in_place_t, std::initializer_list<U> il, Args&&... args) {
+Try<T, ExceptionPtr>::Try(std::in_place_t, std::initializer_list<U> il,
+                          Args&&... args) {
     this->emplace(il, std::forward<Args>(args)...);
 }
 
 template <typename T, typename ExceptionPtr>
 Try<T, ExceptionPtr>::Try(ExceptionPtr ptr) {
-    this->state = State::EXCEPTION;
+    this->state = try_detail::State::EXCEPTION;
     new (&this->template cast<ExceptionPtr>()) ExceptionPtr{ptr};
 }
 
@@ -73,7 +74,7 @@ Try<T, ExceptionPtr>::Try(std::nullptr_t) : Try{} {}
 template <typename T, typename ExceptionPtr>
 template <typename... Args>
 T& Try<T, ExceptionPtr>::emplace(Args&&... args) {
-    this->state = State::VALUE;
+    this->state = try_detail::State::VALUE;
     auto ptr = new (&this->template cast<T>()) T{std::forward<Args>(args)...};
     return *ptr;
 }
@@ -81,7 +82,7 @@ T& Try<T, ExceptionPtr>::emplace(Args&&... args) {
 template <typename T, typename ExceptionPtr>
 template <typename U, typename... Ts>
 T& Try<T, ExceptionPtr>::emplace(std::initializer_list<U> il, Ts&&... args) {
-    this->state = State::VALUE;
+    this->state = try_detail::State::VALUE;
     auto ptr = new (&this->template cast<T>()) T{il, std::forward<Ts>(args)...};
     return *ptr;
 }
@@ -103,12 +104,12 @@ Try<T, ExceptionPtr>::operator bool() const noexcept {
 
 template <typename T, typename ExceptionPtr>
 bool Try<T, ExceptionPtr>::has_value() const noexcept {
-    return (this->state == State::VALUE);
+    return (this->state == try_detail::State::VALUE);
 }
 
 template <typename T, typename ExceptionPtr>
 bool Try<T, ExceptionPtr>::has_exception() const noexcept {
-    return (this->state == State::EXCEPTION);
+    return (this->state == try_detail::State::EXCEPTION);
 }
 
 template <typename T, typename ExceptionPtr>
@@ -193,12 +194,16 @@ template <typename T, typename ExceptionPtr>
 template <typename Other>
 void Try<T, ExceptionPtr>::construct_from_try(Other&& other) {
     this->state = other.state;
+    using OtherValue_t = typename std::decay_t<Other>::value_type;
+    using OtherException_t = typename std::decay_t<Other>::exception_type;
+
+    // assign the value to this from the other value
     if (this->has_value()) {
         new (&this->template cast<T>())
-            T{std::forward<Other>(other).template cast<T>()};
+            T{std::forward<Other>(other).template cast<OtherValue_t>()};
     } else if (this->has_exception()) {
         new (&this->template cast<ExceptionPtr>()) ExceptionPtr{
-            std::forward<Other>(other).template cast<ExceptionPtr>()};
+            std::forward<Other>(other).template cast<OtherException_t>()};
     }
 }
 
