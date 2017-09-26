@@ -1,0 +1,17 @@
+cxx_library(
+    name = "Try",
+    header_namespace = "sharp/Try",
+    deps = [
+        "//Traits:Traits",
+        "//Utility:Utility",
+        "//Portability:Portability",
+    ],
+    exported_headers = [
+        "Try.hpp",
+        "Try.ipp",
+        "Try-pre.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
