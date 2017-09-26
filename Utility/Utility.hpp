@@ -175,13 +175,13 @@ public:
      * type storage to the type it is being used to store
      */
     template <typename Type>
-    Type& get() &;
+    Type& cast() &;
     template <typename Type>
-    const Type& get() const &;
+    const Type& cast() const &;
     template <typename Type>
-    Type&& get() &&;
+    Type&& cast() &&;
     template <typename Type>
-    const Type&& get() const &&;
+    const Type&& cast() const &&;
 
 private:
     /**

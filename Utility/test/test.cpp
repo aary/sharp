@@ -42,11 +42,15 @@ namespace {
     };
 
     template <typename One>
-    class OneMonad : sharp::VariantMonad<One> {
+    class OneMonad : public sharp::VariantMonad<One> {
     public:
+        ~OneMonad() {
+            auto&& ref = this->template cast<One>();
+            static_cast<void>(ref);
+        }
         template <typename T>
         int test() {
-            auto&& ref = this->template get<T>();
+            auto&& ref = this->template cast<T>();
             static_cast<void>(ref);
             return 1;
         }
@@ -182,8 +186,8 @@ TEST(Utility, LessPtrTest) {
 
 TEST(Utility, VariantMonadBasicTest) {
     auto int_double_monad = sharp::VariantMonad<int, double>{};
-    new (&int_double_monad.get<int>()) int{2};
-    EXPECT_EQ(int_double_monad.get<int>(), 2);
+    new (&int_double_monad.cast<int>()) int{2};
+    EXPECT_EQ(int_double_monad.cast<int>(), 2);
 }
 
 TEST(Utility, VariantMonadTestNoTemplateKeywordRequired) {

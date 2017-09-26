@@ -143,7 +143,7 @@ public:
 
 template <typename... Types>
 template <typename Type>
-Type& VariantMonad<Types...>::get() & {
+Type& VariantMonad<Types...>::cast() & {
     // weird if the user does this since reference types are not allowed
     static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
                                 std::tuple<>>::value, "");
@@ -151,21 +151,21 @@ Type& VariantMonad<Types...>::get() & {
 }
 template <typename... Types>
 template <typename Type>
-const Type& VariantMonad<Types...>::get() const & {
+const Type& VariantMonad<Types...>::cast() const & {
     static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
                                 std::tuple<>>::value, "");
     return *reinterpret_cast<const Type*>(&this->storage);
 }
 template <typename... Types>
 template <typename Type>
-Type&& VariantMonad<Types...>::get() && {
+Type&& VariantMonad<Types...>::cast() && {
     static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
                                 std::tuple<>>::value, "");
     return std::move(*reinterpret_cast<Type*>(&this->storage));
 }
 template <typename... Types>
 template <typename Type>
-const Type&& VariantMonad<Types...>::get() const && {
+const Type&& VariantMonad<Types...>::cast() const && {
     static_assert(!std::is_same<sharp::Find_t<Type, std::tuple<Types...>>,
                                 std::tuple<>>::value, "");
     return std::move(*reinterpret_cast<const Type*>(&this->storage));
