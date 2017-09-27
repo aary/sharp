@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
+
 namespace {
 
     class DestroySignal {
@@ -90,6 +92,21 @@ TEST_F(TryTest, DefaultConstruct) {
     EXPECT_FALSE(t);
 }
 
+TEST_F(TryTest, ThrowWhenNoValue) {
+    auto t = sharp::Try<int>{};
+    EXPECT_THROW(t.value(), sharp::BadTryAccess);
+    EXPECT_THROW(t.get(), sharp::BadTryAccess);
+    EXPECT_THROW(t.exception(), sharp::BadTryAccess);
+}
+
+TEST_F(TryTest, ThrowWhenException) {
+    auto exc = int{1};
+    auto exception_ptr = std::make_exception_ptr(exc);
+    auto t = sharp::Try<int>{exception_ptr};
+    EXPECT_THROW(t.value(), int);
+    EXPECT_THROW(t.get(), int);
+}
+
 TEST_F(TryTest, Destructor) {
     {
         auto signal = false;
@@ -175,4 +192,24 @@ TEST_F(TryTest, DereferenceTest) {
     EXPECT_TRUE((std::is_same<decltype(*std::move(t)), TestCopyMove&&>::value));
     EXPECT_TRUE((std::is_same<decltype(*std::move(as_const(t))),
                               const TestCopyMove&&>::value));
+}
+
+TEST_F(TryTest, ArrowOperatorTest) {
+    using sharp::as_const;
+    auto t = sharp::Try<int>{1};
+    EXPECT_TRUE((std::is_same<decltype(t.operator->()), int*>::value));
+    EXPECT_TRUE((std::is_same<decltype(as_const(t).operator->()),
+                              const int*>::value));
+}
+
+TEST_F(TryTest, ExceptionSuccessAndFail) {
+    auto exc = std::logic_error{"some error"};
+    auto exc_ptr = std::make_exception_ptr(exc);
+    auto one = sharp::Try<int>{exc_ptr};
+    try {
+        std::rethrow_exception(one.exception());
+    } catch (std::exception& exc) {
+        auto str = std::string{exc.what()};
+        EXPECT_EQ(str, "some error");
+    }
 }
