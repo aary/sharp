@@ -286,6 +286,12 @@ private:
     static decltype(auto) value_impl(This&& this_ref);
 
     /**
+     * Destroys the value in the Try if it held a value, i.e. if valid()
+     * returned true
+     */
+    void destroy_value_if_held();
+
+    /**
      * Storage used for the Try
      */
     try_detail::State state{try_detail::State::EMPTY};

@@ -74,6 +74,10 @@ Try<T, ExceptionPtr>::Try(std::nullptr_t) : Try{} {}
 template <typename T, typename ExceptionPtr>
 template <typename... Args>
 T& Try<T, ExceptionPtr>::emplace(Args&&... args) {
+    // destroy any value that was held in here before
+    this->~Try();
+
+    // and then emplace the new value
     this->state = try_detail::State::VALUE;
     auto ptr = new (&this->template cast<T>()) T{std::forward<Args>(args)...};
     return *ptr;
@@ -82,6 +86,10 @@ T& Try<T, ExceptionPtr>::emplace(Args&&... args) {
 template <typename T, typename ExceptionPtr>
 template <typename U, typename... Ts>
 T& Try<T, ExceptionPtr>::emplace(std::initializer_list<U> il, Ts&&... args) {
+    // destroy any value that was held in here before
+    this->~Try();
+
+    // and then emplace the new value
     this->state = try_detail::State::VALUE;
     auto ptr = new (&this->template cast<T>()) T{il, std::forward<Ts>(args)...};
     return *ptr;
