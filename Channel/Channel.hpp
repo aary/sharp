@@ -23,318 +23,179 @@
 
 namespace sharp {
 
-namespace detail {
-
-    /**
-     * A context that represents all the information needed for a select
-     * statement
-     */
-    struct SelectContext {
-        std::mutex mtx;
-        std::condition_variable cv;
-        bool should_try{true};
-    };
-
-} // namespace detail
-
 /**
- * An exception that denotes that the channel has been closed
- */
-class ChannelClosedException : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
-};
-
-/**
- * An asynchronous channel that can be used for synchronization across
- * multiple threads.  This is an implementation of channels as found in the Go
- * language, with an effort made to maintain the same API as much as possible
- * without losing the expressiveness of the original API.
+ * A synchronous channel that can be used for synchronization across multiple
+ * threads.  This is an implementation of channels as found in the Go
+ * programming langauge with an efford made to maintain the same API with the
+ * expressiveness and features of C++
  *
- * A channel is a logical synchronization utility that can be used like
- * generalized semaphores, in fact a buffered Channel is the same as a
- * generalized semaphore (except for the upper bound on the number of times
- * values can be added without fetching, which seems to be designed to prevent
- * user errors)
+ * A channel can be logically considered to be a n-semaphore, i.e. a semaphore
+ * that can at max be incremented up to n values with the n+1th up()
+ * opreration blocking until there is space in the semaphore via another
+ * down() operation.  In addition channels can be used to send values across
+ * along with the gating provided by semaphores.  In other words a channel is
+ * an n-bounded threadsafe queue.
  *
- * Send and receive calls block on the channel if the buffer cannot handle
- * another value, the value blocking on will be released as soon as a reader
- * fetches the value with a read() call
+ * Send calls on a channel block until either there is enough space in the
+ * channel's buffer to accomodate another value or there is a reader waiting
+ * on the other end to read the value
+ *
+ * Channels can also be used to stream data reactively to another thread, with
+ * the API being a pair of channel iterators.  This means that the channel can
+ * be used in a simple for loop
+ *
+ *      for (auto value : channel) {
+ *          cout << value << endl;
+ *      }
+ *
+ * The loop finishes when the other end calls close() on the channel
+ *
+ * Something to note here is that the channel is unlike the one in go, it is a
+ * non movable non copyable entity, similar to std::mutex and
+ * std::condition_variable.  However it is easy to get two seperate threads to
+ * operate on the same channel without having to worry that much about
+ * lifetime by wrapping the channel in a shared_ptr, for example
+ *
+ *      auto channel = std::make_shared<Channel<int>>(1);
+ *
+ *      auto th_one = std::thread{[channel]() {
+ *          // this send will not block as the channel has room for one
+ *          // element in its internal buffer
+ *          channel.send(1);
+ *      }};
+ *      auto th_two = std::thread{[channel]() {
+ *          // this read will block until the channel has a value
+ *          cout << channel.read() << endl;
+ *      }};
+ *
+ * Further the behavior of the channel can be customized to fit thread
+ * implementations by changing the mutex and condition variable type
+ *
+ * Channels also capture the value or error semantics of Go channels by
+ * providing methods to send exceptions across channels, for example
+ *
+ *      channel.send_exception(exception_ptr);
+ *
+ *      try {
+ *          channel.read();
+ *      } catch(std::exception& exc) {
+ *          cerr << exc.what() << endl;
+ *      }
+ *
+ * If exceptions are common and erroneous conditions are to be expected then
+ * you can avoid costly rethrows by calling Channel::read_try().  This will
+ * return a sharp::Try object.  sharp::Try logically models either a value,
+ * an exception or nothing at all, kind of like an optional with another state
+ * to store exceptions.  This can therefore be used to manually check for
+ * errors.  Hopefully there is a feature in the C++ library to allow
+ * visitation on exceptions ith RAII and generalized overloading.  If done,
+ * then this can be used to visit exception pointers in an efficient way.  See
+ * sharp::visit to get an idea of what this might look like
+ *
+ *      auto try = channel.read_try();
+ *      if (try.has_value()) {
+ *          cout << *try << endl;
+ *      } else {
+ *          cout << "Channel read returned an error" << endl;
+ *      }
+ *
+ * Select statements are also supported, see the documentation above the
+ * select() function below for more information about its semantics and usage
+ * but for a quick example
+ *
+ *      sharp::select(
+ *          sharp::case(channel_one, []() -> int {
+ *              return 1;
+ *          }),
+ *          sharp::case(channel_two, [](auto value) {
+ *              cout << "Read value " << value << endl;
+ *          })
+ *      );
+ *
+ * Where a write from the channel is modelled by a callable that returns a
+ * value and a read is modeled by a callable that accepts a single value
  */
-template <typename Type>
+template <typename Type,
+          typename MutexType = std::mutex,
+          typename ConditionVariableType = std::condition_variable>
 class Channel {
 public:
 
     /**
-     * Aliases
+     * The constructor of the channel sets the size of the internal buffer
+     * that the channel will have.  And then this will affect the semantics of
+     * which read and/or write will block and under what conditions
      */
-    using value_type = Type;
-
-    /**
-     * Default constructor for the channel initializes it with a buffer large
-     * enough to fit the passed buffer length parameter.
-     *
-     * The buffer length parameter is not made a template argument so that
-     * users can maintain pointers and references to channels, which is a
-     * valuable idiom in concurrent C++ programming
-     */
-    Channel(int buffer_length = 0);
+    Channel(int buffer_size = 0);
 
     /**
      * Channels once created cannot be moved or copied around to other
      * channels.  If the intended use is to have a container of channels, then
-     * the way to use a channel would be to wrap it around a unique_ptr and
-     * then put it in the container
+     * the way to use a channel with the container would be to wrap it around
+     * a wrapper like std::optional, std::unique_ptr or std::shared_ptr and
+     * then dump it in the container
      *
-     * This is similar to std::mutex, std::condition_variable and std::atomic,
-     * this is a synchronization primitive and should not be moved around.
-     * Note that this behavior is unlike futures, which can be moved
+     * This behavior is similar to std::mutex, std::condition_variable and
+     * std::atomic.  This is a synchronization primitive and should not be
+     * moved around
      */
-    Channel(Channel&&) = delete;
     Channel(const Channel&) = delete;
-    Channel& operator=(Channel&&) = delete;
+    Channel(Channel&&) = delete;
     Channel& operator=(const Channel&) = delete;
+    Channel& operator=(Channel&&) = delete;
 
     /**
-     * The send function to send a value across the channel
+     * The send function for the channel sends a value across the channel.
      *
-     * Unlike asycnhronous sends, sends on a channel block until they are
-     * received on the other end, resulting in a synchronization pattern like
-     * with futures and promises, but slightly different since there can be
-     * multiple sends on a single channel
+     * This blocks until there is space in either the buffer or if there is a
+     * reader waiting on the other end waiting to read a value.  This is
+     * similar to a (std::future, std::promise) pair but logically different
+     * as a future promise pair has a one shot single element queue, whereas a
+     * channel has an n-element internal buffer
      *
-     * This function has the following two overloads as opposed to one
-     * overload with the following signature
+     * The function has two overloads one for moving values into the channel
+     * and another for copying values into the channel.  Both guaranteeing
+     * that when the call finishes, the value will either have been moved or
+     * copied
      *
-     *      void send(Type value)
+     *      // this will move the value across the channel
+     *      channel.send(std::move(value));
      *
-     * Because libraries should be as efficient in the general case as
-     * possible and should provide APIs to the user that enable them to take
-     * control of their types.  If one function was provided and the user
-     * passed by value, there would be one copy followed by a move.  The user
-     * may or may not have wanted that additional move.  And when a type is
-     * not move constructible the above will require two copies.  The
-     * following two overloads allow control for the moving/copying to reside
-     * with the user, when moving and copying are both too expensive the value
-     * can just be constructed in place with the third overload
+     *      // this will copy the value into the channel, from where it will
+     *      // be moved into the other end that calls read()
+     *      channel.send(value)
+     *
+     * This allows the library to efficiently send value across the channel.
+     * There are also in place construction options with std::in_place that
+     * will construct the object in the channel in place with the given
+     * arguments
      */
     void send(const Type& value);
     void send(Type&& value);
 
     /**
-     * Overloads to send a value and have that constructed in place in the
-     * channel, this avoids unnecesary moves and copies into the channel
-     * storage
+     * These construct the value in place in the channel, from where they will
+     * be moved into th receiving end.  These are disambiguated with the
+     * std::in_place tag for clarity.  For example
      *
-     * The second function is for initializer list construction in place.
-     * Initializer lists cannot be deduced right from template arguments and
-     * therefore need a second overload
+     *      channel.send(std::in_place, "some string" 1);
      */
     template <typename... Args>
-    void send(sharp::emplace_construct::tag_t, Args&&... args);
+    void send(std::in_place_t, Args&&... args);
     template <typename U, typename... Args>
-    void send(sharp::emplace_construct::tag_t, std::initializer_list<U> ilist,
-              Args&&... args);
+    void send(std::in_place_t, std::initializer_list<U> il, Args&&... args);
 
     /**
-     * Sends an exception through the channel, this exception if send will be
-     * received by the receiving end when they read a value out of the
-     * channel.
-     */
-    void send_exception(std::exception_ptr p);
-
-    /**
-     * The receive function to receive a value from the channel
+     * The receive function reads a value from the channel
      *
-     * This call is blocking, it will block until there is a value to be read
-     * from the channel, thus this is very similar to a fetch on a future
+     * This blocks until there is either a value in the channel or if there is
+     * a writer waiting on the other end to send a value
      *
-     * The object that was stored internally in the socket is moved into the
-     * receiving code when this is called, as a result there may be a return
-     * value optimization into the stored object
+     * The object stored internally via a write is then moved from internal
+     * storage into the return value of this function.  Which is then itself
+     * stored wherever the surrounding code tells it to go
      */
     Type read();
-
-    /**
-     * A speculative version of the blocking read above, this read is non
-     * blocking and either goes through successfully or returns a null value
-     */
-    std::optional<Type> try_read();
-
-    /**
-     * An iterator class for the channel to represent a range within the
-     * channel.  This enables continuous streaming of objects from one thread
-     * to another with a simple generalized reading approach.  See README for
-     * the module for more information.
-     */
-    class Iterator;
-
-    /**
-     * Begin and end iterators to represent a range within the channel.  This
-     * enables continuous streaming of objects from one thread to another with
-     * a simple generalized reading approach.  See README for the module for
-     * more information.
-     */
-    Iterator begin();
-    Iterator end();
-
-    /**
-     * Closes the current range being sent through the channel
-     *
-     * Note that this is slightly different from the version of close() found
-     * in go channels, once a channel has been closed in this version, it can
-     * still be reused like normal.  This is done to allow channels to be
-     * reused
-     */
-    void close();
-
-    /**
-     * Make friends with the select function, each select operation waits on a
-     * mutex for the channel, and therefore there is some hooking involved
-     */
-    template <typename... SelectContexts>
-    friend void select(SelectContexts&&...);
-
-    /**
-     * Register a read interest in the channel, this will essentially increase
-     * the size of the buffer by one
-     */
-    void register_read_interest();
-
-    /**
-     * A dirty little hack to imitate multi line writes, one to see if a write
-     * can go through and if so don't allow anything else to happen in the
-     * channel, block all operations until the write has been completed
-     *
-     * For example if a select operation wants to write to a channel and it is
-     * signalled to continue, then it may use this method to reserve a spot in
-     * the channel for the value it wants to write and then write the value
-     *
-     * This releases the internal mutex and returns false if the write cannot
-     * proceed.  Whereas if the write can proceed then it returns a true and
-     * keeps the mutex locked, write_finished() should be called when the
-     * write has been completed
-     *
-     * Therefore any function that uses this method MUST complete with an
-     * immediate call to finish_write() and write a value to the channel
-     */
-    bool try_lock_write();
-    void finish_write(Type);
-
-    /**
-     * Add a condition variable that is going to be signalled when the channel
-     * possibly has something to read or write
-     */
-    void add_reader_context(std::shared_ptr<detail::SelectContext> context);
-    void add_writer_context(std::shared_ptr<detail::SelectContext> context);
-
-private:
-
-    /**
-     * The function that actually handles the sending of the value across the
-     * channel, this handles all the synchronization involved
-     *
-     * Expects a functor that actually constructs the object into the internal
-     * queue.  Since there are so many ways to do this (by value, by move, by
-     * in place construction, etc) this function accepts a lambda that does
-     * the construction
-     */
-    template <typename Func>
-    void send_impl(Func&& enqueue_func);
-
-    /**
-     * These functions should be called from within read() and send() whenever
-     * all possible blocking has finished and execution is at the point where
-     * the send() or read() is guaranteed to succeed
-     *
-     * These assume that the internal mutex will be held
-     *
-     * These functions also signal whichever condition variables need to be
-     * signalled.  For example do_write_no_block() signals the read cv because
-     * a read is now ready
-     */
-    template <typename Func>
-    void do_write_no_block(Func&& enqueue_element);
-    Type do_read_no_block();
-
-    /**
-     * Notify all waiting readers or writers that there might be a possible
-     * read or possible write when they wake up.  Also wake them up
-     */
-    void notify_waiting_readers();
-    void notify_waiting_writers();
-
-    /**
-     * Utility functions to check if a reader has to wait or if a writer has
-     * to wait
-     */
-    bool can_read_proceed() const;
-    bool can_write_proceed() const;
-
-    /**
-     * Function that will be used to construct the value in place at the back
-     * of the queue
-     */
-    template <typename... Args>
-    void enqueue_element(Args&&... args);
-    template <typename U, typename... Args>
-    void enqueue_element(std::initializer_list<U> ilist, Args&&...);
-
-    /**
-     * the buffer length of the channel, defaults to 0 meaning that there is
-     * no room for a buffer at all, only one value is stored, and all send()
-     * and read() calls are blocking until there is a read() or send() on the
-     * other end respectively
-     */
-    int buffer_length{0};
-
-    /**
-     * The number of open slots to write to, for example if the buffer size is
-     * 0 and the number of readers waiting for writes is 2 then the number of
-     * slots to write to would be 2, since 2 writes can go through logically.
-     * Similarly if the buffer size is 2 and there are 4 readers waiting then
-     * the number of slots to write to would be 6, since 6 writes can
-     * logically go through, 2 in the buffer and then 4 to the readers.
-     */
-    int open_slots;
-
-    /**
-     * The monitor for synchronization
-     */
-    std::mutex mtx;
-    std::condition_variable read_cv;
-    std::condition_variable write_cv;
-
-    /**
-     * the condition variables that select operations might be waiting on,
-     * when there is a read or write the respective cvs are signalled to let
-     * them know that they should proceed and try and read or write to
-     * whichever channel did the signalling
-     */
-    std::vector<std::shared_ptr<detail::SelectContext>> select_contexts_write;
-    std::vector<std::shared_ptr<detail::SelectContext>> select_contexts_read;
-
-    /**
-     * The type used to represent either an exception or a value
-     *
-     * TODO replace with variant when available, this is so ugly
-     */
-    template <typename T>
-    struct Node {
-        using value_type = T;
-        std::aligned_union_t<0, std::exception_ptr, T> storage;
-        bool is_exception{false};
-
-        ~Node() {
-            if (this->is_exception) {
-                (*reinterpret_cast<std::exception_ptr*>(&this->storage))
-                    .~exception_ptr();
-            } else {
-                (*reinterpret_cast<T*>(&this->storage)).~T();
-            }
-        }
-    };
-    std::deque<Node<Type>> elements;
 };
 
 /**
