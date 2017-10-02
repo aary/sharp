@@ -7,7 +7,7 @@ cxx_library(
         "//ForEach:ForEach",
         "//Functional:Functional",
         "//Future:Future",
-        "//LockedData:LockedData",
+        "//Concurrent:Concurrent",
         "//Overload:Overload",
         "//OrderedContainer:OrderedContainer",
         "//Overload:Overload",

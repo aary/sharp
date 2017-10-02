@@ -1,0 +1,22 @@
+cxx_library(
+    name = "Concurrent",
+    header_namespace = "sharp/Concurrent",
+    deps = [
+        "//Tags:Tags",
+    ],
+    headers = [
+        "Concurrent.hpp",
+        "Concurrent.ipp",
+    ],
+    exported_headers = [
+        "Concurrent.ipp",
+        "Concurrent.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Concurrent/test:test",
+    ],
+)

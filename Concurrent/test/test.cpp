@@ -1,4 +1,4 @@
-#include <sharp/LockedData/LockedData.hpp>
+#include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Tags/Tags.hpp>
 
 #include <gtest/gtest.h>
@@ -52,7 +52,7 @@ int InPlace::instance_counter = 0;
  * invariant being that the one initialized first is also before in memory)
  * gets locked first when the assignment operator is called
  *
- * This is used by test LockedDataTests::test_assignment_operator
+ * This is used by test ConcurrentTests::test_assignment_operator
  */
 static int current_track{0};
 class FakeMutexTrack : public FakeMutex {
@@ -88,14 +88,14 @@ public:
     int a;
 };
 
-class LockedDataTests {
+class ConcurrentTests {
 public:
     static void test_unique_locked_proxy() {
         auto fake_mutex = FakeMutex{};
         auto object = 1;
         EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
         {
-            auto proxy = LockedData<int, FakeMutex>::UniqueLockedProxy{object,
+            auto proxy = Concurrent<int, FakeMutex>::UniqueLockedProxy{object,
                 fake_mutex};
             EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::LOCKED);
             EXPECT_EQ(proxy.operator->(), &object);
@@ -107,7 +107,7 @@ public:
         // const unique locked proxy shuold read lock the lock
         EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
         {
-            auto proxy = LockedData<int, FakeMutex>::ConstUniqueLockedProxy{
+            auto proxy = Concurrent<int, FakeMutex>::ConstUniqueLockedProxy{
                 object, fake_mutex};
             EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::SHARED);
             EXPECT_EQ(proxy.operator->(), &object);
@@ -118,7 +118,7 @@ public:
     }
 
     static void test_atomic_non_const() {
-        LockedData<double, FakeMutex> locked;
+        Concurrent<double, FakeMutex> locked;
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         locked.atomic([&](auto&) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::LOCKED);
@@ -127,7 +127,7 @@ public:
     }
 
     static void test_atomic_const() {
-        LockedData<double, FakeMutex> locked;
+        Concurrent<double, FakeMutex> locked;
         [](const auto& locked) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
             locked.atomic([&](auto&) {
@@ -138,7 +138,7 @@ public:
     }
 
     static void test_lock() {
-        LockedData<int, FakeMutex> locked;
+        Concurrent<int, FakeMutex> locked;
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         {
             auto proxy = locked.lock();
@@ -148,7 +148,7 @@ public:
     }
 
     static void test_lock_const() {
-        const LockedData<int, FakeMutex> locked{};
+        const Concurrent<int, FakeMutex> locked{};
         auto pointer_to_object = reinterpret_cast<uintptr_t>(&locked.datum);
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
         {
@@ -161,14 +161,14 @@ public:
     }
 
     static void test_copy_constructor() {
-        LockedData<int, FakeMutex> object{};
-        LockedData<int, FakeMutex> copy{object};
+        Concurrent<int, FakeMutex> object{};
+        Concurrent<int, FakeMutex> copy{object};
     }
 
     static void test_in_place_construction() {
 
         // construct a lockeddata object in place
-        __attribute__((unused)) LockedData<InPlace> locked_data{
+        __attribute__((unused)) Concurrent<InPlace> locked_data{
             sharp::emplace_construct::tag, static_cast<int>(1)};
 
         // assert that only one instance was created
@@ -177,15 +177,15 @@ public:
 
     static void test_assignment_operator() {
 
-        using LockedDataType = LockedData<int, FakeMutexTrack>;
-        using AlignedStorage = std::aligned_storage_t<sizeof(LockedDataType)>;
+        using ConcurrentType = Concurrent<int, FakeMutexTrack>;
+        using AlignedStorage = std::aligned_storage_t<sizeof(ConcurrentType)>;
         AlignedStorage l1;
         AlignedStorage l2;
 
         if (reinterpret_cast<uintptr_t>(&l1)
                 < reinterpret_cast<uintptr_t>(&l2)) {
-            new (&l1) LockedDataType{};
-            new (&l2) LockedDataType{};
+            new (&l1) ConcurrentType{};
+            new (&l2) ConcurrentType{};
             l1 = l2;
             l2 = l1;
         }
@@ -198,50 +198,50 @@ public:
             // with l2 going first in memory then reconstruct them to get the
             // counter initialized right
             current_track = 0;
-            new (&l2) LockedDataType{};
-            new (&l1) LockedDataType{};
+            new (&l2) ConcurrentType{};
+            new (&l1) ConcurrentType{};
 
             current_track = 0;
             l1 = l2;
             l2 = l1;
         }
 
-        reinterpret_cast<LockedDataType*>(&l1)->~LockedDataType();
-        reinterpret_cast<LockedDataType*>(&l2)->~LockedDataType();
+        reinterpret_cast<ConcurrentType*>(&l1)->~ConcurrentType();
+        reinterpret_cast<ConcurrentType*>(&l2)->~ConcurrentType();
     }
 };
 
 } // namespace sharp
 
-TEST(LockedData, test_unique_locked_proxy) {
-    LockedDataTests::test_unique_locked_proxy();
+TEST(Concurrent, test_unique_locked_proxy) {
+    ConcurrentTests::test_unique_locked_proxy();
 }
 
-TEST(LockedData, test_atomic_non_const) {
-    LockedDataTests::test_atomic_non_const();
+TEST(Concurrent, test_atomic_non_const) {
+    ConcurrentTests::test_atomic_non_const();
 }
 
-TEST(LockedData, test_atomic_const) {
-    LockedDataTests::test_atomic_const();
+TEST(Concurrent, test_atomic_const) {
+    ConcurrentTests::test_atomic_const();
 }
 
-TEST(LockedData, test_lock) {
-    LockedDataTests::test_lock();
+TEST(Concurrent, test_lock) {
+    ConcurrentTests::test_lock();
 }
 
-TEST(LockedData, test_lock_const) {
-    LockedDataTests::test_lock_const();
+TEST(Concurrent, test_lock_const) {
+    ConcurrentTests::test_lock_const();
 }
 
-TEST(LockedData, test_copy_constructor) {
-    LockedDataTests::test_copy_constructor();
+TEST(Concurrent, test_copy_constructor) {
+    ConcurrentTests::test_copy_constructor();
 }
 
-TEST(LockedData, test_in_place_construction) {
-    LockedDataTests::test_in_place_construction();
+TEST(Concurrent, test_in_place_construction) {
+    ConcurrentTests::test_in_place_construction();
 }
 
-TEST(LockedData, test_assignment_operator) {
-    LockedDataTests::test_assignment_operator();
+TEST(Concurrent, test_assignment_operator) {
+    ConcurrentTests::test_assignment_operator();
 }
 

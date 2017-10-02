@@ -50,7 +50,7 @@ deps = [
 and the corresponding include statement in your C++ file would be
 
 ```
-#include <sharp/LockedData/LockedData.hpp>
+#include <sharp/Concurrent/Concurrent.hpp>
 ```
 
 If any bugs are found please open an issue on
@@ -73,4 +73,4 @@ buck test ...
 
 To run the unit tests individually for a module run `buck test
 <module_name>/...` from the `sharp` folder.  For example to run unit tests for
-the `LockedData` module run `buck test LockedData/...`
+the `Concurrent` module run `buck test Concurrent/...`

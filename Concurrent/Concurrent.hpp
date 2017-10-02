@@ -1,5 +1,5 @@
 /**
- * @file LockedData.hpp
+ * @file Concurrent.hpp
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
  * This module contains a simple abstraction that halps in maintaining data
@@ -7,6 +7,9 @@
  * than maintaining an object along with its mutex.
  *
  *  * Originally written for EECS 482 @ The University of Michigan *
+ *
+ * This was originally named ThreadSafeData, but the name concurrent works
+ * better and is shorter :)
  *
  * See the class description documentation for simple use case examples.
  */
@@ -22,18 +25,19 @@
 namespace sharp {
 
 /**
- * @class LockedData
+ * @class Concurrent
  *
  * Simple critical sections
  *
  * Or
  *
- *  LockedData<std::vector> vector_locked;
+ *  Concurrent<std::vector> vector_locked;
  *  auto& ele = vector_locked.atomic([&](auto& v) { return v[0]; });
  *
  * Or similar to the std::weak_ptr interface
  *
- *  LockedData<std::vector> vector_locked;
+ *  Concurrent<std::vector> vec;
+ *  auto  =
  *  {
  *      auto handle = vector_locked.lock();
  *      handle->interface_one();
@@ -60,7 +64,7 @@ namespace sharp {
  * it in a unique_ptr and put that pointer in the map.
  */
 template <typename Type, typename Mutex = std::mutex>
-class LockedData {
+class Concurrent {
 public:
 
     /**
@@ -76,7 +80,7 @@ public:
      *
      * @param func A function that accepts an argument of type Type&, this
      *             object of type Type& will be the unwrapped element and not
-     *             the LockedData element.
+     *             the Concurrent element.
      * @return returns the exact object that is returned by the function when
      *         executed on the internal object
      */
@@ -100,8 +104,8 @@ public:
      * Forward declarations of lightweight proxy types that are used to
      * interact with the underlying object.
      */
-    class UniqueLockedProxy;
-    class ConstUniqueLockedProxy;
+    class UniqueConcurrentProxy;
+    class ConstUniqueConcurrentProxy;
 
     /**
      * Returns a proxy object that locks the inner data object on construction
@@ -111,11 +115,11 @@ public:
      * reference when the operator.() becomes standard.
      *
      * Note that this method has been overloaded on the basis of whether the
-     * object is const or not.  When the LockedData object is const in context
+     * object is const or not.  When the Concurrent object is const in context
      * then this function is called and when the object is mutable in context
      * then the version above is called
      */
-    UniqueLockedProxy lock();
+    UniqueConcurrentProxy lock();
 
     /**
      * A const version of the same lock above.  This helps to automate the
@@ -123,17 +127,17 @@ public:
      * readers-writer lock or some form of shared lock.
      *
      * Note that this method has been overloaded on the basis of whether the
-     * object is const or not.  When the LockedData object is const in context
+     * object is const or not.  When the Concurrent object is const in context
      * then this function is called and when the object is mutable in context
      * then the version above is called
      */
-    ConstUniqueLockedProxy lock() const;
+    ConstUniqueConcurrentProxy lock() const;
 
     /**
      * The usual constructors for the class.  This is set to the default
      * constructor for the class.
      */
-    LockedData() = default;
+    Concurrent() = default;
 
     /**
      * Copy constructor.
@@ -146,24 +150,24 @@ public:
      *
      * @param other the other locked data object that is to be copied
      */
-    LockedData(const LockedData&);
+    Concurrent(const Concurrent&);
 
     /**
      * Move constructor has been deleted because it probably should not be
      * used.  The inner mutex is not going to be moved.  Wrapping it in a
      * unique_ptr would cause loss of performance and is unacceptable here
      */
-    LockedData(LockedData&&) = delete;
+    Concurrent(Concurrent&&) = delete;
 
     /**
      * This constructor is present to allow simulation of an aggregate type by
-     * the LockedData object.  All arguments are forwarded to the constructor
+     * the Concurrent object.  All arguments are forwarded to the constructor
      * of the data object.
      *
      * To use this form of construction, select dispatch with a
      * sharp::emplace_construct_t object.  For example
      *
-     *  LockedData<Class> locked {
+     *  Concurrent<Class> locked {
      *      std::emplace_construct_t, one, two, three};
      *
      * Note that the internal mutex is not held here and therefore the
@@ -176,7 +180,7 @@ public:
      * object
      */
     template <typename... Args>
-    explicit LockedData(sharp::emplace_construct::tag_t, Args&&...args)
+    explicit Concurrent(sharp::emplace_construct::tag_t, Args&&...args)
         noexcept(noexcept(Type(std::forward<Args>(args)...)));
 
     /**
@@ -185,7 +189,7 @@ public:
      * Note that this is not declared noexcept because the locks have to be
      * held when assigning a locked object.
      */
-    LockedData& operator=(const LockedData&) /* noexcept */;
+    Concurrent& operator=(const Concurrent&) /* noexcept */;
 
     /**
      * Deleted the move assignment operator becauase I saw no reason to
@@ -193,7 +197,7 @@ public:
      * dire need to move this around, it can be dumped in a unique_ptr and
      * then moved
      */
-    LockedData& operator=(LockedData&& other) = delete;
+    Concurrent& operator=(Concurrent&& other) = delete;
 
 private:
 
@@ -209,12 +213,12 @@ private:
      * and releases it on destruction
      */
     template <typename Action, typename... Args>
-    explicit LockedData(sharp::delegate_constructor::tag_t, Action, Args&&...);
+    explicit Concurrent(sharp::delegate_constructor::tag_t, Action, Args&&...);
 
     /**
      * Implementation of the copy constructor for the class
      */
-    explicit LockedData(sharp::implementation::tag_t, const LockedData&);
+    explicit Concurrent(sharp::implementation::tag_t, const Concurrent&);
 
     /**
      * The data object that is to be locked
@@ -227,9 +231,9 @@ private:
     mutable Mutex mtx;
 
     /* Friend for testing */
-    friend class LockedDataTests;
+    friend class ConcurrentTests;
 };
 
 } // namespace sharp
 
-#include <sharp/LockedData/LockedData.ipp>
+#include <sharp/Concurrent/Concurrent.ipp>

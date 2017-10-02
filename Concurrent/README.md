@@ -1,7 +1,7 @@
-`LockedData`
+`Concurrent`
 ------------
 
-`LockedData` contains an abstraction that I implemented in my OS class that I
+`Concurrent` contains an abstraction that I implemented in my OS class that I
 find useful in concurrent programming.  Essentially this library helps you
 write concurrent code without having the need to maintain a separate mutex for
 every data object that is shared across multiple threads.  For example the
@@ -19,9 +19,9 @@ following code could get complicated very fast
 Instead you could have something like the following
 
 ``` Cpp
-    LockedData<std::vector<int>> critical_vector;
-    LockedData<std::deque<int>> critical_deque;
-    LockedData<std::unordered_map<int, int> information_map;
+    sharp::Concurrent<std::vector<int>> critical_vector;
+    sharp::Concurrent<std::deque<int>> critical_deque;
+    sharp::Concurrent<std::unordered_map<int, int> information_map;
 ```
 
 With minimal to no loss of efficiency.  Of course this should be designed to
@@ -33,7 +33,7 @@ cases
 
 #### Simple critical sections
 ```c++
-auto vec_locked = LockedData<std::vector<int>>{};
+auto vec_locked = sharp::Concurrent<std::vector<int>>{};
 // ...
 auto& ele = vec_locked.atomic([&](auto& v) { return v[0]; });
 ```

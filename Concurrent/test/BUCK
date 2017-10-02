@@ -4,6 +4,6 @@ cxx_test(
         "test.cpp",
     ],
     deps = [
-        "//LockedData:LockedData",
+        "//Concurrent:Concurrent",
     ],
 )

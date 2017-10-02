@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sharp/Singleton/Singleton.hpp>
-#include <sharp/LockedData/LockedData.hpp>
+#include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Threads/Threads.hpp>
 
 #include <functional>
@@ -274,9 +274,9 @@ namespace detail {
 
         /**
          * The synchronized interface to the storage struct above, see
-         * sharp/LockedData
+         * sharp/Concurrent
          */
-        sharp::LockedData<SingletonStorageImpl, sharp::RecursiveMutex> storage;
+        sharp::Concurrent<SingletonStorageImpl, sharp::RecursiveMutex> storage;
 
     };
 

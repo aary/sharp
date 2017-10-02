@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sharp/LockedData/LockedData.hpp>
+#include <sharp/Concurrent/Concurrent.hpp>
 
 #include <cassert>
 #include <iostream>
@@ -24,7 +24,7 @@ namespace detail {
  *
  * So for example given the following case
  *
- *  LockedData<int, std::mutex> int_locked;
+ *  Concurrent<int, std::mutex> int_locked;
  *
  *  // ... in implementation
  *  lock_mutex(int_locked.mtx, ReadLockTag{}); // (1)
@@ -74,16 +74,16 @@ void lock_mutex(Mutex& mtx,
 
 /**
  * Non member function that accepts a mutex by reference and unlocks it based
- * on whether it has an unlock_shared member function.  If the LockedData
+ * on whether it has an unlock_shared member function.  If the Concurrent
  * class wants to unlock a shared lock then it passes in a read lock tag that
  * notifies this function that the mutex was locked in read mode.  If the
  * mutex type does not have an unlock_shared method then the following
  * function is disabled via SFINAE.
  *
- * The strategy followed by the LockedData class is that it passes in a read
+ * The strategy followed by the Concurrent class is that it passes in a read
  * lock tag to the lock and/or unlock methods when it wants to lock and/or
  * unlock the mutex from a shared state.  If the mutex supports those when
- * well and good.  The read lock tag used by the LockedData class will bind
+ * well and good.  The read lock tag used by the Concurrent class will bind
  * here first since its a stronger fit than the other with a write lock tag.
  * If however the mutex does not support shared locking and unlocking the
  * following is going to be disabled via SFINAE.
@@ -111,7 +111,7 @@ void unlock_mutex(Mutex& mtx,
 /**
  * @class UniqueLockedProxyBase A base class for the proxy classes that are
  *                              used to access the underlying object in
- *                              LockedData
+ *                              Concurrent
  *
  * The type LockTag should correspond to the different tags defined above that
  * are used to enable and disable different locking policies.
@@ -198,7 +198,7 @@ public:
     }
 
     /**
-     * The datum to the type stored in the LockedData object and the mutex
+     * The datum to the type stored in the Concurrent object and the mutex
      * that is used to lock the datum.
      *
      * Note that the type of datum (i.e. Type) might be const qualified in
@@ -220,7 +220,7 @@ public:
 
 /**
  * @class UniqueLockedProxy A proxy class for the internal representation of
- *                          the data object in LockedData that automates
+ *                          the data object in Concurrent that automates
  *                          locking and unlocking of the internal mutex in
  *                          write (non const) scenarios.
  *
@@ -229,13 +229,13 @@ public:
  *
  * So for example when the mutex is a shared lock or a reader writer lock then
  * the internal implementation will choose to write lock the object because
- * the LockedData is not const.
+ * the Concurrent is not const.
  *
  * TODO If and when the operator.() becomes a thing support should be added to
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::UniqueLockedProxy :
+class Concurrent<Type, Mutex>::UniqueLockedProxy :
     public detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
 public:
 
@@ -249,7 +249,7 @@ public:
 };
 
 /**
- * @class ConstUniqueLockedProxy A proxy class for LockedData that automates
+ * @class ConstUniqueLockedProxy A proxy class for Concurrent that automates
  *                               locking and unlocking of the internal mutex.
  *
  * A proxy class that is locked by the const locking policy of the given mutex
@@ -257,7 +257,7 @@ public:
  *
  * So for example when the mutex is a shared lock or a reader writer lock then
  * the internal implementation will choose to read lock the object because
- * the LockedData object is const and therefore no write access will be
+ * the Concurrent object is const and therefore no write access will be
  * granted.
  *
  * This should not be used by the implementation when the internal object is
@@ -267,7 +267,7 @@ public:
  * make this a proper proxy.
  */
 template <typename Type, typename Mutex>
-class LockedData<Type, Mutex>::ConstUniqueLockedProxy :
+class Concurrent<Type, Mutex>::ConstUniqueLockedProxy :
     public detail::UniqueLockedProxyBase<const Type, Mutex,
         detail::ReadLockTag> {
 public:
@@ -283,7 +283,7 @@ public:
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData<Type, Mutex>::atomic(Func&& func) {
+decltype(auto) Concurrent<Type, Mutex>::atomic(Func&& func) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -300,7 +300,7 @@ decltype(auto) LockedData<Type, Mutex>::atomic(Func&& func) {
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) LockedData<Type, Mutex>::atomic(Func&& func) const {
+decltype(auto) Concurrent<Type, Mutex>::atomic(Func&& func) const {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -316,15 +316,15 @@ decltype(auto) LockedData<Type, Mutex>::atomic(Func&& func) const {
 }
 
 template <typename Type, typename Mutex>
-typename LockedData<Type, Mutex>::UniqueLockedProxy
-LockedData<Type, Mutex>::lock() {
-    return LockedData<Type, Mutex>::UniqueLockedProxy{this->datum, this->mtx};
+typename Concurrent<Type, Mutex>::UniqueLockedProxy
+Concurrent<Type, Mutex>::lock() {
+    return Concurrent<Type, Mutex>::UniqueLockedProxy{this->datum, this->mtx};
 }
 
 template <typename Type, typename Mutex>
-typename LockedData<Type, Mutex>::ConstUniqueLockedProxy
-LockedData<Type, Mutex>::lock() const {
-    return LockedData<Type, Mutex>::ConstUniqueLockedProxy{this->datum,
+typename Concurrent<Type, Mutex>::ConstUniqueLockedProxy
+Concurrent<Type, Mutex>::lock() const {
+    return Concurrent<Type, Mutex>::ConstUniqueLockedProxy{this->datum,
         this->mtx};
 }
 
@@ -338,8 +338,8 @@ LockedData<Type, Mutex>::lock() const {
  */
 template <typename Type, typename Mutex>
 template <typename Action, typename... Args>
-LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor::tag_t, Action,
-        Args&&... args) : LockedData<Type, Mutex>{
+Concurrent<Type, Mutex>::Concurrent(sharp::delegate_constructor::tag_t, Action,
+        Args&&... args) : Concurrent<Type, Mutex>{
     sharp::implementation::tag, std::forward<Args>(args)...}
 {}
 
@@ -350,14 +350,14 @@ LockedData<Type, Mutex>::LockedData(sharp::delegate_constructor::tag_t, Action,
  * implementation, the three get chained every time the first is called.
  */
 template <typename Type, typename Mutex>
-LockedData<Type, Mutex>::LockedData(const LockedData<Type, Mutex>& other)
-    : LockedData<Type, Mutex>{sharp::delegate_constructor::tag, other.lock(),
+Concurrent<Type, Mutex>::Concurrent(const Concurrent<Type, Mutex>& other)
+    : Concurrent<Type, Mutex>{sharp::delegate_constructor::tag, other.lock(),
         other}
 {}
 
 template <typename Type, typename Mutex>
-LockedData<Type, Mutex>::LockedData(sharp::implementation::tag_t,
-        const LockedData& other)
+Concurrent<Type, Mutex>::Concurrent(sharp::implementation::tag_t,
+        const Concurrent& other)
     : datum{other.datum} /* do not copy mutex */
 {}
 
@@ -373,7 +373,7 @@ LockedData<Type, Mutex>::LockedData(sharp::implementation::tag_t,
  */
 template <typename Type, typename Mutex>
 template <typename... Args>
-LockedData<Type, Mutex>::LockedData(sharp::emplace_construct::tag_t,
+Concurrent<Type, Mutex>::Concurrent(sharp::emplace_construct::tag_t,
         Args&&... args) noexcept(Type(std::forward<Args>(args)...))
     : datum(std::forward<Args>(args)...)
 {}
@@ -385,8 +385,8 @@ LockedData<Type, Mutex>::LockedData(sharp::emplace_construct::tag_t,
  * earlier in memory first and then lock the other.
  */
 template <typename Type, typename Mutex>
-LockedData<Type, Mutex>& LockedData<Type, Mutex>::operator=(
-        const LockedData& other) {
+Concurrent<Type, Mutex>& Concurrent<Type, Mutex>::operator=(
+        const Concurrent& other) {
 
     // check which one comes first in memory
     if (reinterpret_cast<uintptr_t>(&other.mtx) <

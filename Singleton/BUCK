@@ -3,7 +3,7 @@ cxx_library(
     header_namespace = "sharp/Singleton",
     deps = [
         "//Tags:Tags",
-        "//LockedData:LockedData",
+        "//Concurrent:Concurrent",
         "//Threads:Threads",
     ],
     srcs = [

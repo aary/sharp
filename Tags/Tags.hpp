@@ -42,7 +42,7 @@ namespace sharp {
  *
  * or it can simply be an empty tag
  *
- *  sharp::LockedData<vector<int>> locked_vector {
+ *  sharp::Concurrent<vector<int>> locked_vector {
  *      sharp::emplace_construct::tag, {1, 2, 3, 4}};
  *
  * The implementation uses function pointers as described here
