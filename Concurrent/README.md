@@ -1,42 +1,44 @@
-`Concurrent`
+`Concurrent` Yet another concurrency abstraction
 ------------
 
-`Concurrent` contains an abstraction that I implemented in my OS class that I
-find useful in concurrent programming.  Essentially this library helps you
-write concurrent code without some of the drawbacks of free mutexes and
-condition variables.  Mutexes are logically associated with the data they
-protect, condition variables are associated with the threads they block given
-a certain condition.  This class tries to package both of those into one
-simple bite sized concurrency primitive
+`Concurrent` (originally named `ThreadSafeData`) contains an abstraction that
+I implemented in my OS class that I find useful in concurrent programming.
+This library tries to help you write concurrent code without some of the
+drawbacks of free mutexes and condition variables.
+
+Mutexes are logically associated with the data they protect, condition
+variables are associated with the threads they block given a certain
+condition.  This class tries to package both of those into one simple bite
+sized concurrency primitive
 
 This is what you would do if you wanted to have three data items that could
 potentially be accessed concurrently from different threads
 
 ```c++
-    std::mutex mtx_vector;
-    std::vector<int> critical_vector;
-    std::mutex mtx_deque;
-    std::deque<int> critical_deque;
-    std::mutex mtx_map
-    std::unordered_map<int, int> information_map;
+std::mutex mtx_one;
+std::vector<int> critical_vector;
+std::mutex mtx_two
+std::deque<int> critical_deque;
+std::mutex mtx_three;
+std::unordered_map<int, int> information_map;
 ```
 
 This is ugly, and it is not clear which mutex is meant to protect which data
 item.  Throw in some condition variables in there and the code becomes
-chaotic, hard to read and hard to reason about at first glance (sometimes even
-at tenth glance)
+chaotic, hard to read, hard to reason about and hard to maintain
 
 Instead you could have something like the following
 
 ```c++
-    sharp::Concurrent<std::vector<int>> vector;
-    sharp::Concurrent<std::deque<int>> deque;
-    sharp::Concurrent<std::unordered_map<int, int>> map;
+sharp::Concurrent<std::vector<int>> vector;
+sharp::Concurrent<std::deque<int>> deque;
+sharp::Concurrent<std::unordered_map<int, int>> map;
 ```
 
 This makes the semantics of the code clear and self documenting - There are
 three data items that will possibly be accessed from different threads
-concurrently
+concurrently.  You also avoid reliance on [compiler
+annotations](https://goo.gl/UW5eyi), linters, etc.
 
 ### The interface
 
@@ -46,7 +48,10 @@ done nicely with lambdas
 
 ```c++
 auto vec = sharp::Concurrent<std::vector<int>>{};
-auto size = vec.atomic([](auto& vec) { return v.size(); });
+auto size = vec.synchronized([](auto& vec) {
+    vec.push_back(1);
+    return vec.size();
+});
 ```
 
 This executes the size read on the vector synchronously off a mutex associated
@@ -60,8 +65,6 @@ handles that for you
 ```c++
 auto lock = vec.lock();
 lock->push_back(1);
-lock->push_back(2);
-lock->pop_back();
 for (auto integer : *lock) {
     cout << integer << endl;
 }
@@ -77,11 +80,17 @@ const correct manner.  When the concurrent object is const, a `lock()` call
 tries to acquire a shared lock instead of an exclusive unique lock, this helps
 increase throughput in high read scenarios for reader threads
 
-Conditional critical sections (inspired by [Google's Abseil Mutex
-class](https://goo.gl/JhhGFp)) are also supported.  The interface here tries
-to eliminate some of the drawbacks of condition variables (for example -
-manual signalling, broadcasting, coarse lock contention, forgetting to signal,
-etc.)
+```c++
+// this acquires a shared lock on the internal mutex if possible
+auto lock = sharp::as_const(data).lock();
+cout << lock->size() << endl;
+```
+
+Conditional critical sections (inspired by [Google's
+`absl::Mutex`](https://goo.gl/JhhGFp)) are also supported.  The interface here
+tries to eliminate some of the drawbacks of condition variables (for example -
+manual signalling, broadcasting, coarse lock contention on wakeups, forgetting
+to signal, etc.)
 
 ```c++
 // thread 1
@@ -96,3 +105,6 @@ auto lock = data.lock();
 lock->set_value(4);
 lock.unlock();
 ```
+
+Here when thread 2 is done writing and data is ready, thread 1 will be woken
+up.  Simple.  No signalling.  No broadcasting.  No bugs
