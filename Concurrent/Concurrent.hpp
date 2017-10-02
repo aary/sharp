@@ -2,9 +2,10 @@
  * @file Concurrent.hpp
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
- * This module contains a simple abstraction that halps in maintaining data
- * that is meant to be shared across different threads in a more elegant way
- * than maintaining an object along with its mutex.
+ * This module contains an abstraction that serves better than mutexes for
+ * mutual exclusion and monitors for synchronization, with a uniform easy to
+ * understand API this eliminates some of the drawbacks of mutexes and
+ * monitors
  *
  *  * Originally written for EECS 482 @ The University of Michigan *
  *
@@ -27,37 +28,87 @@ namespace sharp {
 /**
  * @class Concurrent
  *
- * Simple critical sections
+ * This class can be used as a simple wrapper to disallow non locked access to
+ * a data item with an RAII solution to achieving simple critical sections,
+ * this was one of the motivating usecases for the class
  *
- * Or
+ *      sharp::Concurrent<std::vector> vec;
+ *      auto& ele = vec.atomic([](auto& vec) { return v.size(); });
  *
- *  Concurrent<std::vector> vector_locked;
- *  auto& ele = vector_locked.atomic([&](auto& v) { return v[0]; });
+ * The access to the vector above is made under the protection of a mutex and
+ * is therefore safe
  *
- * Or similar to the std::weak_ptr interface
+ * There is also a locked proxy interface which offers another alternative to
+ * simple critical sections
  *
- *  Concurrent<std::vector> vec;
- *  auto  =
- *  {
- *      auto handle = vector_locked.lock();
- *      handle->interface_one();
- *      handle->interface_two();
- *      handle->interface_three();
- *  }
+ *      auto vec_lock = vec.lock();
+ *      cout << vec_lock->size() << endl;
+ *      vec_lock->push_back(Something{});
+ *      vec_lock.unlock();
  *
- * This of course should be extended to existing incorporate existing patterns
- * like monitors.  So something like the following should be supported
+ * Here the vec.lock() method returns a proxy object that acquires the
+ * internal lock on construction and releases the lock either on destruction
+ * or on invocation of the unlock() function as shown above.  This helps the
+ * user write exception safe concurrent code, and not forget to accidentally
+ * unlock the mutex when an exception is propagated from say the push_back
  *
- *  {
- *      auto handle = vector_locked.lock();
- *      while(some_condition()) {
- *          cv.wait(vector_locked.get_unique_lock());
+ * Furhter this class can be used to get automated shared locking integrated
+ * with the C++ type system.  Conceptually a shared lock (or a reader writer
+ * lock) is an optimization over a traditional mutex that allows multiple
+ * readers to read the data item concurrently.  This helps systems achieve
+ * high throughput in high read scenarios.  Read-only locking or shared
+ * locking occurs conceptually on data that is not meant to be modified, in
+ * C++ this concept is represented as a const modifier on an object.  The
+ * presence of the const modifier should convey read only usage of the
+ * underlying data item.
+ *
+ * This class gives the user the benefits of shared locking automatically,
+ * when the C++ type system is utilized correctly when a const
+ * sharp::Concurrent object is locked, the library automatically acquires a
+ * shared lock on the underlying mutex if it can.  Providing an abstraction
+ * that opaquely operates to provide high concurrent throughput for read only
+ * threads
+ *
+ *      void read(const sharp::Concurrent<std::vector>& vec) {
+ *          // this acquies a shared lock on the underlying vector
+ *          auto vec_lock = vec.lock();
+ *          cout << vec_lock.size() << endl;
  *      }
- *  }
  *
- * This class provides for maximal performance when the program is const
- * correct.  i.e.  when the object is not meant to be written to then the
- * implementation appropriately selects the right locking methodology.
+ * sharp::Concurrent tries to provide a conditional critical section API
+ * (inspired by Google's Abeil Mutex class, see goo.gl/JhhGFp) to the user as
+ * well, this tries to eliminate the drawbacks associated with condition
+ * variables
+ *
+ *      // thread 1
+ *      auto lock = sharp::as_const(data).lock();
+ *      lock.wait([](auto& data) {
+ *          return data.is_ready();
+ *      });
+ *      cout << lock->get() << endl;
+ *
+ *      // thread 2
+ *      auto lock = data.lock();
+ *      lock->set_value(3);
+ *      lock.unlock();
+ *
+ * Here when the writer thread is done, the reader will be woken up.  Simple.
+ * No complicated signaling, broadcasting, no forgetting to signal, no
+ * nothing.  When the write is done the reader is woken up.
+ *
+ * Further when the data item provides an is_ready() method or ADL defined
+ * free function, the reader wait looks even simpler, the waiter is woken up
+ * when the data item returns true from its is_ready() function
+ *
+ *      // thread 1
+ *      auto lock = sharp::as_const(data).lock();
+ *      lock.wait();
+ *      cout << lock->get() << endl;
+ *
+ *      // thread 2
+ *      auto lock = data.lock();
+ *      lock->set_value(3);
+ *      lock.unlock();
  *
  * Note that this class is not moveable.  If you want move semantics, because
  * for example you are including objects of this class in a map, then just put
@@ -104,8 +155,8 @@ public:
      * Forward declarations of lightweight proxy types that are used to
      * interact with the underlying object.
      */
-    class UniqueConcurrentProxy;
-    class ConstUniqueConcurrentProxy;
+    class UniqueLockedProxy;
+    class ConstUniqueLockedProxy;
 
     /**
      * Returns a proxy object that locks the inner data object on construction
@@ -119,7 +170,7 @@ public:
      * then this function is called and when the object is mutable in context
      * then the version above is called
      */
-    UniqueConcurrentProxy lock();
+    UniqueLockedProxy lock();
 
     /**
      * A const version of the same lock above.  This helps to automate the
@@ -131,7 +182,7 @@ public:
      * then this function is called and when the object is mutable in context
      * then the version above is called
      */
-    ConstUniqueConcurrentProxy lock() const;
+    ConstUniqueLockedProxy lock() const;
 
     /**
      * The usual constructors for the class.  This is set to the default
