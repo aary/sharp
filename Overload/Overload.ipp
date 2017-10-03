@@ -57,7 +57,7 @@ namespace overload_detail {
      * changed to FPtrConstant and a pretend operator() will be
      * created
      */
-    template <int current, typename... Funcs>
+    template <int current_fptr, int current_mfptr, typename... Funcs>
     class FunctionOverloadDetector;
     /**
      * Specialziation for function object types, dont increment the counter
@@ -66,10 +66,12 @@ namespace overload_detail {
      * the function pointers are going to be together with no functor in
      * between or after them in the tail
      */
-    template <int current, typename Func, typename... Tail>
-    class FunctionOverloadDetector<current, Func, Tail...>
+    template <int current_fptr, int current_mfptr, typename Func,
+              typename... Tail>
+    class FunctionOverloadDetector<current_fptr, current_mfptr, Func, Tail...>
             : public Func,
-            public FunctionOverloadDetector<current, Tail...> {
+            public FunctionOverloadDetector<current_fptr, current_mfptr,
+                                            Tail...> {
     public:
 
         /**
@@ -79,16 +81,19 @@ namespace overload_detail {
          * whether a function is being called or a functor
          */
         using Func::operator();
-        using FunctionOverloadDetector<current, Tail...>::operator();
+        using FunctionOverloadDetector<current_fptr, current_mfptr, Tail...>
+            ::operator();
     };
     /**
      * Specialization for function pointer types
      */
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename ReturnType, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, ReturnType (*) (Args...), Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
+                                   ReturnType (*) (Args...), Tail...>
+            : public FunctionOverloadDetector<current_fptr + 1, current_mfptr,
+                                              Tail...> {
     public:
 
         /**
@@ -102,8 +107,9 @@ namespace overload_detail {
          *
          * And then import all the other impl functions as well
          */
-        FPtrConstant<current> operator()(Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        FPtrConstant<current_fptr> operator()(Args...) const;
+        using FunctionOverloadDetector<current_fptr + 1, current_mfptr, Tail...>
+            ::operator();
     };
 
     /**
@@ -112,82 +118,95 @@ namespace overload_detail {
      *
      * I probably need to write twice these many for volatile but who needs that
      */
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, Return (Class::*) (Args...),
-                                   Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
+                                   Return (Class::*) (Args...), Tail...>
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = std::decay_t<Class>;
-        MemberFPtrConstant<current> operator()(RightClassType&, Args...) const;
-        MemberFPtrConstant<current> operator()(RightClassType&&, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = std::decay_t<Class>;
+        MemberFPtrConstant<current_mfptr> operator()(C&, Args...) const;
+        MemberFPtrConstant<current_mfptr> operator()(C&&, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1, Tail...>
+            ::operator();
     };
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, Return (Class::*) (Args...) const,
-                                   Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
+                                   Return (Class::*) (Args...) const, Tail...>
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = const std::decay_t<Class>;
-        MemberFPtrConstant<current> operator()(RightClassType&, Args...) const;
-        MemberFPtrConstant<current> operator()(RightClassType&&, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = const std::decay_t<Class>;
+        MemberFPtrConstant<current_mfptr> operator()(C&, Args...) const;
+        MemberFPtrConstant<current_mfptr> operator()(C&&, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1, Tail...>
+            ::operator();
     };
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, Return (Class::*) (Args...) &,
-                                   Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
+                                   Return (Class::*) (Args...) &, Tail...>
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = std::decay_t<Class>&;
-        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = std::decay_t<Class>&;
+        MemberFPtrConstant<current_mfptr> operator()(C, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1, Tail...>
+            ::operator();
     };
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current,
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
                                    Return (Class::*) (Args...) const &,
                                    Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = const std::decay_t<Class>&;
-        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = const std::decay_t<Class>&;
+        MemberFPtrConstant<current_mfptr> operator()(C, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                       Tail...>::operator();
     };
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current, Return (Class::*) (Args...) &&,
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
+                                   Return (Class::*) (Args...) &&,
                                    Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = std::decay_t<Class>&&;
-        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = std::decay_t<Class>&&;
+        MemberFPtrConstant<current_mfptr> operator()(C, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1, Tail...>
+            ::operator();
     };
-    template <int current,
+    template <int current_fptr, int current_mfptr,
               typename Return, typename Class, typename... Args,
               typename... Tail>
-    class FunctionOverloadDetector<current,
+    class FunctionOverloadDetector<current_fptr, current_mfptr,
                                    Return (Class::*) (Args...) const &&,
                                    Tail...>
-            : public FunctionOverloadDetector<current + 1, Tail...> {
+            : public FunctionOverloadDetector<current_fptr, current_mfptr + 1,
+                                              Tail...> {
     public:
-        using RightClassType = const std::decay_t<Class>&&;
-        MemberFPtrConstant<current> operator()(RightClassType, Args...) const;
-        using FunctionOverloadDetector<current + 1, Tail...>::operator();
+        using C = const std::decay_t<Class>&&;
+        MemberFPtrConstant<current_mfptr> operator()(C, Args...) const;
+        using FunctionOverloadDetector<current_fptr, current_mfptr + 1, Tail...>
+            ::operator();
     };
 
     /**
      * Base case just creates a never callable operator()
      */
-    template <int current>
-    class FunctionOverloadDetector<current> {
+    template <int current_fptr, int current_mfptr>
+    class FunctionOverloadDetector<current_fptr, current_mfptr> {
     protected:
 
         /**
@@ -200,7 +219,7 @@ namespace overload_detail {
          * Also the member is protected so is not visible in user score
          */
         class Inaccessible;
-        FPtrConstant<current> operator()(Inaccessible) const;
+        FPtrConstant<current_fptr> operator()(Inaccessible) const;
     };
 
     /**
@@ -536,7 +555,7 @@ namespace overload_detail {
     auto overload_impl(std::tuple<Funcs...>&& funcs) {
         // get the overload detector
         using Detector = overload_detail::FunctionOverloadDetector<
-            0, std::decay_t<Funcs>...>;
+            0, 0, std::decay_t<Funcs>...>;
 
 	    // get the value list of the functions and the functors
         using Split = typename overload_detail::SplitLists<

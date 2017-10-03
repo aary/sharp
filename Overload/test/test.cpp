@@ -114,6 +114,15 @@ TEST(Overload, BasicInterleavedTest) {
     EXPECT_TRUE((std::is_same<decltype(overloaded()), void>::value));
 }
 
+TEST(Overload, MemberFunctionFunctionPointerTest) {
+    auto overloaded = sharp::overload(
+        &MemberFunctions::lvalue, rvalue);
+
+    auto integer = 1;
+    EXPECT_EQ(overloaded(MemberFunctions{}, integer), 1);
+    EXPECT_EQ(overloaded(1), 3);
+}
+
 TEST(Overload, TestRefnessWithFunctors) {
     auto overloaded = sharp::overload(
         [](int&) { return 1; },
@@ -341,7 +350,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
     auto five = [](auto&&...) {};
 
     {
-        using Detector = FunctionOverloadDetector<0,
+        using Detector = FunctionOverloadDetector<0, 0,
               decltype(one), decltype(two), decltype(three), decltype(four),
               decltype(five)>;
 
@@ -350,7 +359,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
     }
     {
         const auto& lvalue = 1;
-        using Detector = FunctionOverloadDetector<0,
+        using Detector = FunctionOverloadDetector<0, 0,
               decltype(two), decltype(three), decltype(one), decltype(four),
               decltype(five)>;
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()(lvalue)),
@@ -361,7 +370,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
         auto one = [](int) mutable { return int{}; };
         auto two = [](double) mutable { return double{}; };
         auto three = [](char) { return char{}; };
-        using Detector = const FunctionOverloadDetector<0,
+        using Detector = const FunctionOverloadDetector<0, 0,
               decltype(one), decltype(two), decltype(three)>;
 
         EXPECT_TRUE((std::is_same<decltype(std::declval<Detector>()('a')), char>
@@ -374,7 +383,7 @@ TEST(Overload, TestFunctionOverloadDetector) {
         auto three = &MemberFunctions::rvalue;
         auto four = &MemberFunctions::const_rvalue;
 
-        using Detector = FunctionOverloadDetector<0,
+        using Detector = FunctionOverloadDetector<0, 0,
               decltype(one), decltype(two), decltype(three), decltype(four)>;
 
         auto i = 1;
@@ -407,7 +416,8 @@ TEST(Overload, TestFunctionOverloadDetectorFallback) {
     auto one = +[](int) {};
     auto two = [](auto&&...) {};
 
-    using Detector = FunctionOverloadDetector<0, decltype(one), decltype(two)>;
+    using Detector = FunctionOverloadDetector<0, 0, decltype(one),
+                                              decltype(two)>;
     EXPECT_TRUE((!std::is_same<decltype(std::declval<Detector>()(1.2)),
                                FPtrConstant<0>>::value));
 }
