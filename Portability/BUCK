@@ -2,7 +2,8 @@ cxx_library(
     name = "Portability",
     header_namespace = "sharp/Portability",
     exported_headers = [
-        "optional.hpp",
+        "Portability.hpp",
+        "detail/optional.hpp",
     ],
     visibility = [
         "PUBLIC",

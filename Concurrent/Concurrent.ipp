@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sharp/Concurrent/Concurrent.hpp>
+#include <sharp/Traits/Traits.hpp>
 
 #include <cassert>
 #include <iostream>
@@ -13,305 +14,210 @@ namespace sharp {
 
 namespace detail {
 
-/**
- * Tags to determine which locking policy is considered.
- *
- * ReadLockTag inherits from WriteLockTag because if the implementation gets a
- * standard mutex without a lock_shared method then both the const and non
- * const versions of lock on passing both a ReadLockTag and a WriteLockTag to
- * tbe below functions will not get a compile error because one of them will
- * be disabled by SFINAE.
- *
- * So for example given the following case
- *
- *  Concurrent<int, std::mutex> int_locked;
- *
- *  // ... in implementation
- *  lock_mutex(int_locked.mtx, ReadLockTag{}); // (1)
- *
- * this will work even though the ReadLockTag{} dispatches the implementation
- * to the function that calls mtx.lock_shared() on the underlying mutex.  This
- * is because the std::enable_if_t disables that call.  However since the
- * ReadLockTag is inherited from WriteLockTag the function call is still
- * suitable for the write lock implementation.
- */
-struct WriteLockTag {};
-struct ReadLockTag : public WriteLockTag {};
-
-/**
- * Non member lock function that accepts a mutex by reference and locks it
- * based on its locking functions.  Currently only shared locking and
- * exclusive locking are supported.
- *
- * Note that the function is not called lock() on purpose to disambiguate it
- * from the C++ standard library lock()
- *
- * Also note that this function has a SFINAE disabler which will help in
- * selecting the right dispatch when a mutex that does not support
- * lock_shared() is used
- */
-template <typename Mutex,
-          typename = std::enable_if_t<std::is_same<
-            decltype(std::declval<Mutex>().lock_shared()), void>::value>>
-void lock_mutex(Mutex& mtx,
-                const ReadLockTag& = ReadLockTag{}) {
-    mtx.lock_shared();
-}
-
-/*
- * Non member lock function that accepts a mutex by reference and locks it
- * based on its locking functions.  Currently only shared locking and
- * exclusive locking are supported.
- *
- * Note that the function is not called lock on purpose to disambiguate it
- * from the c++ standard library lock()
- */
-template <typename Mutex>
-void lock_mutex(Mutex& mtx,
-                const WriteLockTag& = WriteLockTag{}) {
-    mtx.lock();
-}
-
-/**
- * Non member function that accepts a mutex by reference and unlocks it based
- * on whether it has an unlock_shared member function.  If the Concurrent
- * class wants to unlock a shared lock then it passes in a read lock tag that
- * notifies this function that the mutex was locked in read mode.  If the
- * mutex type does not have an unlock_shared method then the following
- * function is disabled via SFINAE.
- *
- * The strategy followed by the Concurrent class is that it passes in a read
- * lock tag to the lock and/or unlock methods when it wants to lock and/or
- * unlock the mutex from a shared state.  If the mutex supports those when
- * well and good.  The read lock tag used by the Concurrent class will bind
- * here first since its a stronger fit than the other with a write lock tag.
- * If however the mutex does not support shared locking and unlocking the
- * following is going to be disabled via SFINAE.
- */
-template <typename Mutex,
-          typename = std::enable_if_t<std::is_same<
-            decltype(std::declval<Mutex>().unlock_shared()), void>::value>>
-void unlock_mutex(Mutex& mtx,
-                  const ReadLockTag& = ReadLockTag{}) {
-    mtx.unlock_shared();
-}
-
-/**
- * Non member unlock function that accepts a mutex by reference.  Accepts the
- * mutex by reference and unlocks it based on the tag it got.  This function
- * should be called when a write lock tag is passed in indicating that the
- * unlock must be from an exclusive state.
- */
-template <typename Mutex>
-void unlock_mutex(Mutex& mtx,
-                  const WriteLockTag& = WriteLockTag{}) {
-    mtx.unlock();
-}
-
-/**
- * @class UniqueLockedProxyBase A base class for the proxy classes that are
- *                              used to access the underlying object in
- *                              Concurrent
- *
- * The type LockTag should correspond to the different tags defined above that
- * are used to enable and disable different locking policies.
- *
- * The common methods shared by the two classes will be the destructor, the
- * data elements, the operator-> and operator* so there will be no extra
- * overhead because of virtual dispatch.  All methods will be made non
- * virtual.
- */
-template <typename Type, typename Mutex, typename LockTag>
-class UniqueLockedProxyBase {
-public:
+    /**
+     * Concepts(ish)
+     */
+    /**
+     * Enable if a mutex is shared lockable
+     */
+    template <typename Mutex>
+    using EnableIfIsSharedLockable
+        = sharp::void_t<decltype(std::declval<Mutex>().lock_shared()),
+                        decltype(std::declval<Mutex>().unlock_shared())>;
 
     /**
-     * locks the inner mutex by passing in a ReadLockTag, read the
-     * documentation for what happens when the mutex does not support
-     * lock_shared()
+     * Tags to determine which locking policy is considered.
+     *
+     * ReadLockTag inherits from WriteLockTag because if the implementation
+     * gets a standard mutex without a lock_shared method then both the const
+     * and non const versions of lock on passing both a ReadLockTag and a
+     * WriteLockTag to tbe below functions will not get a compile error
+     * because one of them will be disabled by SFINAE.
+     *
+     * So for example given the following case
+     *
+     *      Concurrent<int, std::mutex> int_locked;
+     *
+     *      // ... in implementation
+     *      lock_mutex(int_locked.mtx, ReadLockTag{}); // (1)
+     *
+     * this will work even though the ReadLockTag{} dispatches the
+     * implementation to the function that calls mtx.lock_shared() on the
+     * underlying mutex.  This is because the std::enable_if_t disables that
+     * call.  However since the ReadLockTag is inherited from WriteLockTag the
+     * function call is still suitable for the write lock implementation.
      */
-    explicit UniqueLockedProxyBase(Type& object, Mutex& mtx_in)
-            : datum{object}, mtx{mtx_in}, owns_mutex{true} {
-        detail::lock_mutex(this->mtx, LockTag{});
+    struct WriteLockTag {};
+    struct ReadLockTag : public WriteLockTag {};
+
+    /**
+     * Lock methods that are dispatched via the method described above, shared
+     * locking is preferrable when the calling methods says so and exclusive
+     * locking is the fallback
+     */
+    template <typename Mutex, EnableIfIsSharedLockable<Mutex>* = nullptr>
+    void lock_mutex(Mutex& mtx, const ReadLockTag& = ReadLockTag{}) {
+        mtx.lock_shared();
+    }
+    template <typename Mutex>
+    void lock_mutex(Mutex& mtx, const WriteLockTag& = WriteLockTag{}) {
+        mtx.lock();
     }
 
     /**
-     * Move constructs a locked proxy object from another.  The main reason
-     * for this is such that the following construct can exist in C++11 and
-     * C++14 programs
-     *
-     *  auto proxy = locked_object.lock();
-     *
-     * Although this is not a move in most compiled code the elision will not
-     * happen since without this move constructor the code will not compile
-     *
-     * In C++17 this problem is slightly mitigated because there will be
-     * mandatory elision here.
+     * Unlock methods that are dispatched via the method described above,
+     * in the documentation for ReadLockTag and WriteLockTag, shared locking
+     * is preferred when specified and exclusive locking is the fallback
      */
-    UniqueLockedProxyBase(UniqueLockedProxyBase&& other)
-            : datum{other.datum}, mtx{other.mtx}, owns_mutex{true} {
-        other.owns_mutex = false;
+    template <typename Mutex, EnableIfIsSharedLockable<Mutex>* = nullptr>
+    void unlock_mutex(Mutex& mtx, const ReadLockTag& = ReadLockTag{}) {
+        mtx.unlock_shared();
+    }
+    template <typename Mutex>
+    void unlock_mutex(Mutex& mtx, const WriteLockTag& = WriteLockTag{}) {
+        mtx.unlock();
     }
 
     /**
-     * Disable the copy constructor and assignment operators because it does
-     * not really make much sense to have it enabled here.  The proxy objects
-     * are just meant to be handles and are not supposed to have the full
-     * functionality of regular objects.
+     * A base class for the two proxy classes that will be returned to the
+     * user to interact with the underlying data item
+     *
+     * The type LockTag should correspond to the different tags defined above
+     * that are used to enable and disable different locking policies.
+     *
+     * The common methods shared by the two classes will be the destructor,
+     * the data elements, the operator-> and operator*
      */
-    UniqueLockedProxyBase(const UniqueLockedProxyBase&) = delete;
-    UniqueLockedProxyBase& operator=(const UniqueLockedProxyBase&) = delete;
-    UniqueLockedProxyBase& operator=(UniqueLockedProxyBase&&) = delete;
+    template <typename Type, typename Mutex, typename LockTag>
+    class UniqueLockedProxyBase {
+    public:
 
-    /**
-     * Unlocks the inner mutex, this function is written to datum the case
-     * when the unlock function throws (which it really shouldn't in correct
-     * code.  But in that case an assert in the below code fails.  If asserts
-     * are not available on the given machine or are disabled because of some
-     * build configeration (like they are in MSVS *I think*)
-     */
-    ~UniqueLockedProxyBase() {
-        try {
+        /**
+         * Locks the inner mutex with the tag that this class was instantiated
+         * with
+         */
+        UniqueLockedProxyBase(Type& object, Mutex& mtx_in)
+                : datum_ptr{std::addressof(object)}, mtx{mtx_in},
+                  owns_mutex{true} {
+            detail::lock_mutex(this->mtx, LockTag{});
+        }
+
+        /**
+         * Move constructs a locked proxy object from another.  The main reason
+         * for this is such that the following construct can exist in C++11 and
+         * C++14 programs
+         *
+         *      auto proxy = locked_object.lock();
+         *
+         * Although this is not a move in most compiled code the elision will
+         * not happen since without this move constructor the code will not
+         * compile
+         *
+         * Help the compiler and ASAN like tools detect the problem if any by
+         * moving the datum into a null state for the moved from proxy
+         *
+         * In C++17 this problem is slightly mitigated because there will be
+         * mandatory elision here.
+         */
+        UniqueLockedProxyBase(UniqueLockedProxyBase&& other)
+                : datum_ptr{other.datum_ptr}, mtx{other.mtx}, owns_mutex{true} {
+            other.owns_mutex = false;
+            other.datum_ptr = nullptr;
+        }
+
+        /**
+         * Disable the copy constructor and assignment operators because it
+         * does not really make much sense to have it enabled here.  The proxy
+         * objects are just meant to be handles and are not supposed to have
+         * the full functionality of regular objects.
+         */
+        UniqueLockedProxyBase(const UniqueLockedProxyBase&) = delete;
+        UniqueLockedProxyBase& operator=(const UniqueLockedProxyBase&) = delete;
+        UniqueLockedProxyBase& operator=(UniqueLockedProxyBase&&) = delete;
+
+        /**
+         * Release the mutex, the object and go into a null state
+         */
+        void unlock() noexcept {
             if (this->owns_mutex) {
                 unlock_mutex(this->mtx, LockTag{});
             }
-        } catch (...) {
-            std::terminate();
         }
-    }
 
-    /**
-     * returns a pointer to the type of the object stored under the hood, this
-     * datum should be protected and it's implementation should not be
-     * exposed at all
-     */
-    Type* operator->() {
-        return &this->datum;
-    }
+        ~UniqueLockedProxyBase() {
+            this->unlock();
+        }
 
-    /**
-     * returns a reference to the internal datum that this proxy is
-     * responsible for locking
-     */
-    Type& operator*() {
-        return this->datum;
-    }
+        /**
+         * Pointer like methods
+         */
+        Type* operator->() {
+            return this->datum_ptr;
+        }
+        Type& operator*() {
+            return *this->datum_ptr;
+        }
 
-    /**
-     * The datum to the type stored in the Concurrent object and the mutex
-     * that is used to lock the datum.
-     *
-     * Note that the type of datum (i.e. Type) might be const qualified in
-     * the case of ConstUniqueLockedProxy
-     */
-    Type& datum;
-    Mutex& mtx;
+        /**
+         * Pointer to the data and a reference to the mutex, no need for the
+         * mutex to be null so holding a reference to mutex
+         */
+        Type* datum_ptr;
+        Mutex& mtx;
 
-    /**
-     * Whether the object owns the mutex or not.  In the case where the object
-     * is going to be moved into another then only the object that has been
-     * move constructed is going to release the mutex.
-     */
-    bool owns_mutex;
-};
+        /**
+         * Whether the object owns the mutex or not.  In the case where the
+         * object is going to be moved into another then only the object that
+         * has been move constructed is going to release the mutex.
+         */
+        bool owns_mutex;
+    };
 
 } // namespace detail
 
 
 /**
- * @class UniqueLockedProxy A proxy class for the internal representation of
- *                          the data object in Concurrent that automates
- *                          locking and unlocking of the internal mutex in
- *                          write (non const) scenarios.
- *
- * A proxy class that is locked by the non-const locking policy of the given
- * mutex on construction and unlocked on destruction.
- *
- * So for example when the mutex is a shared lock or a reader writer lock then
- * the internal implementation will choose to write lock the object because
- * the Concurrent is not const.
- *
- * TODO If and when the operator.() becomes a thing support should be added to
- * make this a proper proxy.
+ * A proxy class for the case when the Concurrent data object is not const
  */
 template <typename Type, typename Mutex>
 class Concurrent<Type, Mutex>::UniqueLockedProxy :
     public detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
 public:
-
-    /**
-     * The default construct does nothing else other than call the base class
-     * constructor
-     */
-    UniqueLockedProxy(Type& object, Mutex& mtx)
-        : detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>(
-                object, mtx) {}
+    using detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>
+        ::UniqueLockedProxyBase;
 };
 
 /**
- * @class ConstUniqueLockedProxy A proxy class for Concurrent that automates
- *                               locking and unlocking of the internal mutex.
- *
- * A proxy class that is locked by the const locking policy of the given mutex
- * on construction and unlocked on destruction.
- *
- * So for example when the mutex is a shared lock or a reader writer lock then
- * the internal implementation will choose to read lock the object because
- * the Concurrent object is const and therefore no write access will be
- * granted.
- *
- * This should not be used by the implementation when the internal object is
- * not const.
- *
- * TODO If and when the operator.() becomes a thing support should be added to
- * make this a proper proxy.
+ * A proxy class for the case when the Concurrent data object is const
  */
 template <typename Type, typename Mutex>
 class Concurrent<Type, Mutex>::ConstUniqueLockedProxy :
     public detail::UniqueLockedProxyBase<const Type, Mutex,
         detail::ReadLockTag> {
 public:
-
-    /**
-     * The default construct does nothing else other than call the base class
-     * constructor
-     */
-    ConstUniqueLockedProxy(const Type& object, Mutex& mtx)
-        : detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>
-            (object, mtx) {}
+    using detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>
+        ::UniqueLockedProxyBase;
 };
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) Concurrent<Type, Mutex>::atomic(Func&& func) {
+auto Concurrent<Type, Mutex>::synchronized(Func&& func)
+        -> decltype(std::declval<Func>()(std::declval<Type&>())) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
     auto lock = this->lock();
-
-    // execute the function on the object and return the result, the lock gets
-    // released after the return statement.  Note that in the case of absense
-    // of mandatory copy elision the result will still be well formed when
-    // used with patterns like read, copy, update.  Since the result if a
-    // value will be copied into well.  i.e. the return function will finish
-    // and then the lock will be released.
     return std::forward<Func>(func)(*lock);
 }
 
 template <typename Type, typename Mutex>
 template <typename Func>
-decltype(auto) Concurrent<Type, Mutex>::atomic(Func&& func) const {
+auto Concurrent<Type, Mutex>::synchronized(Func&& func) const
+        -> decltype(std::declval<Func>()(std::declval<Type&>())) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
     auto lock = this->lock();
-
-    // execute the function on the object and return the result, the lock gets
-    // released after the return statement.  Note that in the case of absense
-    // of mandatory copy elision the result will still be well formed when
-    // used with patterns like read, copy, update.  Since the result if a
-    // value will be copied into well.  i.e. the return function will finish
-    // and then the lock will be released.
     return std::forward<Func>(func)(*lock);
 }
 
@@ -329,7 +235,7 @@ Concurrent<Type, Mutex>::lock() const {
 }
 
 /**
- * RAII based constructor decoration implementation.
+ * RAII based constructor decoration implementation
  *
  * This function accepts an action that is used to perform some action before
  * the constructor implementation is ran and clean up afterwards.  The before
@@ -338,45 +244,49 @@ Concurrent<Type, Mutex>::lock() const {
  */
 template <typename Type, typename Mutex>
 template <typename Action, typename... Args>
-Concurrent<Type, Mutex>::Concurrent(sharp::delegate_constructor::tag_t, Action,
+Concurrent<Type, Mutex>::Concurrent(
+        sharp::delegate_constructor::tag_t,
+        Action,
         Args&&... args) : Concurrent<Type, Mutex>{
     sharp::implementation::tag, std::forward<Args>(args)...}
 {}
 
 /**
- * Copy constructor and its implementation
- *
- * RAII based constructor decoration, the constructor, its delegate and the
- * implementation, the three get chained every time the first is called.
+ * the implementation for the constructors, accepts a forwarding reference to
+ * any type of Concurrent object and then forwards it's data into our data
+ */
+template <typename Type, typename Mutex>
+template <typename OtherConcurrent>
+Concurrent<Type, Mutex>::Concurrent(
+        sharp::implementation::tag_t, OtherConcurrent&& other)
+    : datum{std::forward<OtherConcurrent>(other).datum} {}
+
+/**
+ * Copy constructor forwards with an action to the decorated delegate
+ * constructor, which in turn forwards to the implementation constructor
  */
 template <typename Type, typename Mutex>
 Concurrent<Type, Mutex>::Concurrent(const Concurrent<Type, Mutex>& other)
     : Concurrent<Type, Mutex>{sharp::delegate_constructor::tag, other.lock(),
-        other}
-{}
-
-template <typename Type, typename Mutex>
-Concurrent<Type, Mutex>::Concurrent(sharp::implementation::tag_t,
-        const Concurrent& other)
-    : datum{other.datum} /* do not copy mutex */
-{}
-
+        other} {}
 
 /**
- * Implementation of the emplace constructor.
- *
- * This emplaces the argument list into the object contained.  Note that I
- * have called the constructor for the datum via the usual construction syntax
- * to avoid initializer list crap with the uniform initialization syntax.
- * Although this module itself is completely free from all that via the
- * emplace_construct tag.  Also see sharp/Tags.
+ * Same as the copy constructor
  */
 template <typename Type, typename Mutex>
+Concurrent<Type, Mutex>::Concurrent(Concurrent&& other)
+    : Concurrent{sharp::delegate_constructor::tag, other.lock(),
+        std::move(other)} {}
+
+template <typename Type, typename Mutex>
 template <typename... Args>
-Concurrent<Type, Mutex>::Concurrent(sharp::emplace_construct::tag_t,
-        Args&&... args) noexcept(Type(std::forward<Args>(args)...))
-    : datum(std::forward<Args>(args)...)
-{}
+Concurrent<Type, Mutex>::Concurrent(std::in_place_t, Args&&... args)
+    : datum{std::forward<Args>(args)...} {}
+template <typename Type, typename Mutex>
+template <typename U, typename... Args>
+Concurrent<Type, Mutex>::Concurrent(std::in_place_t,
+                                    std::initializer_list<U> il, Args&&... args)
+    : datum{il, std::forward<Args>(args)...} {}
 
 /**
  * Implementation for the copy assignment operator.
@@ -389,8 +299,8 @@ Concurrent<Type, Mutex>& Concurrent<Type, Mutex>::operator=(
         const Concurrent& other) {
 
     // check which one comes first in memory
-    if (reinterpret_cast<uintptr_t>(&other.mtx) <
-            reinterpret_cast<uintptr_t>(&this->mtx)) {
+    if (reinterpret_cast<uintptr_t>(std::addressof(other.mtx)) <
+            reinterpret_cast<uintptr_t>(std::addressof(this->mtx))) {
 
         // lock the two RAII style
         auto other_locked_proxy = other.lock();

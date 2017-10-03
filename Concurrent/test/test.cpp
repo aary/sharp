@@ -117,20 +117,20 @@ public:
         EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
-    static void test_atomic_non_const() {
+    static void test_synchronized_non_const() {
         Concurrent<double, FakeMutex> locked;
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
-        locked.atomic([&](auto&) {
+        locked.synchronized([&](auto&) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::LOCKED);
         });
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
-    static void test_atomic_const() {
+    static void test_synchronized_const() {
         Concurrent<double, FakeMutex> locked;
         [](const auto& locked) {
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
-            locked.atomic([&](auto&) {
+            locked.synchronized([&](auto&) {
                 EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
             });
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
@@ -154,7 +154,7 @@ public:
         {
             auto proxy = locked.lock();
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
-            EXPECT_EQ(reinterpret_cast<uintptr_t>(&proxy.datum),
+            EXPECT_EQ(reinterpret_cast<uintptr_t>(proxy.datum_ptr),
                     pointer_to_object);
         }
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
@@ -168,8 +168,8 @@ public:
     static void test_in_place_construction() {
 
         // construct a lockeddata object in place
-        __attribute__((unused)) Concurrent<InPlace> locked_data{
-            sharp::emplace_construct::tag, static_cast<int>(1)};
+        Concurrent<InPlace> locked_data{std::in_place, static_cast<int>(1)};
+        static_cast<void>(locked_data);
 
         // assert that only one instance was created
         EXPECT_EQ(InPlace::instance_counter, 1);
@@ -217,12 +217,12 @@ TEST(Concurrent, test_unique_locked_proxy) {
     ConcurrentTests::test_unique_locked_proxy();
 }
 
-TEST(Concurrent, test_atomic_non_const) {
-    ConcurrentTests::test_atomic_non_const();
+TEST(Concurrent, test_synchronized_non_const) {
+    ConcurrentTests::test_synchronized_non_const();
 }
 
-TEST(Concurrent, test_atomic_const) {
-    ConcurrentTests::test_atomic_const();
+TEST(Concurrent, test_synchronized_const) {
+    ConcurrentTests::test_synchronized_const();
 }
 
 TEST(Concurrent, test_lock) {

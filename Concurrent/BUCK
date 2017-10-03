@@ -3,10 +3,8 @@ cxx_library(
     header_namespace = "sharp/Concurrent",
     deps = [
         "//Tags:Tags",
-    ],
-    headers = [
-        "Concurrent.hpp",
-        "Concurrent.ipp",
+        "//Traits:Traits",
+        "//Portability:Portability",
     ],
     exported_headers = [
         "Concurrent.ipp",
