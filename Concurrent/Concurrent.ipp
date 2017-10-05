@@ -136,11 +136,18 @@ namespace detail {
         UniqueLockedProxyBase& operator=(UniqueLockedProxyBase&&) = delete;
 
         /**
-         * Release the mutex, the object and go into a null state
+         * Release the mutex, the object and go into a null state, this helps
+         * detect possible bugs, when ran with ASAN a null dereference will
+         * definitely be signalled
+         *
+         * Note that once the lock has been released this lock object is
+         * useless, it cannot be used to access the underlying object and it
+         * does not provide any lock method
          */
         void unlock() noexcept {
             if (this->owns_mutex) {
                 unlock_mutex(this->mtx, LockTag{});
+                this->datum_ptr = nullptr;
             }
         }
 
@@ -160,7 +167,8 @@ namespace detail {
 
         /**
          * Pointer to the data and a reference to the mutex, no need for the
-         * mutex to be null so holding a reference to mutex
+         * mutex to be null so holding a reference to mutex.  Nullability with
+         * the datum helps in detecting illegal access-after-unlock scenarios
          */
         Type* datum_ptr;
         Mutex& mtx;
