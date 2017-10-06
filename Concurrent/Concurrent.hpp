@@ -160,12 +160,6 @@ class Concurrent {
             typename std::decay_t<ConcurrentType>::value_type>;
 
         /**
-         * Friend the outer concurrent class, it is the only one that can
-         * construct objects of type LockProxy
-         */
-        friend class Concurrent;
-
-        /**
          * Can be move constructed to allow convenient construction via auto in
          * C++11 and C++14
          *
@@ -196,6 +190,12 @@ class Concurrent {
          */
         value_type* operator->();
         value_type& operator*();
+
+        /**
+         * Friend the outer concurrent class, it is the only one that can
+         * construct objects of type LockProxy
+         */
+        friend class Concurrent;
 
     private:
 
