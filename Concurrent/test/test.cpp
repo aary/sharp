@@ -1,5 +1,6 @@
 #include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Tags/Tags.hpp>
+#include <sharp/Utility/Utility.hpp>
 
 #include <gtest/gtest.h>
 
@@ -11,28 +12,34 @@ namespace sharp {
 
 class FakeMutex {
 public:
-    enum class LockState : int {LOCKED, SHARED, UNLOCKED};
+    enum LockState {LOCKED, SHARED, UNLOCKED};
     FakeMutex() : lock_state{LockState::UNLOCKED} {}
 
     virtual void lock() {
         EXPECT_EQ(this->lock_state, LockState::UNLOCKED);
         this->lock_state = LockState::LOCKED;
+        static_state = LockState::LOCKED;
     }
     virtual void unlock() {
         EXPECT_EQ(this->lock_state, LockState::LOCKED);
         this->lock_state = LockState::UNLOCKED;
+        static_state = LockState::UNLOCKED;
     }
     virtual void lock_shared() {
         EXPECT_EQ(this->lock_state, LockState::UNLOCKED);
         this->lock_state = LockState::SHARED;
+        static_state = LockState::SHARED;
     }
     virtual void unlock_shared() {
         EXPECT_EQ(this->lock_state, LockState::SHARED);
         this->lock_state = LockState::UNLOCKED;
+        static_state = LockState::UNLOCKED;
     }
 
     LockState lock_state;
+    static LockState static_state;
 };
+FakeMutex::LockState FakeMutex::static_state{FakeMutex::LockState::UNLOCKED};
 
 
 // declare a class that counts the number of times it has been
@@ -91,30 +98,43 @@ public:
 class ConcurrentTests {
 public:
     static void test_unique_locked_proxy() {
-        auto fake_mutex = FakeMutex{};
-        auto object = 1;
-        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
         {
-            auto proxy = Concurrent<int, FakeMutex>::UniqueLockedProxy{object,
-                fake_mutex};
-            EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::LOCKED);
-            EXPECT_EQ(proxy.operator->(), &object);
+            auto concurrent = Concurrent<int, FakeMutex>{std::in_place, 1};
+            auto proxy = concurrent.lock();
+            EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+            EXPECT_EQ(proxy.operator->(), &concurrent.datum);
             EXPECT_EQ(*proxy, 1);
-            EXPECT_EQ(&(*proxy), &object);
+            EXPECT_EQ(&(*proxy), &concurrent.datum);
+            proxy.unlock();
+            EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
         }
-        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
 
         // const unique locked proxy shuold read lock the lock
-        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
         {
-            auto proxy = Concurrent<int, FakeMutex>::ConstUniqueLockedProxy{
-                object, fake_mutex};
-            EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::SHARED);
-            EXPECT_EQ(proxy.operator->(), &object);
+            auto concurrent = Concurrent<int, FakeMutex>{std::in_place, 1};
+            auto proxy = sharp::as_const(concurrent).lock();
+            EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::SHARED);
+            EXPECT_EQ(proxy.operator->(), &concurrent.datum);
             EXPECT_EQ(*proxy, 1);
-            EXPECT_EQ(&(*proxy), &object);
+            EXPECT_EQ(&(*proxy), &concurrent.datum);
         }
-        EXPECT_EQ(fake_mutex.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        {
+            auto concurrent = Concurrent<int, FakeMutex>{std::in_place, 1};
+            auto proxy = concurrent.lock();
+            EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+            EXPECT_EQ(proxy.operator->(), &concurrent.datum);
+            EXPECT_EQ(*proxy, 1);
+            EXPECT_EQ(&(*proxy), &concurrent.datum);
+            proxy.unlock();
+            EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        }
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     }
 
     static void test_synchronized_non_const() {
@@ -154,7 +174,7 @@ public:
         {
             auto proxy = locked.lock();
             EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::SHARED);
-            EXPECT_EQ(reinterpret_cast<uintptr_t>(proxy.datum_ptr),
+            EXPECT_EQ(reinterpret_cast<uintptr_t>(proxy.operator->()),
                     pointer_to_object);
         }
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);

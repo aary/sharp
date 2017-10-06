@@ -78,135 +78,61 @@ namespace detail {
         mtx.unlock();
     }
 
-    /**
-     * A base class for the two proxy classes that will be returned to the
-     * user to interact with the underlying data item
-     *
-     * The type LockTag should correspond to the different tags defined above
-     * that are used to enable and disable different locking policies.
-     *
-     * The common methods shared by the two classes will be the destructor,
-     * the data elements, the operator-> and operator*
-     */
-    template <typename Type, typename Mutex, typename LockTag>
-    class UniqueLockedProxyBase {
-    public:
-
-        /**
-         * Locks the inner mutex with the tag that this class was instantiated
-         * with
-         */
-        UniqueLockedProxyBase(Type& object, Mutex& mtx_in)
-                : datum_ptr{std::addressof(object)}, mtx{mtx_in},
-                  owns_mutex{true} {
-            detail::lock_mutex(this->mtx, LockTag{});
-        }
-
-        /**
-         * Move constructs a locked proxy object from another.  The main reason
-         * for this is such that the following construct can exist in C++11 and
-         * C++14 programs
-         *
-         *      auto proxy = locked_object.lock();
-         *
-         * Although this is not a move in most compiled code the elision will
-         * not happen since without this move constructor the code will not
-         * compile
-         *
-         * Help the compiler and ASAN like tools detect the problem if any by
-         * moving the datum into a null state for the moved from proxy
-         *
-         * In C++17 this problem is slightly mitigated because there will be
-         * mandatory elision here.
-         */
-        UniqueLockedProxyBase(UniqueLockedProxyBase&& other)
-                : datum_ptr{other.datum_ptr}, mtx{other.mtx}, owns_mutex{true} {
-            other.owns_mutex = false;
-            other.datum_ptr = nullptr;
-        }
-
-        /**
-         * Disable the copy constructor and assignment operators because it
-         * does not really make much sense to have it enabled here.  The proxy
-         * objects are just meant to be handles and are not supposed to have
-         * the full functionality of regular objects.
-         */
-        UniqueLockedProxyBase(const UniqueLockedProxyBase&) = delete;
-        UniqueLockedProxyBase& operator=(const UniqueLockedProxyBase&) = delete;
-        UniqueLockedProxyBase& operator=(UniqueLockedProxyBase&&) = delete;
-
-        /**
-         * Release the mutex, the object and go into a null state, this helps
-         * detect possible bugs, when ran with ASAN a null dereference will
-         * definitely be signalled
-         *
-         * Note that once the lock has been released this lock object is
-         * useless, it cannot be used to access the underlying object and it
-         * does not provide any lock method
-         */
-        void unlock() noexcept {
-            if (this->owns_mutex) {
-                unlock_mutex(this->mtx, LockTag{});
-                this->datum_ptr = nullptr;
-            }
-        }
-
-        ~UniqueLockedProxyBase() {
-            this->unlock();
-        }
-
-        /**
-         * Pointer like methods
-         */
-        Type* operator->() {
-            return this->datum_ptr;
-        }
-        Type& operator*() {
-            return *this->datum_ptr;
-        }
-
-        /**
-         * Pointer to the data and a reference to the mutex, no need for the
-         * mutex to be null so holding a reference to mutex.  Nullability with
-         * the datum helps in detecting illegal access-after-unlock scenarios
-         */
-        Type* datum_ptr;
-        Mutex& mtx;
-
-        /**
-         * Whether the object owns the mutex or not.  In the case where the
-         * object is going to be moved into another then only the object that
-         * has been move constructed is going to release the mutex.
-         */
-        bool owns_mutex;
-    };
-
 } // namespace detail
 
-
 /**
- * A proxy class for the case when the Concurrent data object is not const
+ * Implementations for the lock proxy methods
  */
 template <typename Type, typename Mutex>
-class Concurrent<Type, Mutex>::UniqueLockedProxy :
-    public detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag> {
-public:
-    using detail::UniqueLockedProxyBase<Type, Mutex, detail::WriteLockTag>
-        ::UniqueLockedProxyBase;
-};
+template <typename C, typename LockTag>
+Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::LockProxy(C& c)
+        : instance_ptr{&c} {
+    detail::lock_mutex(this->instance_ptr->mtx, LockTag{});
+}
+
+template <typename Type, typename Mutex>
+template <typename C, typename LockTag>
+Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::LockProxy(
+        LockProxy&& other) : instance_ptr{other.instance_ptr} {
+    // make the other null
+    other.instance_ptr = nullptr;
+}
+
+template <typename Type, typename Mutex>
+template <typename C, typename LockTag>
+void Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::unlock()
+        noexcept {
+    // unlock the mutex and go into a null state
+    if (this->instance_ptr) {
+        detail::unlock_mutex(this->instance_ptr->mtx, LockTag{});
+        this->instance_ptr = nullptr;
+    }
+}
+
+template <typename Type, typename Mutex>
+template <typename C, typename LockTag>
+Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::~LockProxy() {
+    // unlock and go into a null state
+    this->unlock();
+}
+
+template <typename Type, typename Mutex>
+template <typename C, typename LockTag>
+typename Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::value_type&
+Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::operator*() {
+    return this->instance_ptr->datum;
+}
+
+template <typename Type, typename Mutex>
+template <typename C, typename LockTag>
+typename Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::value_type*
+Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::operator->() {
+    return std::addressof(this->instance_ptr->datum);
+}
 
 /**
- * A proxy class for the case when the Concurrent data object is const
+ * Implementations for the Concurrent<> methods
  */
-template <typename Type, typename Mutex>
-class Concurrent<Type, Mutex>::ConstUniqueLockedProxy :
-    public detail::UniqueLockedProxyBase<const Type, Mutex,
-        detail::ReadLockTag> {
-public:
-    using detail::UniqueLockedProxyBase<const Type, Mutex, detail::ReadLockTag>
-        ::UniqueLockedProxyBase;
-};
-
 template <typename Type, typename Mutex>
 template <typename Func>
 auto Concurrent<Type, Mutex>::synchronized(Func&& func)
@@ -230,16 +156,13 @@ auto Concurrent<Type, Mutex>::synchronized(Func&& func) const
 }
 
 template <typename Type, typename Mutex>
-typename Concurrent<Type, Mutex>::UniqueLockedProxy
-Concurrent<Type, Mutex>::lock() {
-    return Concurrent<Type, Mutex>::UniqueLockedProxy{this->datum, this->mtx};
+auto Concurrent<Type, Mutex>::lock() {
+    return LockProxy<Concurrent, detail::WriteLockTag>{*this};
 }
 
 template <typename Type, typename Mutex>
-typename Concurrent<Type, Mutex>::ConstUniqueLockedProxy
-Concurrent<Type, Mutex>::lock() const {
-    return Concurrent<Type, Mutex>::ConstUniqueLockedProxy{this->datum,
-        this->mtx};
+auto Concurrent<Type, Mutex>::lock() const {
+    return LockProxy<const Concurrent, detail::ReadLockTag>{*this};
 }
 
 /**
@@ -256,8 +179,7 @@ Concurrent<Type, Mutex>::Concurrent(
         sharp::delegate_constructor::tag_t,
         Action,
         Args&&... args) : Concurrent<Type, Mutex>{
-    sharp::implementation::tag, std::forward<Args>(args)...}
-{}
+    sharp::implementation::tag, std::forward<Args>(args)...} {}
 
 /**
  * the implementation for the constructors, accepts a forwarding reference to

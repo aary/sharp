@@ -23,6 +23,7 @@
 #include <utility>
 #include <type_traits>
 #include <mutex>
+#include <unordered_map>
 
 namespace sharp {
 
@@ -122,7 +123,128 @@ namespace sharp {
  */
 template <typename Type, typename Mutex = std::mutex>
 class Concurrent {
+
+    /**
+     * @class LockProxy
+     *
+     * This is the proxy class that is returned by the Concurrent::lock()
+     * method, consult the documentation for Concurrent for more details
+     *
+     * Instances of this class act as smart pointer types to the underlying
+     * object, i.e.  they overload the arrow (->) and dereference (*)
+     * operators; which both return pointers and references to the underlying
+     * object
+     *
+     * These are RAII lock objects, they acquire the underlying mutex on
+     * construction and release the mutex on destruction.  They also support
+     * manual unlock() methods which can release the lock before destruction.
+     * In the event of lock releasing before destruction these make their
+     * internal object pointers point to null, so any future attempts to
+     * access the underlying object would either result in a crash or lead to
+     * undefined behavior, which tools like ASAN should easily detect
+     *
+     * Note that because this class is private to the outside scope you have
+     * to use auto to construct a proxy class, which is a good thing so +1
+     */
+    template <typename ConcurrentType, typename>
+    class LockProxy {
+    public:
+
+        /**
+         * Declare the value type as being a const T if the concurrent type
+         * itself is const and non const otherwise
+         */
+        using value_type = std::conditional_t<
+            std::is_const<ConcurrentType>::value,
+            const typename std::decay_t<ConcurrentType>::value_type,
+            typename std::decay_t<ConcurrentType>::value_type>;
+
+        /**
+         * Friend the outer concurrent class, it is the only one that can
+         * construct objects of type LockProxy
+         */
+        friend class Concurrent;
+
+        /**
+         * Can be move constructed to allow convenient construction via auto in
+         * C++11 and C++14
+         *
+         *      auto lock = vec.lock();
+         *
+         * Although this will not really cause a move in most most cases this
+         * will still not compile before C++17 (with mandatory prvalue
+         * elision).  So the move constructor is needed
+         */
+        LockProxy(LockProxy&&);
+
+        /**
+         * The unlock function puts the proxy into an irrecoverable null
+         * state.  Since there is no lock() or assignment operator provided,
+         * once a lock proxy is null it cannot be used afterwards
+         */
+        void unlock() noexcept;
+
+        /**
+         * Destructor calls unlock() and unlocks the mutex
+         */
+        ~LockProxy();
+
+        /**
+         * Pointer like methods for accessing the underlying data object,
+         * these will return const items based on how the interface is
+         * instantiated in the implementation
+         */
+        value_type* operator->();
+        value_type& operator*();
+
+    private:
+
+        /**
+         * Constructor locks the mutex
+         *
+         * A constructor accepting information about the concurrent data object
+         * and storing the pointer to the concurrent object internally
+         *
+         * A pointer store is helpful in detecting use-after-unlock cases where
+         * the program should abort
+         */
+        explicit LockProxy(ConcurrentType&);
+
+        /**
+         * The assignment operators and the copy constructor are deleted
+         * because those dont make the most sense here and dont represent
+         * logical operations.  What does it mean to copy a lock proxy?
+         */
+        LockProxy(const LockProxy&) = delete;
+        LockProxy& operator=(const LockProxy&) = delete;
+        LockProxy& operator=(LockProxy&&) = delete;
+
+        ConcurrentType* instance_ptr{nullptr};
+    };
+
 public:
+
+    /**
+     * Customary typedef for the value type stored here
+     */
+    using value_type = Type;
+
+    /**
+     * The condition type that can be used as an argument to the lock proxy
+     * wait() function
+     *
+     * A condition should ideally only check if anything in the stored object
+     * has changed and should not interact with state other than that,
+     * therefore a condition object can only interact with the stored object,
+     * and further in a const manner, as a condition should not change state.
+     * That should be dependent on how the lock has been held (for example a
+     * lock in read more should not be able to modify the stored object)
+     *
+     * Also note that this does not stop you from passing lambdas to the
+     * wait() function, lambdas and even polymorphic lambdas with auto
+     * parameters work, just as long as they don't capture anything
+     */
+    using ConditionFunction_t = bool (*) (const Type&);
 
     /**
      * Accepts a callable as an argument and executes that on an internal lock
@@ -154,25 +276,6 @@ public:
         -> decltype(std::declval<F>()(std::declval<Type&>()));
 
     /**
-     * Forward declarations of lightweight proxy types that are used to
-     * interact with the underlying object.
-     *
-     * These act as smart pointer types to the underlying object, i.e. they
-     * overload the arrow (->) and dereference (*) operators; which both
-     * return pointers and references to the underlying object
-     *
-     * These are RAII lock objects, they acquire the underlying mutex on
-     * construction and release the mutex on destruction.  They also support
-     * manual unlock() methods which can release the lock before destruction.
-     * In the event of lock releasing before destruction these make their
-     * internal object pointers point to null, so any future attempts to
-     * access the underlying object would either result in a crash or lead to
-     * undefined behavior, which tools like ASAN should easily detect
-     */
-    class UniqueLockedProxy;
-    class ConstUniqueLockedProxy;
-
-    /**
      * Returns an RAII proxy object that locks the inner data object on
      * construction and unlocks it on destruction
      *
@@ -185,14 +288,14 @@ public:
      * on the underlying mutex.  If a shared lock API is not supported by the
      * mutex, then this function acquires a unique lock
      */
-    UniqueLockedProxy lock();
+    auto /* LockProxy */ lock();
 
     /**
      * A const version of the same lock above.  This helps to automate the
      * process of acquiring a read lock when the lock type provided is a
      * readers-writer lock or some form of shared lock.
      */
-    ConstUniqueLockedProxy lock() const;
+    auto /* LockProxy */ lock() const;
 
     /**
      * The usual constructors for the class.  This is set to the default
@@ -260,6 +363,13 @@ public:
      */
     Concurrent& operator=(Concurrent&& other);
 
+    /**
+     * Friend the proxy class, it should be able to access internals of this
+     * class
+     */
+    template <typename, typename>
+    friend class LockProxy;
+
 private:
 
     /**
@@ -288,6 +398,21 @@ private:
      */
     Type datum;
     mutable Mutex mtx;
+
+    /**
+     * The information for condition critical sections, each conditional
+     * critical section corresponds to a trivial to execute condition that the
+     * conditional critical section is dependent on and the condition variable
+     * associated with that condition.  If multiple threads are waiting on the
+     * same condition, they will share condition variables.  If however the
+     * condition is different then the condition variables will be different
+     * as well
+     *
+     * Note that since this can only be accessed from within a locked proxy,
+     * this does not need to be protected by a mutex itself, it is already
+     * protected by this->mtx
+     */
+    std::unordered_map<ConditionFunction_t, std::condition_variable> conditions;
 
     /**
      * Friend for testing
