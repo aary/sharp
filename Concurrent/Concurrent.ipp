@@ -166,7 +166,7 @@ auto Concurrent<Type, Mutex, CV>::synchronized(Func&& func)
 template <typename Type, typename Mutex, typename CV>
 template <typename Func>
 auto Concurrent<Type, Mutex, CV>::synchronized(Func&& func) const
-        -> decltype(std::declval<Func>()(std::declval<Type&>())) {
+        -> decltype(std::declval<Func>()(std::declval<const Type&>())) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy

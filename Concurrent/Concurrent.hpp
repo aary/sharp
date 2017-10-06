@@ -283,7 +283,6 @@ private:
     };
 
 public:
-
     /**
      * Accepts a callable as an argument and executes that on an internal lock
      *
@@ -311,7 +310,7 @@ public:
      */
     template <typename F>
     auto synchronized(F&&) const
-        -> decltype(std::declval<F>()(std::declval<Type&>()));
+        -> decltype(std::declval<F>()(std::declval<const Type&>()));
 
     /**
      * Returns an RAII proxy object that locks the inner data object on
