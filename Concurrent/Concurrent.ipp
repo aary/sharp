@@ -12,7 +12,7 @@
 
 namespace sharp {
 
-namespace detail {
+namespace concurrent_detail {
 
     /**
      * Concepts(ish)
@@ -78,7 +78,7 @@ namespace detail {
         mtx.unlock();
     }
 
-} // namespace detail
+} // namespace concurrent_detail
 
 /**
  * Implementations for the lock proxy methods
@@ -87,7 +87,7 @@ template <typename Type, typename Mutex>
 template <typename C, typename LockTag>
 Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::LockProxy(C& c)
         : instance_ptr{&c} {
-    detail::lock_mutex(this->instance_ptr->mtx, LockTag{});
+    concurrent_detail::lock_mutex(this->instance_ptr->mtx, LockTag{});
 }
 
 template <typename Type, typename Mutex>
@@ -104,7 +104,7 @@ void Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::unlock()
         noexcept {
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
-        detail::unlock_mutex(this->instance_ptr->mtx, LockTag{});
+        concurrent_detail::unlock_mutex(this->instance_ptr->mtx, LockTag{});
         this->instance_ptr = nullptr;
     }
 }
@@ -157,12 +157,12 @@ auto Concurrent<Type, Mutex>::synchronized(Func&& func) const
 
 template <typename Type, typename Mutex>
 auto Concurrent<Type, Mutex>::lock() {
-    return LockProxy<Concurrent, detail::WriteLockTag>{*this};
+    return LockProxy<Concurrent, concurrent_detail::WriteLockTag>{*this};
 }
 
 template <typename Type, typename Mutex>
 auto Concurrent<Type, Mutex>::lock() const {
-    return LockProxy<const Concurrent, detail::ReadLockTag>{*this};
+    return LockProxy<const Concurrent, concurrent_detail::ReadLockTag>{*this};
 }
 
 /**
