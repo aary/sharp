@@ -83,24 +83,24 @@ namespace concurrent_detail {
 /**
  * Implementations for the lock proxy methods
  */
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename C, typename LockTag>
-Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::LockProxy(C& c)
+Concurrent<Type, Mutex, CV>::template LockProxy<C, LockTag>::LockProxy(C& c)
         : instance_ptr{&c} {
     concurrent_detail::lock_mutex(this->instance_ptr->mtx, LockTag{});
 }
 
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename C, typename LockTag>
-Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::LockProxy(
+Concurrent<Type, Mutex, CV>::template LockProxy<C, LockTag>::LockProxy(
         LockProxy&& other) : instance_ptr{other.instance_ptr} {
     // make the other null
     other.instance_ptr = nullptr;
 }
 
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename C, typename LockTag>
-void Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::unlock()
+void Concurrent<Type, Mutex, CV>::template LockProxy<C, LockTag>::unlock()
         noexcept {
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
@@ -109,33 +109,52 @@ void Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::unlock()
     }
 }
 
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename C, typename LockTag>
-Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::~LockProxy() {
+Concurrent<Type, Mutex, CV>::template LockProxy<C, LockTag>::~LockProxy() {
     // unlock and go into a null state
     this->unlock();
 }
 
-template <typename Type, typename Mutex>
-template <typename C, typename LockTag>
-typename Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::value_type&
-Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::operator*() {
+template <typename Type, typename Mutex, typename CV>
+template <typename C, typename Tag>
+typename Concurrent<Type, Mutex, CV>::template LockProxy<C, Tag>::value_type&
+Concurrent<Type, Mutex, CV>::template LockProxy<C, Tag>::operator*() {
     return this->instance_ptr->datum;
 }
 
-template <typename Type, typename Mutex>
-template <typename C, typename LockTag>
-typename Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::value_type*
-Concurrent<Type, Mutex>::template LockProxy<C, LockTag>::operator->() {
+template <typename Type, typename Mutex, typename CV>
+template <typename C, typename Tag>
+typename Concurrent<Type, Mutex, CV>::template LockProxy<C, Tag>::value_type*
+Concurrent<Type, Mutex, CV>::template LockProxy<C, Tag>::operator->() {
     return std::addressof(this->instance_ptr->datum);
+}
+
+template <typename Type, typename Mutex, typename CV>
+template <typename C, typename LockTag>
+void Concurrent<Type, Mutex, CV>::template LockProxy<C, LockTag>::wait(
+        Concurrent::Condition_t condition) {
+
+    // add the condition to the concurrent object if it doesnt already exist,
+    // then wait on the cv associated from the condition until signalled by
+    // someone else
+    auto iter = this->instance_ptr->conditions.find(condition);
+    if (iter == this->instance_ptr->conditions.end()) {
+        auto pr = this->instance_ptr->conditions.emplace(condition, CV{});
+        assert(pr.second);
+        iter = pr.first;
+    }
+
+    // wait until signalled
+    this->wait_impl();
 }
 
 /**
  * Implementations for the Concurrent<> methods
  */
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename Func>
-auto Concurrent<Type, Mutex>::synchronized(Func&& func)
+auto Concurrent<Type, Mutex, CV>::synchronized(Func&& func)
         -> decltype(std::declval<Func>()(std::declval<Type&>())) {
 
     // acquire the locked exclusively by constructing an object of type
@@ -144,9 +163,9 @@ auto Concurrent<Type, Mutex>::synchronized(Func&& func)
     return std::forward<Func>(func)(*lock);
 }
 
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename Func>
-auto Concurrent<Type, Mutex>::synchronized(Func&& func) const
+auto Concurrent<Type, Mutex, CV>::synchronized(Func&& func) const
         -> decltype(std::declval<Func>()(std::declval<Type&>())) {
 
     // acquire the locked exclusively by constructing an object of type
@@ -155,13 +174,13 @@ auto Concurrent<Type, Mutex>::synchronized(Func&& func) const
     return std::forward<Func>(func)(*lock);
 }
 
-template <typename Type, typename Mutex>
-auto Concurrent<Type, Mutex>::lock() {
+template <typename Type, typename Mutex, typename CV>
+auto Concurrent<Type, Mutex, CV>::lock() {
     return LockProxy<Concurrent, concurrent_detail::WriteLockTag>{*this};
 }
 
-template <typename Type, typename Mutex>
-auto Concurrent<Type, Mutex>::lock() const {
+template <typename Type, typename Mutex, typename CV>
+auto Concurrent<Type, Mutex, CV>::lock() const {
     return LockProxy<const Concurrent, concurrent_detail::ReadLockTag>{*this};
 }
 
@@ -173,21 +192,21 @@ auto Concurrent<Type, Mutex>::lock() const {
  * and cleanup are done through construction and destruction of the Action
  * object.
  */
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename Action, typename... Args>
-Concurrent<Type, Mutex>::Concurrent(
+Concurrent<Type, Mutex, CV>::Concurrent(
         sharp::delegate_constructor::tag_t,
         Action,
-        Args&&... args) : Concurrent<Type, Mutex>{
-    sharp::implementation::tag, std::forward<Args>(args)...} {}
+        Args&&... args) :
+    Concurrent{sharp::implementation::tag, std::forward<Args>(args)...} {}
 
 /**
  * the implementation for the constructors, accepts a forwarding reference to
  * any type of Concurrent object and then forwards it's data into our data
  */
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename OtherConcurrent>
-Concurrent<Type, Mutex>::Concurrent(
+Concurrent<Type, Mutex, CV>::Concurrent(
         sharp::implementation::tag_t, OtherConcurrent&& other)
     : datum{std::forward<OtherConcurrent>(other).datum} {}
 
@@ -195,26 +214,25 @@ Concurrent<Type, Mutex>::Concurrent(
  * Copy constructor forwards with an action to the decorated delegate
  * constructor, which in turn forwards to the implementation constructor
  */
-template <typename Type, typename Mutex>
-Concurrent<Type, Mutex>::Concurrent(const Concurrent<Type, Mutex>& other)
-    : Concurrent<Type, Mutex>{sharp::delegate_constructor::tag, other.lock(),
-        other} {}
+template <typename Type, typename Mutex, typename CV>
+Concurrent<Type, Mutex, CV>::Concurrent(const Concurrent& other)
+    : Concurrent{sharp::delegate_constructor::tag, other.lock(), other} {}
 
 /**
  * Same as the copy constructor
  */
-template <typename Type, typename Mutex>
-Concurrent<Type, Mutex>::Concurrent(Concurrent&& other)
+template <typename Type, typename Mutex, typename CV>
+Concurrent<Type, Mutex, CV>::Concurrent(Concurrent&& other)
     : Concurrent{sharp::delegate_constructor::tag, other.lock(),
         std::move(other)} {}
 
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename... Args>
-Concurrent<Type, Mutex>::Concurrent(std::in_place_t, Args&&... args)
+Concurrent<Type, Mutex, CV>::Concurrent(std::in_place_t, Args&&... args)
     : datum{std::forward<Args>(args)...} {}
-template <typename Type, typename Mutex>
+template <typename Type, typename Mutex, typename CV>
 template <typename U, typename... Args>
-Concurrent<Type, Mutex>::Concurrent(std::in_place_t,
+Concurrent<Type, Mutex, CV>::Concurrent(std::in_place_t,
                                     std::initializer_list<U> il, Args&&... args)
     : datum{il, std::forward<Args>(args)...} {}
 
@@ -224,8 +242,8 @@ Concurrent<Type, Mutex>::Concurrent(std::in_place_t,
  * The algorithm used to lock the mutexes is simple.  Lock the one that comes
  * earlier in memory first and then lock the other.
  */
-template <typename Type, typename Mutex>
-Concurrent<Type, Mutex>& Concurrent<Type, Mutex>::operator=(
+template <typename Type, typename Mutex, typename CV>
+Concurrent<Type, Mutex, CV>& Concurrent<Type, Mutex, CV>::operator=(
         const Concurrent& other) {
 
     // check which one comes first in memory

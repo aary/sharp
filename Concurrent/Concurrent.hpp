@@ -20,6 +20,7 @@
 #include <sharp/Tags/Tags.hpp>
 #include <sharp/Portability/Portability.hpp>
 
+#include <condition_variable>
 #include <utility>
 #include <type_traits>
 #include <mutex>
@@ -121,9 +122,35 @@ namespace sharp {
  * method is noexecpt, then this class switches to provide the noexcept
  * guarantee wherever it can
  */
-template <typename Type, typename Mutex = std::mutex>
+template <typename Type,
+          typename Mutex = std::mutex,
+          typename CV = std::condition_variable_any>
 class Concurrent {
+public:
 
+    /**
+     * Customary typedef for the value type stored here
+     */
+    using value_type = Type;
+
+    /**
+     * The condition type that can be used as an argument to the lock proxy
+     * wait() function
+     *
+     * A condition should ideally only check if anything in the stored object
+     * has changed and should not interact with state other than that,
+     * therefore a condition object can only interact with the stored object,
+     * and further in a const manner, as a condition should not change state.
+     * That should be dependent on how the lock has been held (for example a
+     * lock in read more should not be able to modify the stored object)
+     *
+     * Also note that this does not stop you from passing lambdas to the
+     * wait() function, lambdas and even polymorphic lambdas with auto
+     * parameters work, just as long as they don't capture anything
+     */
+    using Condition_t = bool (*) (const Type&);
+
+private:
     /**
      * @class LockProxy
      *
@@ -192,13 +219,41 @@ class Concurrent {
         value_type& operator*();
 
         /**
+         * Waits on the condition passed until some other lock proxy unlocks
+         * and this condition becomes true, in which case the call to this
+         * function returns.  Blocks otherwise
+         *
+         * This method can only be called when the lock proxy is in a valid
+         * non null state, when called from a null state, the program exhibits
+         * undefined behavior
+         *
+         * If multiple threads are waiting on the same condition it is useful
+         * to pass the same function pointer or lambda to this function.  In
+         * that case the concurrent object internally only allocates one
+         * condition variable for all those conditions.  Whereas if different
+         * threads want to wait on different conditions, different conditions
+         * should be passed
+         *
+         * If the wrapped class has a const is_ready() function, the condition
+         * itself can be skipped enitrely and left empty, the lock proxy will
+         * check for the is_ready function on some other unlock and wake up
+         * the current thread if the method is satisfied
+         *
+         * Note that passing lamdbas with no capture is completely ok here
+         * since they support conversions to function pointers.  In fact it is
+         * recommended for readability that lambdas are passed in here for
+         * short conditions
+         */
+        void wait(Concurrent::Condition_t condition);
+        void wait();
+
+        /**
          * Friend the outer concurrent class, it is the only one that can
          * construct objects of type LockProxy
          */
         friend class Concurrent;
 
     private:
-
         /**
          * Constructor locks the mutex
          *
@@ -209,6 +264,11 @@ class Concurrent {
          * the program should abort
          */
         explicit LockProxy(ConcurrentType&);
+
+        /**
+         * Wait in a loop for a signal
+         */
+        void wait_impl();
 
         /**
          * The assignment operators and the copy constructor are deleted
@@ -223,28 +283,6 @@ class Concurrent {
     };
 
 public:
-
-    /**
-     * Customary typedef for the value type stored here
-     */
-    using value_type = Type;
-
-    /**
-     * The condition type that can be used as an argument to the lock proxy
-     * wait() function
-     *
-     * A condition should ideally only check if anything in the stored object
-     * has changed and should not interact with state other than that,
-     * therefore a condition object can only interact with the stored object,
-     * and further in a const manner, as a condition should not change state.
-     * That should be dependent on how the lock has been held (for example a
-     * lock in read more should not be able to modify the stored object)
-     *
-     * Also note that this does not stop you from passing lambdas to the
-     * wait() function, lambdas and even polymorphic lambdas with auto
-     * parameters work, just as long as they don't capture anything
-     */
-    using ConditionFunction_t = bool (*) (const Type&);
 
     /**
      * Accepts a callable as an argument and executes that on an internal lock
@@ -288,14 +326,14 @@ public:
      * on the underlying mutex.  If a shared lock API is not supported by the
      * mutex, then this function acquires a unique lock
      */
-    auto /* LockProxy */ lock();
+    auto /* LockProxy<> */ lock();
 
     /**
      * A const version of the same lock above.  This helps to automate the
      * process of acquiring a read lock when the lock type provided is a
      * readers-writer lock or some form of shared lock.
      */
-    auto /* LockProxy */ lock() const;
+    auto /* LockProxy<> */ lock() const;
 
     /**
      * The usual constructors for the class.  This is set to the default
@@ -412,7 +450,7 @@ private:
      * this does not need to be protected by a mutex itself, it is already
      * protected by this->mtx
      */
-    std::unordered_map<ConditionFunction_t, std::condition_variable> conditions;
+    std::unordered_map<Condition_t, CV> conditions;
 
     /**
      * Friend for testing
