@@ -16,16 +16,20 @@ potentially be accessed concurrently from different threads
 
 ```c++
 std::mutex mtx_one;
+std::condition_variable cv_one;
 std::vector<int> critical_vector;
 std::mutex mtx_two
+std::condition_variable cv_two;
 std::deque<int> critical_deque;
 std::mutex mtx_three;
+std::condition_variable cv_three;
 std::unordered_map<int, int> information_map;
 ```
 
 This is ugly, and it is not clear which mutex is meant to protect which data
-item.  Throw in some condition variables in there and the code becomes
-chaotic, hard to read, hard to reason about and hard to maintain
+item.  Throw in some more condition variables for different conditions in
+there and the code becomes chaotic, hard to read, hard to reason about and
+hard to maintain
 
 Instead you could have something like the following
 
