@@ -2,6 +2,7 @@ cxx_test(
     name = "test",
     srcs = [
         "test.cpp",
+        "UniqueLockTest.cpp",
     ],
     deps = [
         "//Threads:Threads",
