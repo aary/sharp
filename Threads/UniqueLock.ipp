@@ -153,7 +153,8 @@ template <typename L>
 void UniqueLock<Mutex, Lock, Unlock>::lock(L locker) {
     this->throw_if_no_mutex();
     this->throw_if_already_owned();
-    locker(*this->mtx);
+    this->owns_mutex = threads_detail::WrapToReturnBool<Mutex, L>{locker}(
+            *this->mtx);
 }
 
 template <typename Mutex, typename Lock, typename Unlock>
@@ -161,6 +162,7 @@ template <typename U>
 void UniqueLock<Mutex, Lock, Unlock>::unlock(U unlocker) {
     this->throw_if_no_mutex();
     unlocker(*this->mtx);
+    this->owns_mutex = false;
 }
 
 template <typename Mutex, typename Lock, typename Unlock>

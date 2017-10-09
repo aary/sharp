@@ -127,8 +127,8 @@ public:
      * functionality does not exist in std::mutex
      *
      * If the AcquireLock returns a boolean when passed a reference to the
-     * underlying mutex, it's return value is used to set the value of
-     * whether or not the mutex owns the underlying mutex
+     * underlying mutex, it's return value is used to set the value of whether
+     * or not the mutex owns the underlying mutex
      */
     template <typename AcquireLock>
     UniqueLock(Mutex& mtx_in, AcquireLock locker);
