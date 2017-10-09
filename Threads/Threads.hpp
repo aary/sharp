@@ -7,3 +7,4 @@
 
 #include <sharp/Threads/RecursiveMutex.hpp>
 #include <sharp/Threads/ThreadTest.hpp>
+#include <sharp/Threads/UniqueLock.hpp>

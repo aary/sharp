@@ -7,11 +7,9 @@ cxx_library(
     ], excludes = [
         "**/test/*.cpp",
     ]),
-    headers = subdir_glob([
-        ("", "**/*.hpp"),
-    ]),
     exported_headers = subdir_glob([
         ("", "**/*.hpp"),
+        ("", "**/*.ipp"),
     ]),
 
     tests = [
