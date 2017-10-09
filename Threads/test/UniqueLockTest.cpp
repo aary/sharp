@@ -19,6 +19,7 @@ public:
         EXPECT_EQ(this->lock_state, LockState::LOCKED);
         this->lock_state = LockState::UNLOCKED;
         static_state = LockState::UNLOCKED;
+        ++number_unlocks;
     }
     virtual void lock_shared() {
         this->lock();
@@ -29,6 +30,7 @@ public:
         EXPECT_EQ(this->lock_state, LockState::SHARED);
         this->lock_state = LockState::UNLOCKED;
         static_state = LockState::UNLOCKED;
+        ++number_unlocks;
     }
     virtual bool try_lock() {
         if (this->should_lock) {
@@ -51,15 +53,18 @@ public:
     LockState lock_state;
     static LockState static_state;
     static int number_locks;
+    static int number_unlocks;
 };
 FakeMutex::LockState FakeMutex::static_state{FakeMutex::LockState::UNLOCKED};
 int FakeMutex::number_locks{0};
+int FakeMutex::number_unlocks{0};
 
 class UniqueLockTests : public ::testing::Test {
 public:
     void SetUp() override {
         FakeMutex::static_state = FakeMutex::LockState::UNLOCKED;
         FakeMutex::number_locks = 0;
+        FakeMutex::number_unlocks = 0;
     }
 };
 
@@ -76,6 +81,7 @@ TEST_F(UniqueLockTests, LockConstruct) {
     EXPECT_EQ(lck.owns_lock(), true);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 0);
 }
 
 TEST_F(UniqueLockTests, LockMoveConstruct) {
@@ -119,6 +125,7 @@ TEST_F(UniqueLockTests, LockDefer) {
     EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
 }
 
 TEST_F(UniqueLockTests, TryToLock) {
@@ -134,6 +141,7 @@ TEST_F(UniqueLockTests, TryToLock) {
     EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
 
     {
         mtx.should_lock = false;
@@ -147,6 +155,7 @@ TEST_F(UniqueLockTests, TryToLock) {
     EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
 }
 
 TEST_F(UniqueLockTests, AdoptLock) {
@@ -168,6 +177,7 @@ TEST_F(UniqueLockTests, AdoptLock) {
     EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
 
     {
         auto lck = sharp::UniqueLock<FakeMutex>{mtx, std::adopt_lock};
@@ -192,6 +202,105 @@ TEST_F(UniqueLockTests, AdoptLock) {
     EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
     EXPECT_EQ(FakeMutex::number_locks, 2);
+    EXPECT_EQ(FakeMutex::number_unlocks, 2);
+}
+
+TEST_F(UniqueLockTests, AcquireLock) {
+    auto mtx = FakeMutex{};
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx, [](auto& m){ m.lock(); }};
+        EXPECT_EQ(lck.owns_lock(), true);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 1);
+
+        lck.unlock();
+        EXPECT_EQ(lck.owns_lock(), false);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 1);
+    }
+
+    EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx, [](auto& m) {
+            return m.try_lock();
+        }};
+        EXPECT_EQ(lck.owns_lock(), true);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 2);
+
+        lck.unlock();
+        EXPECT_EQ(lck.owns_lock(), false);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 2);
+    }
+
+    EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::number_locks, 2);
+    EXPECT_EQ(FakeMutex::number_unlocks, 2);
+
+    {
+        mtx.should_lock = false;
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx, [](auto& m) {
+            return m.try_lock();
+        }};
+        EXPECT_EQ(lck.owns_lock(), false);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 2);
+    }
+
+    EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::number_locks, 2);
+    EXPECT_EQ(FakeMutex::number_unlocks, 2);
+}
+
+TEST_F(UniqueLockTests, AssignmentOperator) {
+    auto mtx = FakeMutex{};
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx};
+        EXPECT_EQ(lck.owns_lock(), true);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 1);
+
+        auto two = sharp::UniqueLock<FakeMutex>{};
+        two = std::move(lck);
+        EXPECT_EQ(lck.owns_lock(), false);
+        EXPECT_EQ(two.owns_lock(), true);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::LOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 1);
+    }
+
+    EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{};
+        auto two = std::move(lck);
+        EXPECT_EQ(lck.owns_lock(), false);
+        EXPECT_EQ(two.owns_lock(), false);
+        EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+        EXPECT_EQ(FakeMutex::number_locks, 1);
+    }
+    EXPECT_EQ(mtx.lock_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
+    EXPECT_EQ(FakeMutex::number_locks, 1);
+    EXPECT_EQ(FakeMutex::number_unlocks, 1);
 }
 
 } // namespace sharp

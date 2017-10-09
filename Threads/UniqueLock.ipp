@@ -24,7 +24,7 @@ namespace threads_detail {
      */
     template <typename Mutex, typename Locker>
     using EnableIfReturnsBool = std::enable_if_t<
-        std::is_same<decltype(std::declval<Locker>()(std::declval<Mutex>())),
+        std::is_same<decltype(std::declval<Locker>()(std::declval<Mutex&>())),
         bool>::value>;
 
     /**
@@ -146,6 +146,7 @@ UniqueLock<Mutex, Lock, Unlock>::operator=(UniqueLock&& other) {
     // then take ownership of other
     this->~UniqueLock();
     this->swap(other);
+    return *this;
 }
 
 template <typename Mutex, typename Lock, typename Unlock>
