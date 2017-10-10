@@ -429,4 +429,31 @@ TEST_F(UniqueLockTests, Release) {
     EXPECT_EQ(FakeMutex::number_unlocks, 1);
 }
 
+TEST_F(UniqueLockTests, TestExceptions) {
+    auto mtx = FakeMutex{};
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{};
+        EXPECT_THROW(lck.lock(), std::system_error);
+    }
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx};
+        EXPECT_THROW(lck.lock(), std::system_error);
+    }
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{};
+        EXPECT_THROW(lck.unlock(), std::system_error);
+    }
+
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{};
+        EXPECT_THROW(lck.try_lock(), std::system_error);
+    }
+    {
+        auto lck = sharp::UniqueLock<FakeMutex>{mtx};
+        EXPECT_THROW(lck.try_lock(), std::system_error);
+    }
+}
+
 } // namespace sharp

@@ -171,6 +171,7 @@ bool UniqueLock<Mutex, Lock, Unlock>::try_lock() {
     this->throw_if_no_mutex();
     this->throw_if_already_owned();
     this->owns_mutex = this->mtx->try_lock();
+    return this->owns_mutex;
 }
 
 template <typename Mutex, typename Lock, typename Unlock>
@@ -180,6 +181,7 @@ bool UniqueLock<Mutex, Lock, Unlock>::try_lock_for(
     this->throw_if_no_mutex();
     this->throw_if_already_owned();
     this->owns_mutex = this->mtx->try_lock_for(duration);
+    return this->owns_mutex;
 }
 
 template <typename Mutex, typename Lock, typename Unlock>
@@ -189,6 +191,7 @@ bool UniqueLock<Mutex, Lock, Unlock>::try_lock_until(
     this->throw_if_no_mutex();
     this->throw_if_already_owned();
     this->owns_mutex = this->mtx->try_lock_until(time);
+    return this->owns_mutex;
 }
 
 template <typename Mutex, typename Lock, typename Unlock>
