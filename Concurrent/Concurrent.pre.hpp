@@ -64,27 +64,6 @@ namespace concurrent_detail {
     struct ReadLockTag : public WriteLockTag {};
 
     /**
-     * A condition variable wrapper around std::condition_variable to handle
-     * mutexes that are not wrapped in a std::unique_lock
-     */
-    class StdConditionVariable {
-    public:
-        void wait(std::mutex& mtx) {
-            auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
-            this->cv.wait(lck);
-        }
-        void notify_one() {
-            this->cv.notify_one();
-        }
-        void notify_all() {
-            this->cv.notify_all();
-        }
-
-    private:
-        std::condition_variable cv;
-    };
-
-    /**
      * @class CvTraits
      *
      * Contains a mapping of mutex to the cv that goes along with it, if a
@@ -102,7 +81,7 @@ namespace concurrent_detail {
     };
     template <>
     struct GetCv<std::mutex> {
-        using type = StdConditionVariable;
+        using type = std::condition_variable;
     };
 
     /**
@@ -225,12 +204,19 @@ namespace concurrent_detail {
               typename Cv = typename Concurrent::cv_type,
               typename Condition = typename Concurrent::Condition_t,
               typename = sharp::void_t<>>
-    class Conditions : public ConditionsImpl<Condition, Cv> {
+    class Conditions {
     public:
 
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
-            this->conditions.wait(condition, proxy, [&]() { return int{}; });
+            // construct a unique lock to wait on it but release it before
+            // returning because the outer lock proxy used in user code should
+            // be the one that handles the unlocking on destruction or manual
+            // unlock
+            auto lck = std::unique_lock<Mutex>{proxy.instance_ptr->mtx,
+                std::adopt_lock};
+            this->conditions.wait(condition, proxy, lck, [&] { return int{}; });
+            lck.release();
         }
 
         template <typename LockProxy>
@@ -260,13 +246,23 @@ namespace concurrent_detail {
 
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, ReadLockTag) {
-            this->conditions.wait(condition, proxy, [&]() {
+            // construct a shared unique lock to wait on but then release the
+            // lock before returning to user code
+            auto lck = sharp::UniqueLock<Mutex, sharp::SharedLock>{
+                proxy.instance_ptr->mtx, std::adopt_lock};
+            this->conditions.wait(condition, proxy, lck, [&]() {
                 return sharp::UniqueLock<Mutex>{this->mtx};
             });
+            lck.release();
         }
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
-            this->conditions.wait(condition, proxy, [&]() { return int{}; });
+            // construct a exclusive unique lock to wait on but then release the
+            // lock before returning to user code
+            auto lck = sharp::UniqueLock<Mutex, sharp::DefaultLock>{
+                proxy.instance_ptr->mtx, std::adopt_lock};
+            this->conditions.wait(condition, proxy, lck, [&] { return int{}; });
+            lck.release();
         }
 
         template <typename LockProxy>

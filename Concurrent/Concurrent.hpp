@@ -260,6 +260,8 @@ private:
          * construct objects of type LockProxy
          */
         friend class Concurrent;
+        template <typename Concurrent, typename, typename, typename, typename>
+        friend class Conditions;
 
     private:
         /**
@@ -414,6 +416,8 @@ public:
      */
     template <typename, typename>
     friend class LockProxy;
+    template <typename Concurrent, typename, typename, typename, typename>
+    friend class Conditions;
 
 private:
 
