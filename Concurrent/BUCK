@@ -4,11 +4,13 @@ cxx_library(
     deps = [
         "//Tags:Tags",
         "//Traits:Traits",
+        "//Threads:Threads",
         "//Portability:Portability",
     ],
     exported_headers = [
-        "Concurrent.ipp",
+        "Concurrent.pre.hpp",
         "Concurrent.hpp",
+        "Concurrent.ipp",
     ],
     visibility = [
         "PUBLIC",

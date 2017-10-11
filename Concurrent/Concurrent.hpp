@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <sharp/Concurrent/Concurrent.pre.hpp>
+
 #include <sharp/Tags/Tags.hpp>
 #include <sharp/Portability/Portability.hpp>
 
@@ -124,7 +126,7 @@ namespace sharp {
  */
 template <typename Type,
           typename Mutex = std::mutex,
-          typename CV = std::condition_variable_any>
+          typename Cv = typename concurrent_detail::GetCv<Mutex>::type>
 class Concurrent {
 public:
 
@@ -132,6 +134,8 @@ public:
      * Customary typedef for the value type stored here
      */
     using value_type = Type;
+    using mutex_type = Mutex;
+    using cv_type = Cv;
 
     /**
      * The condition type that can be used as an argument to the lock proxy
@@ -171,7 +175,9 @@ private:
      * undefined behavior, which tools like ASAN should easily detect
      *
      * Note that because this class is private to the outside scope you have
-     * to use auto to construct a proxy class, which is a good thing so +1
+     * to use auto to construct a proxy class, and you don't have access to
+     * the type of the class, so you cannot make it a member variable, pass it
+     * to a function without going through extreme hardships
      */
     template <typename ConcurrentType, typename>
     class LockProxy {
@@ -195,6 +201,9 @@ private:
          * Although this will not really cause a move in most most cases this
          * will still not compile before C++17 (with mandatory prvalue
          * elision).  So the move constructor is needed
+         *
+         * In C++17 this will be deleted as move construction is no longer
+         * needed by this API
          */
         LockProxy(LockProxy&&);
 
@@ -245,7 +254,6 @@ private:
          * short conditions
          */
         void wait(Concurrent::Condition_t condition);
-        void wait();
 
         /**
          * Friend the outer concurrent class, it is the only one that can
@@ -401,8 +409,8 @@ public:
     Concurrent& operator=(Concurrent&& other);
 
     /**
-     * Friend the proxy class, it should be able to access internals of this
-     * class
+     * Friend the proxy class and the bookkeeping class, they should be able to
+     * access internals of this class
      */
     template <typename, typename>
     friend class LockProxy;
@@ -449,7 +457,7 @@ private:
      * this does not need to be protected by a mutex itself, it is already
      * protected by this->mtx
      */
-    std::unordered_map<Condition_t, CV> conditions;
+    concurrent_detail::Conditions<Concurrent> conditions;
 
     /**
      * Friend for testing
