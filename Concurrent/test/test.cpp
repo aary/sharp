@@ -294,8 +294,8 @@ TEST(Concurrent, WaitBasic) {
 TEST(Concurrent, WaitMany) {
     for (auto i = 0; i < STRESS; ++i) {
         const auto THREADS = 10;
-        auto concurrent = sharp::Concurrent<bool>{std::in_place, false};
-        auto signal = sharp::Concurrent<int>{std::in_place, 0};
+        auto concurrent = sharp::Concurrent<bool>{false};
+        auto signal = sharp::Concurrent<int>{0};
 
         auto threads = std::vector<std::thread>{};
         for (auto i = 0; i < THREADS; ++i) {
