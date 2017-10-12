@@ -2,6 +2,7 @@ cxx_library(
     name = "Concurrent",
     header_namespace = "sharp/Concurrent",
     deps = [
+        "//Defer:Defer",
         "//Tags:Tags",
         "//Traits:Traits",
         "//Threads:Threads",

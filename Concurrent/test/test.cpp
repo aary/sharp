@@ -10,6 +10,10 @@ using namespace sharp;
 
 namespace sharp {
 
+namespace {
+const auto STRESS = 1e3;
+}
+
 class FakeMutex {
 public:
     enum LockState {LOCKED, SHARED, UNLOCKED};
@@ -263,5 +267,56 @@ TEST(Concurrent, test_in_place_construction) {
 
 TEST(Concurrent, test_assignment_operator) {
     ConcurrentTests::test_assignment_operator();
+}
+
+TEST(Concurrent, WaitBasic) {
+    for (auto i = 0; i < STRESS; ++i) {
+        auto concurrent = sharp::Concurrent<int>{std::in_place, 1};
+        auto signal = sharp::Concurrent<bool>{std::in_place, false};
+
+        auto th = std::thread{[&]() {
+            auto lock = concurrent.lock();
+            lock.wait([](auto& integer) {
+                return integer == 2;
+            });
+            *signal.lock() = true;
+        }};
+
+        concurrent.synchronized([](auto& val) {
+            ++val;
+        });
+        signal.lock().wait([](auto val) { return val; });
+
+        th.join();
+    }
+}
+
+TEST(Concurrent, WaitMany) {
+    for (auto i = 0; i < STRESS; ++i) {
+        const auto THREADS = 10;
+        auto concurrent = sharp::Concurrent<bool>{std::in_place, false};
+        auto signal = sharp::Concurrent<int>{std::in_place, 0};
+
+        auto threads = std::vector<std::thread>{};
+        for (auto i = 0; i < THREADS; ++i) {
+            threads.push_back(std::thread{[&]() {
+                auto lock = concurrent.lock();
+                lock.wait([](auto go) {
+                    return go;
+                });
+                ++(*signal.lock());
+            }});
+        }
+
+        concurrent.synchronized([](auto& val) {
+            val = true;
+        });
+        signal.lock().wait([](auto val) { return val == THREADS; });
+        EXPECT_EQ(*signal.lock(), THREADS);
+
+        for (auto& th : threads) {
+            th.join();
+        }
+    }
 }
 
