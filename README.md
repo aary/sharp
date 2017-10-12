@@ -4,6 +4,102 @@
 This repository contains code for some C++ libraries that I have implemented
 in my free time.
 
+## Some highlights
+
+### Channels
+```c++
+sharp::select(
+    sharp::case(channel, [](auto ele) {
+        cout << "Read value from channel " << ele << endl;
+    }),
+    sharp::case(channel, []() -> int {
+        return value;
+    })
+);
+
+channel.send(1);
+```
+
+### Breakable generalized iteration
+```c++
+auto tup = std::make_tuple(1, 2, 3, 4);
+sharp::for_each(tup, [](auto ele, auto index) {
+    if (ele == 2 || index == 3) {
+        return sharp::loop_break;
+    }
+    return sharp::loop_continue;
+});
+```
+
+### Better monitor abstractions
+```c++
+auto concurrent_vec = sharp::Concurrent<std::vector>{};
+
+// thread 1
+auto vec = concurrent_vec.lock();
+lock.wait([](auto& vec) {
+    return vec.size() >= 1;
+});
+cout << vec->size() << endl;
+
+// thread 2
+concurrent_vec.synchronized([](auto& vec) {
+    vec.push_back(1);
+    vec.push_back(2);
+});
+```
+
+### Pythonic stuff
+```c++
+for (auto [ele, index] : sharp::enumerate(vector)) {
+    cout << ele << " " << index << endl;
+}
+```
+
+```c++
+for (auto ele : sharp::range(0, 12)) {
+    cout << ele << endl;
+}
+```
+
+### `sharp::overload`
+
+Overload anything, anywhere with no overhead at all.  All at compile time
+(surprisingly hard to get right)
+```c++
+char foo(char ch) {
+    return ch;
+}
+
+int main() {
+    auto overloaded = sharp::overload(
+        [&](double d) { return d; },
+        [&](std::string str) { return str; },
+        foo);
+
+    assert(overloaded(1.2) == 1.2
+    assert(overloaded("something") == "something");
+    assert(overloaded('a') == 'a');
+}
+```
+
+### Simpler futures
+
+An implementation of futures that handles some common problems like
+unnecessary locking on fetch, non-sticky executors, etc
+
+(Also are faster than boost futures)
+
+```c++
+auto one = async_io();
+auto two = async_io();
+return sharp::when_all(one, two).via(cpu).then([](auto [one, two]) {
+    return one.get() * two.get();
+});
+```
+
+And more...
+
 ## Building
 
 The libraries in this project support building with
