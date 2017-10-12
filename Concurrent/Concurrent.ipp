@@ -68,6 +68,8 @@ void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::unlock()
         noexcept {
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
+        // wake any sleeping threads if their conditions are met
+        this->instance_ptr->conditions.notify_all(*this);
         concurrent_detail::unlock_mutex(this->instance_ptr->mtx, LockTag{});
         this->instance_ptr = nullptr;
     }
@@ -98,19 +100,7 @@ template <typename Type, typename Mutex, typename Cv>
 template <typename C, typename LockTag>
 void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::wait(
         Concurrent::Condition_t condition) {
-
-    // add the condition to the concurrent object if it doesnt already exist,
-    // then wait on the cv associated from the condition until signalled by
-    // someone else
-    auto iter = this->instance_ptr->conditions.find(condition);
-    if (iter == this->instance_ptr->conditions.end()) {
-        auto pr = this->instance_ptr->conditions.emplace(condition, Cv{});
-        assert(pr.second);
-        iter = pr.first;
-    }
-
-    // wait until signalled
-    this->wait_impl();
+    this->instance_ptr->conditions.wait(condition, *this, LockTag{});
 }
 
 /**
@@ -118,8 +108,7 @@ void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::wait(
  */
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
-auto Concurrent<Type, Mutex, Cv>::synchronized(Func&& func)
-        -> decltype(std::declval<Func>()(std::declval<Type&>())) {
+decltype(auto) Concurrent<Type, Mutex, Cv>::synchronized(Func&& func) {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy
@@ -129,8 +118,7 @@ auto Concurrent<Type, Mutex, Cv>::synchronized(Func&& func)
 
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
-auto Concurrent<Type, Mutex, Cv>::synchronized(Func&& func) const
-        -> decltype(std::declval<Func>()(std::declval<const Type&>())) {
+decltype(auto) Concurrent<Type, Mutex, Cv>::synchronized(Func&& func) const {
 
     // acquire the locked exclusively by constructing an object of type
     // UniqueLockedProxy

@@ -13,6 +13,7 @@
 #pragma once
 
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/Defer/Defer.hpp>
 #include <sharp/Threads/Threads.hpp>
 #include <sharp/Tags/Tags.hpp>
 
@@ -85,6 +86,16 @@ namespace concurrent_detail {
     };
 
     /**
+     * Enable if the cv type is a valid condition variable type
+     */
+    template <typename Cv>
+    using EnableIfIsValidCv
+        = std::enable_if_t<!std::is_same<Cv, InvalidCv>::value>;
+    template <typename Cv>
+    using EnableIfIsInvalidCv
+        = std::enable_if_t<std::is_same<Cv, InvalidCv>::value>;
+
+    /**
      * @class ConditionsImpl
      *
      * This class offers the bookkeeping interface for the conditional
@@ -107,6 +118,38 @@ namespace concurrent_detail {
     public:
 
         /**
+         * This function should always be called under a write lock before the
+         * unlock has been made so that an extra mutex can be avoided when
+         * notifying threads
+         *
+         * TODO test which is faster, an extra mutex before broadcasting or no
+         * mutex and piggybacking on the existing mutex (as the current
+         * implementation is)
+         */
+        template <typename LockProxy, typename C = Cv,
+                  EnableIfIsValidCv<C>* = nullptr>
+        void notify_all(LockProxy& proxy) {
+            for (auto i = this->conditions.begin();
+                    i != this->conditions.end();) {
+
+                // if the condition evaluates to true then broadcast and erase
+                // that entry from the bookkeeping map because it is not
+                // required anymore, the threads have their own reference
+                // counted pointer to the condition variable being erased
+                if (i->first(*proxy)) {
+                    i->second->notify_all();
+                    i = this->conditions.erase(i);
+                } else {
+                    ++i;
+                }
+            }
+        }
+        template <typename L, typename C = Cv,
+                  EnableIfIsInvalidCv<C>* = nullptr>
+        void notify_all(L&) const {}
+
+    protected:
+        /**
          * This function waits on the given condition for the passed lock
          * proxy object.  Assumes that the lock proxy is currently valid; uses
          * that to access the data item in the proxy
@@ -128,10 +171,11 @@ namespace concurrent_detail {
 
             // this static assert stops compilation at this point with a
             // descriptive error message when using a mutex type that does not
-            // have an associated condition variable type.  The duck typed
-            // nature of templates allows the Concurrent class to be used
-            // without issue even when using a lock that does not have an
-            // associated condition variable type
+            // have an associated condition variable type.
+            //
+            // The duck typed nature of templates allows the Concurrent class
+            // to be used without issue even when using a lock that does not
+            // have an associated condition variable type
             static_assert(!std::is_same<Cv, InvalidCv>::value,
                     "The library was not able to find a condition variable "
                     "that works with the provided mutex type.  Please "
@@ -150,7 +194,12 @@ namespace concurrent_detail {
             auto cv = std::shared_ptr<Cv>{};
             auto iter = this->conditions.begin();
             {
+                // acquire the RAII object and then supress the unused
+                // variable warning for the case when this is a no-op
                 auto lck = lock();
+                static_cast<void>(lck);
+
+                // find or insert the cv condition pair into the map
                 iter = this->conditions.find(condition);
                 if (iter == this->conditions.end()) {
                     iter = this->conditions.emplace(condition,
@@ -162,30 +211,9 @@ namespace concurrent_detail {
                 cv = iter->second;
             }
 
+            // wait in a loop monitor wait
             while (!condition(*proxy)) {
                 iter->second->wait(m);
-            }
-        }
-
-        /**
-         * The lock function should return an RAII lock proxy that locks any
-         * mutex required on construction and releases it on destruction
-         */
-        template <typename LockProxy, typename Lock>
-        void notify_all(LockProxy& proxy, Lock lock) {
-            auto lck = lock();
-
-            for (auto i = this->conditions.begin();
-                    i != this->conditions.end();) {
-
-                // if the condition evaluates to true then broadcast and erase
-                // that entry from the bookkeeping
-                if (i->first(*proxy)) {
-                    i->second.notify_all();
-                    i = this->conditions.erase(i);
-                } else {
-                    ++i;
-                }
             }
         }
 
@@ -204,8 +232,10 @@ namespace concurrent_detail {
               typename Cv = typename Concurrent::cv_type,
               typename Condition = typename Concurrent::Condition_t,
               typename = sharp::void_t<>>
-    class Conditions {
+    class Conditions : public ConditionsImpl<Condition, Cv> {
     public:
+
+        using Super = ConditionsImpl<Condition, Cv>;
 
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
@@ -215,17 +245,10 @@ namespace concurrent_detail {
             // unlock
             auto lck = std::unique_lock<Mutex>{proxy.instance_ptr->mtx,
                 std::adopt_lock};
-            this->conditions.wait(condition, proxy, lck, [&] { return int{}; });
-            lck.release();
-        }
+            auto deferred = sharp::defer([&]() { lck.release(); });
 
-        template <typename LockProxy>
-        void notify_all(WriteLockTag) {
-            this->conditions.notify_all([&]() { return int{}; });
+            this->Super::wait(condition, proxy, lck, [&] { return int{}; });
         }
-
-    private:
-        ConditionsImpl<Condition, Cv> conditions;
     };
 
     /**
@@ -241,8 +264,11 @@ namespace concurrent_detail {
     template <typename Concurrent, typename Mutex, typename Cv,
               typename Condition>
     class Conditions<Concurrent, Mutex, Cv, Condition,
-                     EnableIfIsSharedLockable<Mutex>> {
+                     EnableIfIsSharedLockable<Mutex>>
+            : public ConditionsImpl<Condition, Cv> {
     public:
+
+        using Super = ConditionsImpl<Condition, Cv>;
 
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, ReadLockTag) {
@@ -250,10 +276,11 @@ namespace concurrent_detail {
             // lock before returning to user code
             auto lck = sharp::UniqueLock<Mutex, sharp::SharedLock>{
                 proxy.instance_ptr->mtx, std::adopt_lock};
-            this->conditions.wait(condition, proxy, lck, [&]() {
+            auto deferred = sharp::defer([&]() { lck.release(); });
+
+            this->Super::wait(condition, proxy, lck, [&]() {
                 return sharp::UniqueLock<Mutex>{this->mtx};
             });
-            lck.release();
         }
         template <typename LockProxy>
         void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
@@ -261,23 +288,12 @@ namespace concurrent_detail {
             // lock before returning to user code
             auto lck = sharp::UniqueLock<Mutex, sharp::DefaultLock>{
                 proxy.instance_ptr->mtx, std::adopt_lock};
-            this->conditions.wait(condition, proxy, lck, [&] { return int{}; });
-            lck.release();
-        }
+            auto deferred = sharp::defer([&]() { lck.release(); });
 
-        template <typename LockProxy>
-        void notify_all(ReadLockTag) {
-            this->conditions.notify_all([&]() {
-                return sharp::UniqueLock<Mutex>{this->mtx};
-            });
-        }
-        template <typename LockProxy>
-        void notify_all(WriteLockTag) {
-            this->conditions.notify_all([&]() { return int{}; });
+            this->Super::wait(condition, proxy, lck, [&] { return int{}; });
         }
 
     private:
-        ConditionsImpl<Condition, Cv> conditions;
         Mutex mtx;
     };
 

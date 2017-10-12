@@ -261,7 +261,7 @@ private:
          */
         friend class Concurrent;
         template <typename Concurrent, typename, typename, typename, typename>
-        friend class Conditions;
+        friend class concurrent_detail::Conditions;
 
     private:
         /**
@@ -311,16 +311,16 @@ public:
      * this function
      */
     template <typename F>
-    auto synchronized(F&&)
-        -> decltype(std::declval<F>()(std::declval<Type&>()));
+    decltype(auto) synchronized(F&&);
+        // -> decltype(std::declval<F>()(std::declval<Type&>()));
 
     /**
      * Const version of the same function that locks the object via acquiring
      * a read lock if the type of mutex passed in supports shared locking
      */
     template <typename F>
-    auto synchronized(F&&) const
-        -> decltype(std::declval<F>()(std::declval<const Type&>()));
+    decltype(auto) synchronized(F&&) const;
+        // -> decltype(std::declval<F>()(std::declval<const Type&>()));
 
     /**
      * Returns an RAII proxy object that locks the inner data object on
@@ -417,7 +417,7 @@ public:
     template <typename, typename>
     friend class LockProxy;
     template <typename Concurrent, typename, typename, typename, typename>
-    friend class Conditions;
+    friend class concurrent_detail::Conditions;
 
 private:
 
