@@ -376,8 +376,8 @@ public:
      * Constructs the object from either a copy of the templated type or by
      * moving it into the internal storage
      */
-    Concurrent(const Type& instance);
-    Concurrent(Type&& instance);
+    explicit Concurrent(const Type& instance);
+    explicit Concurrent(Type&& instance);
 
     /**
      * This constructor is present to allow in place construction of the
