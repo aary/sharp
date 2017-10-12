@@ -69,7 +69,11 @@ void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::unlock()
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
         // wake any sleeping threads if their conditions are met
-        this->instance_ptr->conditions.notify_all(*this);
+        auto raii = this->instance_ptr->conditions.notify_all(*this, LockTag{});
+        static_cast<void>(raii);
+
+        // unlock the mutex, the actual signalling will happen on destruction
+        // of the raii object
         concurrent_detail::unlock_mutex(this->instance_ptr->mtx, LockTag{});
         this->instance_ptr = nullptr;
     }

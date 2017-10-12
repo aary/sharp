@@ -128,7 +128,14 @@ namespace concurrent_detail {
          */
         template <typename LockProxy, typename C = Cv,
                   EnableIfIsValidCv<C>* = nullptr>
-        void notify_all(LockProxy& proxy) {
+        auto /* raii */ notify_all(LockProxy& proxy, WriteLockTag) {
+
+            // imeplement two phase signalling, in the first phase all the
+            // stale condition variables are removed from the bookkeeping and
+            // in the second phase when the Concurrent item lock has been
+            // released, loop through the cvs and call signal on them
+            auto cvs = std::vector<std::shared_ptr<Cv>>{};
+
             for (auto i = this->conditions.begin();
                     i != this->conditions.end();) {
 
@@ -137,16 +144,30 @@ namespace concurrent_detail {
                 // required anymore, the threads have their own reference
                 // counted pointer to the condition variable being erased
                 if (i->first(*proxy)) {
-                    i->second->notify_all();
+                    cvs.push_back(i->second);
                     i = this->conditions.erase(i);
                 } else {
                     ++i;
                 }
             }
+
+            return sharp::defer([cvs = std::move(cvs)] {
+                for (auto cv : cvs) {
+                    cv->notify_all();
+                }
+            });
         }
-        template <typename L, typename C = Cv,
+
+        /**
+         * Do nothing when notify_all() is called from a read lock or from
+         * when the CV is invalid
+         */
+        template <typename LockProxy, typename C = Cv,
+                  EnableIfIsValidCv<C>* = nullptr>
+        int notify_all(LockProxy&, ReadLockTag) { return int{}; }
+        template <typename LockProxy, typename LockTag, typename C = Cv,
                   EnableIfIsInvalidCv<C>* = nullptr>
-        void notify_all(L&) const {}
+        int notify_all(LockProxy&, LockTag) const { return int{}; }
 
     protected:
         /**
