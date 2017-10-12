@@ -41,8 +41,11 @@ sharp::Concurrent<std::unordered_map<int, int>> map;
 
 This makes the semantics of the code clear and self documenting - There are
 three data items that will possibly be accessed from different threads
-concurrently.  You also avoid reliance on [compiler
-annotations](https://goo.gl/UW5eyi), linters, etc.
+concurrently
+
+The API of this class makes it very hard for you to access a concurrently
+accessed data item without the proper locking.  This avoids reliance on
+[compiler annotations](https://goo.gl/UW5eyi), linters, etc.
 
 ### The interface
 
