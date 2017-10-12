@@ -140,6 +140,14 @@ auto Concurrent<Type, Mutex, Cv>::lock() const {
     return LockProxy<const Concurrent, concurrent_detail::ReadLockTag>{*this};
 }
 
+template <typename Type, typename Mutex, typename Cv>
+Concurrent<Type, Mutex, Cv>::Concurrent(const Type& instance)
+    : datum{instance} {}
+
+template <typename Type, typename Mutex, typename Cv>
+Concurrent<Type, Mutex, Cv>::Concurrent(Type&& instance)
+    : datum{std::move(instance)} {}
+
 /**
  * RAII based constructor decoration implementation
  *

@@ -312,7 +312,6 @@ public:
      */
     template <typename F>
     decltype(auto) synchronized(F&&);
-        // -> decltype(std::declval<F>()(std::declval<Type&>()));
 
     /**
      * Const version of the same function that locks the object via acquiring
@@ -320,7 +319,6 @@ public:
      */
     template <typename F>
     decltype(auto) synchronized(F&&) const;
-        // -> decltype(std::declval<F>()(std::declval<const Type&>()));
 
     /**
      * Returns an RAII proxy object that locks the inner data object on
@@ -373,6 +371,13 @@ public:
      * objects will be copied instead of being moved
      */
     Concurrent(Concurrent&& other);
+
+    /**
+     * Constructs the object from either a copy of the templated type or by
+     * moving it into the internal storage
+     */
+    Concurrent(const Type& instance);
+    Concurrent(Type&& instance);
 
     /**
      * This constructor is present to allow in place construction of the

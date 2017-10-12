@@ -113,7 +113,8 @@ namespace concurrent_detail {
      * class does not even contain a mutex for bookkeeping, saving size bloat
      * on instances of the Concurrent class
      */
-    template <typename Condition, typename Cv>
+    template <typename Condition, typename Cv,
+              typename = std::enable_if_t<true>>
     class ConditionsImpl {
     public:
 
@@ -128,7 +129,7 @@ namespace concurrent_detail {
          */
         template <typename LockProxy, typename C = Cv,
                   EnableIfIsValidCv<C>* = nullptr>
-        auto /* raii */ notify_all(LockProxy& proxy, WriteLockTag) {
+        auto notify_all(LockProxy& proxy, WriteLockTag) {
 
             // imeplement two phase signalling, in the first phase all the
             // stale condition variables are removed from the bookkeeping and
@@ -151,23 +152,22 @@ namespace concurrent_detail {
                 }
             }
 
+            // return a deferrable which will signal all the condition
+            // variables on destruction
             return sharp::defer([cvs = std::move(cvs)] {
-                for (auto cv : cvs) {
+                for (auto& cv : cvs) {
                     cv->notify_all();
                 }
             });
         }
 
         /**
-         * Do nothing when notify_all() is called from a read lock or from
-         * when the CV is invalid
+         * Do nothing when notify_all() is called when a read lock is held,
+         * because a read should not change any state within the locked object
          */
         template <typename LockProxy, typename C = Cv,
                   EnableIfIsValidCv<C>* = nullptr>
         int notify_all(LockProxy&, ReadLockTag) { return int{}; }
-        template <typename LockProxy, typename LockTag, typename C = Cv,
-                  EnableIfIsInvalidCv<C>* = nullptr>
-        int notify_all(LockProxy&, LockTag) const { return int{}; }
 
     protected:
         /**
@@ -189,18 +189,6 @@ namespace concurrent_detail {
          */
         template <typename LockProxy, typename Mtx, typename Lock>
         void wait(Condition condition, LockProxy& proxy, Mtx& m, Lock lock) {
-
-            // this static assert stops compilation at this point with a
-            // descriptive error message when using a mutex type that does not
-            // have an associated condition variable type.
-            //
-            // The duck typed nature of templates allows the Concurrent class
-            // to be used without issue even when using a lock that does not
-            // have an associated condition variable type
-            static_assert(!std::is_same<Cv, InvalidCv>::value,
-                    "The library was not able to find a condition variable "
-                    "that works with the provided mutex type.  Please "
-                    "explicitly specify a condition variable type");
 
             // this can only be called if at least a read lock is held on the
             // underlying data item of the concurrent data so check for the
@@ -240,6 +228,28 @@ namespace concurrent_detail {
 
     private:
         std::unordered_map<Condition, std::shared_ptr<Cv>> conditions;
+    };
+
+    template <typename Condition, typename Cv>
+    class ConditionsImpl<Condition, Cv, EnableIfIsInvalidCv<Cv>> {
+    public:
+        template <typename... Args>
+        int notify_all(Args&&...) const { return int{}; }
+        template <typename... Args>
+        void wait(Args&&...) const {
+            // this static assert stops compilation at this point with a
+            // descriptive error message when waiting on a mutex type that
+            // does not have an associated condition variable type.
+            //
+            // The duck typed nature of templates allows the Concurrent class
+            // to be used without issue even when using a lock that does not
+            // have an associated condition variable type
+            static_assert(!std::is_same<Cv, InvalidCv>::value,
+                    "The library was not able to find a condition variable "
+                    "that works with the provided mutex type.  Please "
+                    "explicitly specify a condition variable type");
+        }
+
     };
 
     /**
