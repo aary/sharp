@@ -260,7 +260,7 @@ private:
          * construct objects of type LockProxy
          */
         friend class Concurrent;
-        template <typename Concurrent, typename, typename, typename, typename>
+        template <typename, typename, typename, typename>
         friend class concurrent_detail::Conditions;
 
     private:
@@ -421,7 +421,7 @@ public:
      */
     template <typename, typename>
     friend class LockProxy;
-    template <typename Concurrent, typename, typename, typename, typename>
+    template <typename, typename, typename, typename>
     friend class concurrent_detail::Conditions;
 
 private:
@@ -466,7 +466,7 @@ private:
      * this does not need to be protected by a mutex itself, it is already
      * protected by this->mtx
      */
-    concurrent_detail::Conditions<Concurrent> conditions;
+    concurrent_detail::Conditions<Mutex, Cv, Condition_t> conditions;
 
     /**
      * Friend for testing

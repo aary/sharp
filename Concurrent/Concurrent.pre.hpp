@@ -258,10 +258,7 @@ namespace concurrent_detail {
      * exclusive mode, so accesses to the bookkeeping will always be
      * serialized
      */
-    template <typename Concurrent,
-              typename Mutex = typename Concurrent::mutex_type,
-              typename Cv = typename Concurrent::cv_type,
-              typename Condition = typename Concurrent::Condition_t,
+    template <typename Mutex, typename Cv, typename Condition,
               typename = sharp::void_t<>>
     class Conditions : public ConditionsImpl<Condition, Cv> {
     public:
@@ -292,10 +289,8 @@ namespace concurrent_detail {
      * exclusive lock is held, the locking of the mutex can be eliminated, and
      * this work is done at compile time
      */
-    template <typename Concurrent, typename Mutex, typename Cv,
-              typename Condition>
-    class Conditions<Concurrent, Mutex, Cv, Condition,
-                     EnableIfIsSharedLockable<Mutex>>
+    template <typename Mutex, typename Cv, typename Condition>
+    class Conditions<Mutex, Cv, Condition, EnableIfIsSharedLockable<Mutex>>
             : public ConditionsImpl<Condition, Cv> {
     public:
 
