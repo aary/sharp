@@ -10,6 +10,7 @@
 #pragma once
 
 #include <sharp/Tags/Tags.hpp>
+#include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Portability/cpp17.hpp>
 
 #include <mutex>
@@ -116,8 +117,8 @@ namespace sharp {
  * value and a read is modeled by a callable that accepts a single value
  */
 template <typename Type,
-          typename MutexType = std::mutex,
-          typename ConditionVariableType = std::condition_variable>
+          typename Mutex = std::mutex,
+          typename Cv = std::condition_variable>
 class Channel {
 public:
 
@@ -126,7 +127,7 @@ public:
      * that the channel will have.  And then this will affect the semantics of
      * which read and/or write will block and under what conditions
      */
-    Channel(int buffer_size = 0);
+    explicit Channel(int buffer_size = 0);
 
     /**
      * Channels once created cannot be moved or copied around to other
@@ -186,6 +187,19 @@ public:
     void send(std::in_place_t, std::initializer_list<U> il, Args&&... args);
 
     /**
+     * Speculative versions of send, these return a true if the read was
+     * successful, false otherwise.  And either move or copy the value out of
+     * the reference into the channel
+     *
+     * If the boolean returned is false then the referred to value will not be
+     * changed in the rvalue reference version, it will not be moved out.  If
+     * true is returned however it will be moved into the channel and be left
+     * in whatever state it's move constructor leaves it in
+     */
+    bool try_send(const Type& value);
+    bool try_send(Type&& value);
+
+    /**
      * The receive function reads a value from the channel
      *
      * This blocks until there is either a value in the channel or if there is
@@ -196,6 +210,98 @@ public:
      * stored wherever the surrounding code tells it to go
      */
     Type read();
+
+    /**
+     * Speculative read from the channel
+     *
+     * This returns an std::optional<> that contains the value from the
+     * channel if a read was successful, otherwise the optional is in an empty
+     * state
+     *
+     * Note that this can throw when the element to be returned is an error
+     */
+    std::optional<Type> try_read();
+
+    /**
+     * Read a try from the channel, this will either represent an exception or
+     * a value, see sharp/Try/README.md for more information on Try
+     *
+     * Note that this function does not throw, any error state is stored in
+     * the Try object and can be used in situations where throws are common
+     */
+    sharp::Try<Type> read_try();
+
+    /**
+     * Speculative read of a Try<>, same as try_read() but returns a Try<>
+     * which is in an empty state when a read is not possible
+     */
+    sharp::Try<Type> try_read_try();
+
+    /**
+     * Iterator class for the channel
+     *
+     * This allows iterating through the values of a channel and allows the
+     * channel to behave like a synchronous yet to be completed range of
+     * values that can be filled asynchronously
+     */
+    class Iterator;
+
+    /**
+     * Begin and end functions to return iterators that can be used to iterate
+     * through the values in the channel until the channel is marked closed
+     */
+    Iterator begin();
+    Iterator end();
+
+    /**
+     * Close the channel and mark the channel as a completed range, after this
+     * point any read will throw an exception and any iteration will stop
+     * after reading in all the elements that are currently in the channel
+     */
+    void close();
+
+    /**
+     * Returns true indicating that the channel has been closed, note that
+     * this will need to block on an internal mutex to fetch the value of the
+     * boolean
+     */
+    bool is_closed();
+
+    /**
+     * Make friends with the select function, each select operation waits on a
+     * monitor for the channel to either have a ready value or to be ready for
+     * writing
+     */
+    template <typename... SelectContexts>
+    friend void select(SelectContexts&&...);
+
+private:
+
+    template <typename EnqueueFunc>
+    void send_impl(EnqueueFunc enqueue);
+    template <typename EnqueueFunc>
+    bool try_send_impl(EnqueueFunc enqueue);
+
+    /**
+     * The number of objects the internal queue can hold without blocking,
+     * once this is set at construction time it never changes
+     */
+    const int buffer_length{0};
+
+    /**
+     * The number of open slots in the current buffer, this corresponds to the
+     * number of readers waiting + the buffer length
+     */
+    sharp::Concurrent<int> open_slots{buffer_length};
+
+    /**
+     * The queue of objects or exceptions, represented conveniently using
+     * sharp::Try, see sharp/Try/README.md for documentation and usage
+     * examples of Try
+     *
+     * Represented by a concurrent object so protected by a mutex
+     */
+    sharp::Concurrent<std::queue<sharp::Try<Type>>, Mutex, Cv> elements;
 };
 
 /**
