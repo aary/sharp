@@ -11,7 +11,7 @@ using namespace sharp;
 namespace sharp {
 
 namespace {
-const auto STRESS = 1e4;
+const auto STRESS = 1e3;
 }
 
 class FakeMutex {
