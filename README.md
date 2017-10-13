@@ -6,7 +6,10 @@ in my free time.
 
 ## Some highlights
 
-### Channels
+### `sharp::Channel`
+
+An implementation of channels similar to the one found in Go, with all the
+features and more (like exceptions)
 ```c++
 sharp::select(
     sharp::case(channel, [](auto ele) {
@@ -20,7 +23,9 @@ sharp::select(
 channel.send(1);
 ```
 
-### Breakable generalized iteration
+### `sharp::for_each`
+
+Iterate through anything, with one consistent interface
 ```c++
 auto tup = std::make_tuple(1, 2, 3, 4);
 sharp::for_each(tup, [](auto ele, auto index) {
@@ -31,7 +36,9 @@ sharp::for_each(tup, [](auto ele, auto index) {
 });
 ```
 
-### Better monitor abstractions
+### `sharp::Concurrent`
+
+A monitor or simple lock abstraction that is safe and pleasant to use
 ```c++
 auto concurrent_vec = sharp::Concurrent<std::vector>{};
 
@@ -50,12 +57,13 @@ concurrent_vec.synchronized([](auto& vec) {
 ```
 
 ### Pythonic stuff
+
+Just some cool stuff
 ```c++
 for (auto [ele, index] : sharp::enumerate(vector)) {
     cout << ele << " " << index << endl;
 }
 ```
-
 ```c++
 for (auto ele : sharp::range(0, 12)) {
     cout << ele << endl;
@@ -83,13 +91,12 @@ int main() {
 }
 ```
 
-### Simpler futures
+### `sharp::Future`
 
-An implementation of futures that handles some common problems like
-unnecessary locking on fetch, non-sticky executors, etc
-
-(Also are faster than boost futures)
-
+An implementation of futures that fixes some common issues with futures like
+unnecessary locking on ready fetching, with non-transparent threading models
+because of non-sticky executors etc.  Microbenchmarks also show that these are
+faster (and more flexible) than boost futures
 ```c++
 auto one = async_io();
 auto two = async_io();

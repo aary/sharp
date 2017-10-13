@@ -65,7 +65,7 @@ namespace concurrent_detail {
     struct ReadLockTag : public WriteLockTag {};
 
     /**
-     * @class CvTraits
+     * @class GetCv
      *
      * Contains a mapping of mutex to the cv that goes along with it, if a
      * mapping is not found here then it needs to be manually specified in the

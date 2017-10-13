@@ -276,11 +276,6 @@ private:
         explicit LockProxy(ConcurrentType&);
 
         /**
-         * Wait in a loop for a signal
-         */
-        void wait_impl();
-
-        /**
          * The assignment operators and the copy constructor are deleted
          * because those dont make the most sense here and dont represent
          * logical operations.  What does it mean to copy a lock proxy?
