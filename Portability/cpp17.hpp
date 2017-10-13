@@ -1,8 +1,8 @@
 /**
- * @file Portability.hpp
+ * @file cpp17.hpp
  * @author Aaryaman Sagar
  *
- * Just includes other files which have definitions for feathers not yet
+ * Just includes other files which have definitions for features not yet
  * standard, when those features are standard this file should be removed
  */
 

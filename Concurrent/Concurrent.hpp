@@ -20,7 +20,7 @@
 #include <sharp/Concurrent/Concurrent.pre.hpp>
 
 #include <sharp/Tags/Tags.hpp>
-#include <sharp/Portability/Portability.hpp>
+#include <sharp/Portability/cpp17.hpp>
 
 #include <condition_variable>
 #include <utility>
