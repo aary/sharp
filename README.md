@@ -45,7 +45,7 @@ auto concurrent_vec = sharp::Concurrent<std::vector>{};
 // thread 1
 auto vec = concurrent_vec.lock();
 lock.wait([](auto& vec) {
-    return vec.size() >= 1;
+    return vec.size() >= 2;
 });
 cout << vec->size() << endl;
 
