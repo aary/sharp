@@ -131,7 +131,7 @@ namespace concurrent_detail {
                   EnableIfIsValidCv<C>* = nullptr>
         auto notify_all(LockProxy& proxy, WriteLockTag) {
 
-            // imeplement two phase signalling, in the first phase all the
+            // implement two phase signalling, in the first phase all the
             // stale condition variables are removed from the bookkeeping and
             // in the second phase when the Concurrent item lock has been
             // released, loop through the cvs and call signal on them
@@ -249,7 +249,6 @@ namespace concurrent_detail {
                     "that works with the provided mutex type.  Please "
                     "explicitly specify a condition variable type");
         }
-
     };
 
     /**
@@ -275,6 +274,11 @@ namespace concurrent_detail {
                 std::adopt_lock};
             auto deferred = sharp::defer([&]() { lck.release(); });
 
+            // notify all waiting threads to wake up if their conditions have
+            // evaluated to true before going to sleep
+            this->Super::notify_all(proxy, WriteLockTag{});
+
+            // then go to sleep
             this->Super::wait(condition, proxy, lck, [&] { return int{}; });
         }
     };
@@ -316,6 +320,11 @@ namespace concurrent_detail {
                 proxy.instance_ptr->mtx, std::adopt_lock};
             auto deferred = sharp::defer([&]() { lck.release(); });
 
+            // notify all waiting threads to wake up if their conditions have
+            // evaluated to true before going to sleep
+            this->Super::notify_all(proxy, WriteLockTag{});
+
+            // then go to sleep
             this->Super::wait(condition, proxy, lck, [&] { return int{}; });
         }
 

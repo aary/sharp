@@ -4,9 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <cassert>
 
 using namespace sharp;
+using std::cout;
+using std::endl;
 
 namespace sharp {
 
@@ -320,3 +323,27 @@ TEST(Concurrent, WaitMany) {
     }
 }
 
+TEST(Concurrent, WaitSignal) {
+    for (auto i = 0; i < STRESS; ++i) {
+        auto concurrent = sharp::Concurrent<int>{0};
+
+        auto th = std::thread{[&]() {
+            auto lock = concurrent.lock();
+            lock.wait([](auto& integer) {
+                return integer == 1;
+            });
+            EXPECT_EQ(*lock, 1);
+            ++(*lock);
+            EXPECT_EQ(*lock, 2);
+        }};
+
+        auto lock = concurrent.lock();
+        ++(*lock);
+        lock.wait([](auto& integer) {
+            return integer == 2;
+        });
+        EXPECT_EQ(*lock, 2);
+
+        th.join();
+    }
+}
