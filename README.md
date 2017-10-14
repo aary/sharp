@@ -69,6 +69,11 @@ for (auto ele : sharp::range(0, 12)) {
     cout << ele << endl;
 }
 ```
+```c++
+for (auto [a, b] : sharp::zip(range_one, range_two)) {
+    cout << a << " " << b << endl;
+}
+```
 
 ### `sharp::overload`
 
@@ -94,7 +99,7 @@ int main() {
 ### `sharp::Future`
 
 An implementation of futures that fixes some common issues with futures like
-unnecessary locking on ready fetching, with non-transparent threading models
+unnecessary locking on ready fetching, with non-opaque threading models
 because of non-sticky executors etc.  Microbenchmarks also show that these are
 faster (and more flexible) than boost futures
 ```c++
