@@ -67,20 +67,20 @@ Type Channel<Type, Mutex, Cv>::read() {
 template <typename Type, typename Mutex, typename Cv>
 sharp::Try<Type> Channel<Type, Mutex, Cv>::read_try() {
     // wait for the elements to have an element and then read it
-    auto elements = this->elements.lock();
+    auto state = this->state.lock();
 
     // increment the number of open slots before going to bed because there is
     // now a read
-    ++(*this->open_slots().lock());
+    ++(state->open_slots);
 
     // sleep af if the elements queue is empty
-    elements.wait([](auto& elements) {
-        return !elements.empty();
+    state.wait([](auto& state) {
+        return !state.elements.empty();
     });
 
     // return the first element and pop af
-    auto deferred = sharp::defer([&]() { elements->pop(); });
-    return std::move(elements->front());
+    auto deferred = sharp::defer([&]() { state->elements.pop(); });
+    return std::move(state->elements.front());
 }
 
 template <typename Type, typename Mutex, typename Cv>
@@ -95,11 +95,11 @@ std::optional<Type> Channel<Type, Mutex, Cv>::try_read() {
 
 template <typename Type, typename Mutex, typename Cv>
 sharp::Try<Type> Channel<Type, Mutex, Cv>::try_read_try() {
-    return this->elements.synchronized([](auto& elements) {
-        if (!elements.empty()) {
+    return this->state.synchronized([](auto& state) {
+        if (!state.elements.empty()) {
             // return the first element and pop af
-            auto deferred = sharp::defer([&]() { lock->pop(); });
-            return std::move(lock->front());
+            auto deferred = sharp::defer([&]() { state.elements.pop(); });
+            return std::move(state.elements.front());
         } else {
             return nullptr;
         }
@@ -109,12 +109,15 @@ sharp::Try<Type> Channel<Type, Mutex, Cv>::try_read_try() {
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
 bool try_send_impl(Func enqueue) {
-    return this->open_slots.synchronized([](auto& open_slots) {
-        if (open_slots) {
-            enqueue(*this->elements.lock());
-            --open_slots;
+    return this->state.synchronized([](auto& state) {
+        if (state.open_slots) {
+            // if there is space then enqueue the element and decrement the
+            // number of open slots for sends
+            enqueue(state.elements);
+            --state.open_slots;
             return true;
         }
+
         return false;
     });
 }
@@ -122,18 +125,16 @@ bool try_send_impl(Func enqueue) {
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
 void send_impl(Func enqueue) {
-    auto open_slots = this->open_slots.lock();
+    auto state = this->state.lock();
 
     // wait for open slots to be non 0
-    open_slots.wait([](auto& open_slots) {
-        return open_slots != 0;
+    state.wait([](auto& state) {
+        return state.open_slots != 0;
     });
 
     // then decrement the open slots and write to the queue af
-    --(*open_slots);
-    this->elements.synchronized([](auto& elements) {
-        enqueue(elements);
-    });
+    --(state->open_slots);
+    enqueue(state->elements);
 }
 
 } // namespace sharp

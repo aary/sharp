@@ -288,20 +288,23 @@ private:
      */
     const int buffer_length{0};
 
-    /**
-     * The number of open slots in the current buffer, this corresponds to the
-     * number of readers waiting + the buffer length
-     */
-    sharp::Concurrent<int> open_slots{buffer_length};
+    struct State {
+        /**
+         * The number of open slots in the current buffer, this corresponds to
+         * the number of readers waiting + the buffer length
+         */
+        int open_slots{buffer_length};
 
-    /**
-     * The queue of objects or exceptions, represented conveniently using
-     * sharp::Try, see sharp/Try/README.md for documentation and usage
-     * examples of Try
-     *
-     * Represented by a concurrent object so protected by a mutex
-     */
-    sharp::Concurrent<std::queue<sharp::Try<Type>>, Mutex, Cv> elements;
+        /**
+         * The queue of objects or exceptions, represented conveniently using
+         * sharp::Try, see sharp/Try/README.md for documentation and usage
+         * examples of Try
+         *
+         * Represented by a concurrent object so protected by a mutex
+         */
+        std::queue<sharp::Try<Type> elements;
+    };
+    sharp::Concurrent<State> state;
 };
 
 /**
