@@ -99,12 +99,12 @@ namespace detail {
 
 template <typename Func>
 auto defer(Func&& func_in) {
-    return detail::Defer<Func>{std::forward<Func>(func_in)};
+    return detail::Defer<std::decay_t<Func>>{std::forward<Func>(func_in)};
 }
 
 template <typename Func>
 auto defer_guard(Func&& func_in) {
-    return detail::DeferGuard<Func>{std::forward<Func>(func_in)};
+    return detail::DeferGuard<std::decay_t<Func>>{std::forward<Func>(func_in)};
 }
 
 } // namespace sharp
