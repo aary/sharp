@@ -221,8 +221,12 @@ namespace concurrent_detail {
             }
 
             // wait in a loop monitor wait
-            while (!condition(*proxy)) {
-                iter->second->wait(m);
+            iter->second->wait(m);
+            if (!condition(*proxy)) {
+
+                // call wait recursively because this might need to do the
+                // stuff before again, like add condition variables to the map
+                this->wait(condition, proxy, m, lock);
             }
         }
 
