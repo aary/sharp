@@ -70,7 +70,8 @@ sharp::Try<Type> Channel<Type, Mutex, Cv>::read_try() {
     auto state = this->state.lock();
 
     // increment the number of open slots before going to bed because there is
-    // now a read
+    // now a read which is possibly waiting for a write to go through on the
+    // other end
     ++(state->open_slots);
 
     // sleep af if the elements queue is empty
@@ -114,7 +115,7 @@ bool try_send_impl(Func enqueue) {
             // if there is space then enqueue the element and decrement the
             // number of open slots for sends
             enqueue(state.elements);
-            --state.open_slots;
+            --(state.open_slots);
             return true;
         }
 
@@ -133,8 +134,8 @@ void send_impl(Func enqueue) {
     });
 
     // then decrement the open slots and write to the queue af
-    --(state->open_slots);
     enqueue(state->elements);
+    --(state->open_slots);
 }
 
 } // namespace sharp
