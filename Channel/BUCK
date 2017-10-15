@@ -3,15 +3,13 @@ cxx_library(
     header_namespace = "sharp/Channel",
     deps = [
         "//Tags:Tags",
+        "//Try:Try",
+        "//Concurrent:Concurrent",
         "//ForEach:ForEach",
         "//Defer:Defer",
         "//Functional:Functional",
         "//Traits:Traits",
         "//Portability:Portability",
-    ],
-    headers = [
-        "Channel.hpp",
-        "Channel.ipp",
     ],
     exported_headers = [
         "Channel.hpp",

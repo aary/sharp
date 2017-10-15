@@ -10,6 +10,7 @@
 #pragma once
 
 #include <sharp/Tags/Tags.hpp>
+#include <sharp/Try/Try.hpp>
 #include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Portability/cpp17.hpp>
 
@@ -21,6 +22,7 @@
 #include <exception>
 #include <initializer_list>
 #include <vector>
+#include <queue>
 
 namespace sharp {
 
@@ -293,7 +295,8 @@ private:
          * The number of open slots in the current buffer, this corresponds to
          * the number of readers waiting + the buffer length
          */
-        int open_slots{buffer_length};
+        State(int buffer_length) : open_slots{buffer_length} {}
+        int open_slots;
 
         /**
          * The queue of objects or exceptions, represented conveniently using
@@ -302,7 +305,7 @@ private:
          *
          * Represented by a concurrent object so protected by a mutex
          */
-        std::queue<sharp::Try<Type> elements;
+        std::queue<sharp::Try<Type>> elements;
     };
     sharp::Concurrent<State> state;
 };

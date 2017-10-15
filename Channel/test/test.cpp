@@ -1,3 +1,4 @@
+#include <iostream>
 #include <sharp/Channel/Channel.hpp>
 
 #include <gtest/gtest.h>
@@ -88,39 +89,39 @@ TEST(Channel, UnbufferedThreadedSend) {
     th_two.join();
 }
 
-TEST(Channel, SelectBasicRead) {
-    sharp::Channel<int> c{1};
-    c.send(1);
-    int val = 0;
-    sharp::select(
-        std::make_pair(std::ref(c), [&val](auto value) {
-            ++val;
-            EXPECT_EQ(value, 1);
-        }),
-        std::make_pair(std::ref(c), []() -> int {
-            EXPECT_TRUE(false);
-            return 0;
-        })
-    );
-    EXPECT_EQ(val, 1);
-}
+// TEST(Channel, SelectBasicRead) {
+    // sharp::Channel<int> c{1};
+    // c.send(1);
+    // int val = 0;
+    // sharp::select(
+        // std::make_pair(std::ref(c), [&val](auto value) {
+            // ++val;
+            // EXPECT_EQ(value, 1);
+        // }),
+        // std::make_pair(std::ref(c), []() -> int {
+            // EXPECT_TRUE(false);
+            // return 0;
+        // })
+    // );
+    // EXPECT_EQ(val, 1);
+// }
 
-TEST(Channel, SelectBasicWrite) {
-    sharp::Channel<int> c{1};
-    int val = 0;
-    sharp::select(
-        std::make_pair(std::ref(c), [](auto) {
-            EXPECT_TRUE(false);
-        }),
-        std::make_pair(std::ref(c), [&val]() -> int {
-            ++val;
-            return 2;
-        })
-    );
-    auto value = c.try_read();
-    EXPECT_TRUE(value);
-    EXPECT_EQ(value.value(), 2);
-}
+// TEST(Channel, SelectBasicWrite) {
+    // sharp::Channel<int> c{1};
+    // int val = 0;
+    // sharp::select(
+        // std::make_pair(std::ref(c), [](auto) {
+            // EXPECT_TRUE(false);
+        // }),
+        // std::make_pair(std::ref(c), [&val]() -> int {
+            // ++val;
+            // return 2;
+        // })
+    // );
+    // auto value = c.try_read();
+    // EXPECT_TRUE(value);
+    // EXPECT_EQ(value.value(), 2);
+// }
 
 template <typename InputIt>
 void sum(InputIt begin, InputIt end, sharp::Channel<int>& c) {
@@ -143,73 +144,74 @@ TEST(Channel, ExampleOneTest) {
     EXPECT_TRUE(y == 17 || y == -5);
 }
 
-void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
-    auto x = 0, y = 1;
 
-    auto should_continue = true;
-    while (should_continue) {
+// void fibonacci(sharp::Channel<int>& c, sharp::Channel<int>& quit) {
+    // auto x = 0, y = 1;
 
-        sharp::select(
-            std::make_pair(std::ref(c), [&] () -> int {
+    // auto should_continue = true;
+    // while (should_continue) {
 
-                auto to_send = x, new_y = x + y;
-                x = y;
-                y = new_y;
+        // sharp::select(
+            // std::make_pair(std::ref(c), [&] () -> int {
 
-                return to_send;
-            }),
+                // auto to_send = x, new_y = x + y;
+                // x = y;
+                // y = new_y;
 
-            std::make_pair(std::ref(quit), [&](auto) {
-                should_continue = false;
-            })
-        );
-    }
-}
+                // return to_send;
+            // }),
 
-TEST(Channel, ExampleTwoTest) {
+            // std::make_pair(std::ref(quit), [&](auto) {
+                // should_continue = false;
+            // })
+        // );
+    // }
+// }
 
-    for (auto i = 0; i < number_iterations; ++i) {
-        sharp::Channel<int> c;
-        sharp::Channel<int> quit;
-        auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+// TEST(Channel, ExampleTwoTest) {
 
-        auto th = std::thread{[&]() {
-            for (auto i = 0; i < 10; ++i) {
-                auto val = c.read();
-                EXPECT_EQ(val, results[i]);
-            }
-            quit.send(0);
-        }};
+    // for (auto i = 0; i < number_iterations; ++i) {
+        // sharp::Channel<int> c;
+        // sharp::Channel<int> quit;
+        // auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
 
-        fibonacci(c, quit);
-        th.join();
-    }
-}
+        // auto th = std::thread{[&]() {
+            // for (auto i = 0; i < 10; ++i) {
+                // auto val = c.read();
+                // EXPECT_EQ(val, results[i]);
+            // }
+            // quit.send(0);
+        // }};
 
-void fibonacci_range(sharp::Channel<int>& c) {
-    auto x = 0, y = 1;
+        // fibonacci(c, quit);
+        // th.join();
+    // }
+// }
 
-    for (auto i = 0; i < 10; ++i) {
+// void fibonacci_range(sharp::Channel<int>& c) {
+    // auto x = 0, y = 1;
 
-        auto to_send = x, new_y = x + y;
-        x = y;
-        y = new_y;
+    // for (auto i = 0; i < 10; ++i) {
 
-        c.send(to_send);
-    }
+        // auto to_send = x, new_y = x + y;
+        // x = y;
+        // y = new_y;
 
-    c.close();
-}
+        // c.send(to_send);
+    // }
 
-TEST(Channel, RangeTest) {
-    sharp::Channel<int> c;
-    std::thread{[&]() {
-        fibonacci_range(c);
-    }}.detach();
-    auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+    // c.close();
+// }
 
-    auto counter = 0;
-    for (auto val : c) {
-        EXPECT_EQ(val, results[counter++]);
-    }
-}
+// TEST(Channel, RangeTest) {
+    // sharp::Channel<int> c;
+    // std::thread{[&]() {
+        // fibonacci_range(c);
+    // }}.detach();
+    // auto results = std::vector<int>{0, 1, 1, 2, 3, 5, 8, 13, 21, 34};
+
+    // auto counter = 0;
+    // for (auto val : c) {
+        // EXPECT_EQ(val, results[counter++]);
+    // }
+// }

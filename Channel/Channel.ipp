@@ -5,7 +5,7 @@
 #include <sharp/ForEach/ForEach.hpp>
 
 #include <condition_variable>
-#include <intiializer_list>
+#include <initializer_list>
 #include <mutex>
 #include <exception>
 #include <vector>
@@ -17,7 +17,7 @@ namespace detail {
 } // namespace detail
 
 template <typename Type, typename Mutex, typename Cv>
-Channel<Type, Mutex, Cv>::Channel(int b) : buffer_length{b} {}
+Channel<Type, Mutex, Cv>::Channel(int b) : buffer_length{b}, state{State{b}} {}
 
 template <typename Type, typename Mutex, typename Cv>
 void Channel<Type, Mutex, Cv>::send(const Type& value) {
@@ -96,7 +96,7 @@ std::optional<Type> Channel<Type, Mutex, Cv>::try_read() {
 
 template <typename Type, typename Mutex, typename Cv>
 sharp::Try<Type> Channel<Type, Mutex, Cv>::try_read_try() {
-    return this->state.synchronized([](auto& state) {
+    return this->state.synchronized([](auto& state) -> sharp::Try<Type> {
         if (!state.elements.empty()) {
             // return the first element and pop af
             auto deferred = sharp::defer([&]() { state.elements.pop(); });
@@ -109,8 +109,8 @@ sharp::Try<Type> Channel<Type, Mutex, Cv>::try_read_try() {
 
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
-bool try_send_impl(Func enqueue) {
-    return this->state.synchronized([](auto& state) {
+bool Channel<Type, Mutex, Cv>::try_send_impl(Func enqueue) {
+    return this->state.synchronized([enqueue](auto& state) {
         if (state.open_slots) {
             // if there is space then enqueue the element and decrement the
             // number of open slots for sends
@@ -125,7 +125,7 @@ bool try_send_impl(Func enqueue) {
 
 template <typename Type, typename Mutex, typename Cv>
 template <typename Func>
-void send_impl(Func enqueue) {
+void Channel<Type, Mutex, Cv>::send_impl(Func enqueue) {
     auto state = this->state.lock();
 
     // wait for open slots to be non 0
