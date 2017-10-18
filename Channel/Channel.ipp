@@ -12,10 +12,6 @@
 
 namespace sharp {
 
-namespace detail {
-
-} // namespace detail
-
 template <typename Type, typename Mutex, typename Cv>
 Channel<Type, Mutex, Cv>::Channel(int b) : buffer_length{b}, state{State{b}} {}
 
