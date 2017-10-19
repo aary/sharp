@@ -194,10 +194,11 @@ template <typename Type, typename Mutex, typename Cv>
 template <typename... Args>
 Concurrent<Type, Mutex, Cv>::Concurrent(std::in_place_t, Args&&... args)
     : datum{std::forward<Args>(args)...} {}
+
 template <typename Type, typename Mutex, typename Cv>
 template <typename U, typename... Args>
-Concurrent<Type, Mutex, Cv>::Concurrent(std::in_place_t,
-                                    std::initializer_list<U> il, Args&&... args)
+Concurrent<Type, Mutex, Cv>::Concurrent(
+        std::in_place_t, std::initializer_list<U> il, Args&&... args)
     : datum{il, std::forward<Args>(args)...} {}
 
 /**
