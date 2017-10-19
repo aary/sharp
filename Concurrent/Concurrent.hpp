@@ -201,9 +201,6 @@ private:
          * Although this will not really cause a move in most most cases this
          * will still not compile before C++17 (with mandatory prvalue
          * elision).  So the move constructor is needed
-         *
-         * In C++17 this will be deleted as move construction is no longer
-         * needed by this API
          */
         LockProxy(LockProxy&&);
 
