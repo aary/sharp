@@ -7,7 +7,6 @@ in my free time.
 ## Some highlights
 
 ### `sharp::Channel`
-
 An implementation of channels similar to the one found in Go, with all the
 features and more (like exceptions)
 ```c++
@@ -24,7 +23,6 @@ channel.send(1);
 ```
 
 ### `sharp::for_each`
-
 Iterate through anything, with one consistent interface
 ```c++
 auto tup = std::make_tuple(1, 2, 3, 4);
@@ -37,7 +35,6 @@ sharp::for_each(tup, [](auto ele, auto index) {
 ```
 
 ### `sharp::Concurrent`
-
 A monitor or simple lock abstraction that is safe and pleasant to use
 ```c++
 auto concurrent_vec = sharp::Concurrent<std::vector>{};
@@ -57,7 +54,6 @@ concurrent_vec.synchronized([](auto& vec) {
 ```
 
 ### Pythonic stuff
-
 Just some cool stuff
 ```c++
 for (auto [ele, index] : sharp::enumerate(vector)) {
@@ -76,7 +72,6 @@ for (auto [a, b] : sharp::zip(range_one, range_two)) {
 ```
 
 ### `sharp::overload`
-
 Overload anything, anywhere with no overhead at all.  All at compile time
 (surprisingly hard to get right)
 ```c++
@@ -97,7 +92,6 @@ int main() {
 ```
 
 ### `sharp::Future`
-
 An implementation of futures that fixes some common issues with futures like
 unnecessary locking on ready fetching, with non-opaque threading models
 because of non-sticky executors etc.  Microbenchmarks also show that these are
@@ -108,6 +102,17 @@ auto two = async_io();
 return sharp::when_all(one, two).via(cpu).then([](auto [one, two]) {
     return one.get() * two.get();
 });
+```
+
+### `sharp::Try`
+Represent either a value or an exception in a classy way
+```c++
+auto [value, error] = &get_value_or_error();
+if (value) {
+    cout << *value << endl;
+} else if (error) {
+    cout << *error << endl;
+}
 ```
 
 And more...
