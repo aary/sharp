@@ -1,11 +1,11 @@
-// Example program
 #include <iostream>
 #include <string>
 #include <vector>
 #include <functional>
 #include <deque>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 template<typename T>
 struct WhichType;
@@ -17,7 +17,7 @@ class enumerate
     private:
     size_t index = 0;
 
-    T container_copy;
+    decltype(std::declval<T>().begin())
     decltype(container_copy.begin()) start_it;
     decltype(start_it) end_it;
     
@@ -104,7 +104,7 @@ auto enumerate_func(T& container)
 
 int main()
 {
-    vector<int> vec{99,2,83,99,3};
+    std::vector<int> vec{99,2,83,99,3};
     
     for (auto x : enumerate_func(vec)) {
         cout << x.first << " " << x.second << endl;
