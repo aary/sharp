@@ -347,3 +347,10 @@ TEST(Concurrent, WaitSignal) {
         th.join();
     }
 }
+
+TEST(Concurrent, TestLock) {
+    auto one = sharp::Concurrent<int>{0};
+    auto two = sharp::Concurrent<bool>{false};
+
+    auto locks = sharp::lock(one, two);
+}

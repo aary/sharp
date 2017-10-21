@@ -2,6 +2,7 @@
 
 #include <sharp/Concurrent/Concurrent.hpp>
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/ForEach/ForEach.hpp>
 
 #include <cassert>
 #include <iostream>
@@ -53,6 +54,11 @@ Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::LockProxy(C& c)
         : instance_ptr{&c} {
     concurrent_detail::lock_mutex(this->instance_ptr->mtx, LockTag{});
 }
+
+template <typename Type, typename Mutex, typename Cv>
+template <typename C, typename LockTag>
+Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::LockProxy(
+        std::adopt_lock_t, C& c) : instance_ptr{&c} {}
 
 template <typename Type, typename Mutex, typename Cv>
 template <typename C, typename LockTag>
@@ -138,6 +144,18 @@ auto Concurrent<Type, Mutex, Cv>::lock() {
 template <typename Type, typename Mutex, typename Cv>
 auto Concurrent<Type, Mutex, Cv>::lock() const {
     return LockProxy<const Concurrent, concurrent_detail::ReadLockTag>{*this};
+}
+
+template <typename Type, typename Mutex, typename Cv>
+auto Concurrent<Type, Mutex, Cv>::lock(std::adopt_lock_t) {
+    return LockProxy<Concurrent, concurrent_detail::WriteLockTag>{
+        std::adopt_lock, *this};
+}
+
+template <typename Type, typename Mutex, typename Cv>
+auto Concurrent<Type, Mutex, Cv>::lock(std::adopt_lock_t) const {
+    return LockProxy<Concurrent, concurrent_detail::ReadLockTag>{
+        std::adopt_lock, *this};
 }
 
 template <typename Type, typename Mutex, typename Cv>
@@ -233,6 +251,36 @@ Concurrent<Type, Mutex, Cv>& Concurrent<Type, Mutex, Cv>::operator=(
     }
 
     return *this;
+}
+
+template <typename... As>
+std::tuple<decltype(std::declval<As>().lock())...> lock(As&... concurrents) {
+
+    // make a vector of mutexes that will be locked on
+    using FirstType = std::tuple_element_t<0, std::tuple<std::decay_t<As>...>>;
+    using FirstMutex = typename FirstType::mutex_type;
+    auto mutexes = std::vector<std::pair<FirstMutex*, bool>>{};
+
+    // add all the mutexes to the vector
+    auto args = std::forward_as_tuple(concurrents...);
+    sharp::for_each(args, [&](auto& c) {
+        auto should_lock_shared
+            = std::is_const<std::remove_reference_t<decltype(c)>>::value;
+        mutexes.push_back(std::make_pair(&c.mtx, should_lock_shared));
+    });
+
+    std::sort(mutexes.begin(), mutexes.end());
+    sharp::for_each(mutexes, [](auto& mutex_lock) {
+        if (mutex_lock.second) {
+            lock_mutex(*mutex_lock.first, concurrent_detail::ReadLockTag{});
+        } else {
+            lock_mutex(*mutex_lock.first, concurrent_detail::WriteLockTag{});
+        }
+    });
+
+    // return a tuple of lock proxies that do not lock on construction, since
+    // the locks have already been acquired above
+    return std::make_tuple(concurrents.lock(std::adopt_lock)...);
 }
 
 } // namespace sharp

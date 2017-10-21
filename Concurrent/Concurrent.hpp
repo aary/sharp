@@ -189,8 +189,8 @@ private:
          */
         using value_type = std::conditional_t<
             std::is_const<ConcurrentType>::value,
-            const typename std::decay_t<ConcurrentType>::value_type,
-            typename std::decay_t<ConcurrentType>::value_type>;
+                const typename std::decay_t<ConcurrentType>::value_type,
+                typename std::decay_t<ConcurrentType>::value_type>;
 
         /**
          * Can be move constructed to allow convenient construction via auto in
@@ -263,14 +263,14 @@ private:
     private:
         /**
          * Constructor locks the mutex
-         *
-         * A constructor accepting information about the concurrent data object
-         * and storing the pointer to the concurrent object internally
-         *
-         * A pointer store is helpful in detecting use-after-unlock cases where
-         * the program should abort
          */
         explicit LockProxy(ConcurrentType&);
+
+        /**
+         * Constructor that does not call lock() on the mutex but calls unlock
+         * on destruction
+         */
+        LockProxy(std::adopt_lock_t, ConcurrentType&);
 
         /**
          * The assignment operators and the copy constructor are deleted
@@ -281,6 +281,17 @@ private:
         LockProxy& operator=(const LockProxy&) = delete;
         LockProxy& operator=(LockProxy&&) = delete;
 
+        /**
+         * A pointer is helpful in detecting use-after-unlock cases where the
+         * program should abort.  The other solution is the manually check on
+         * every access whether the lock is acquired or not, that is slow and
+         * therefore the solution used here is to make a lock proxy a one use
+         * only construct
+         *
+         * When the lock is unlocked the instance_ptr points to null, and
+         * therefore accesses will cause a null dereference which is easy to
+         * catch with tools like ASAN, valgrind or gdb
+         */
         ConcurrentType* instance_ptr{nullptr};
     };
 
@@ -415,6 +426,8 @@ public:
     friend class LockProxy;
     template <typename, typename, typename, typename>
     friend class concurrent_detail::Conditions;
+    template <typename... Args>
+    friend std::tuple<decltype(std::declval<Args>().lock())...> lock(Args&...);
 
 private:
 
@@ -437,6 +450,13 @@ private:
      */
     template <typename OtherConcurrent>
     Concurrent(sharp::implementation::tag_t, OtherConcurrent&& other);
+
+    /**
+     * Return a lock proxy that does not call the lock function on
+     * construction
+     */
+    auto /* LockProxy<> */ lock(std::adopt_lock_t);
+    auto /* LockProxy<> */ lock(std::adopt_lock_t) const;
 
     /**
      * The data object that is to be locked and the internal mutex used to
@@ -465,6 +485,20 @@ private:
      */
     friend class ConcurrentTests;
 };
+
+/**
+ * @function lock
+ *
+ * A deadlock avoidance function that can lock a bunch of concurrent objects
+ * in the same globally consistent order and return a tuple of lock proxies
+ * that can be used to work with those objects
+ *
+ *      auto [one, two, three] = sharp::lock(vec, deq, mp);
+ *
+ * Note that this is almost the same as std::lock
+ */
+template <typename... Args>
+std::tuple<decltype(std::declval<Args>().lock())...> lock(Args&... args);
 
 } // namespace sharp
 
