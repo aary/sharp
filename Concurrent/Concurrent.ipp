@@ -4,8 +4,8 @@
 #include <sharp/Traits/Traits.hpp>
 #include <sharp/ForEach/ForEach.hpp>
 
+#include <algorithm>
 #include <cassert>
-#include <iostream>
 #include <mutex>
 #include <condition_variable>
 #include <utility>
@@ -253,17 +253,17 @@ Concurrent<Type, Mutex, Cv>& Concurrent<Type, Mutex, Cv>::operator=(
     return *this;
 }
 
-template <typename... As>
-std::tuple<decltype(std::declval<As>().lock())...> lock(As&... concurrents) {
+template <typename... Args>
+std::tuple<decltype(std::declval<Args>().lock())...> lock(Args&... args) {
 
     // make a vector of mutexes that will be locked on
-    using FirstType = std::tuple_element_t<0, std::tuple<std::decay_t<As>...>>;
+    using FirstType = std::tuple_element_t<0, std::tuple<Args...>>;
     using FirstMutex = typename FirstType::mutex_type;
     auto mutexes = std::vector<std::pair<FirstMutex*, bool>>{};
 
     // add all the mutexes to the vector
-    auto args = std::forward_as_tuple(concurrents...);
-    sharp::for_each(args, [&](auto& c) {
+    auto tupled_args = std::forward_as_tuple(args...);
+    sharp::for_each(tupled_args, [&](auto& c) {
         auto should_lock_shared
             = std::is_const<std::remove_reference_t<decltype(c)>>::value;
         mutexes.push_back(std::make_pair(&c.mtx, should_lock_shared));
@@ -280,7 +280,7 @@ std::tuple<decltype(std::declval<As>().lock())...> lock(As&... concurrents) {
 
     // return a tuple of lock proxies that do not lock on construction, since
     // the locks have already been acquired above
-    return std::make_tuple(concurrents.lock(std::adopt_lock)...);
+    return std::make_tuple(args.lock(std::adopt_lock)...);
 }
 
 } // namespace sharp
