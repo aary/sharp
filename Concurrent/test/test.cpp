@@ -75,25 +75,25 @@ public:
         this->a = current_track++;
     }
 
-    virtual void lock() override {
+    void lock() override {
         this->FakeMutex::lock();
         EXPECT_EQ(current_track, this->a);
         ++current_track;
     }
 
-    virtual void unlock() override {
+    void unlock() override {
         this->FakeMutex::unlock();
         EXPECT_EQ(current_track, (this->a + 1));
         --current_track;
     }
 
-    virtual void lock_shared() override {
+    void lock_shared() override {
         this->FakeMutex::lock_shared();
         EXPECT_EQ(current_track, this->a);
         ++current_track;
     }
 
-    virtual void unlock_shared() override {
+    void unlock_shared() override {
         this->FakeMutex::unlock_shared();
         EXPECT_EQ(current_track, (this->a + 1));
         --current_track;
@@ -102,7 +102,30 @@ public:
     int a;
 };
 
-class ConcurrentTests {
+class MutexTestOrder : public FakeMutex {
+public:
+    static std::vector<int> mutex_lock_order;
+    static int current_counter;
+    MutexTestOrder() : id{current_counter++} {}
+    void lock() override {
+        this->FakeMutex::lock();
+        mutex_lock_order.push_back(this->id);
+    }
+    void unlock() override {
+        this->FakeMutex::unlock();
+        mutex_lock_order.erase(
+                std::remove_if(
+                    mutex_lock_order.begin(), mutex_lock_order.end(),
+                    [this](auto counter) { return counter == this->id; }),
+                mutex_lock_order.end());
+    }
+
+    int id{0};
+};
+int MutexTestOrder::current_counter{0};
+std::vector<int> MutexTestOrder::mutex_lock_order{};
+
+class ConcurrentTests : public ::testing::Test {
 public:
     static void test_unique_locked_proxy() {
         EXPECT_EQ(FakeMutex::static_state, FakeMutex::LockState::UNLOCKED);
@@ -187,54 +210,35 @@ public:
         EXPECT_EQ(locked.mtx.lock_state, FakeMutex::LockState::UNLOCKED);
     }
 
-    static void test_copy_constructor() {
-        Concurrent<int, FakeMutex> object{};
-        Concurrent<int, FakeMutex> copy{object};
-    }
+    static void test_lock_free() {
+        auto one = sharp::Concurrent<int, MutexTestOrder>{0};
+        auto two = sharp::Concurrent<bool, MutexTestOrder>{false};
 
-    static void test_in_place_construction() {
-
-        // construct a lockeddata object in place
-        Concurrent<InPlace> locked_data{std::in_place, static_cast<int>(1)};
-        static_cast<void>(locked_data);
-
-        // assert that only one instance was created
-        EXPECT_EQ(InPlace::instance_counter, 1);
-    }
-
-    static void test_assignment_operator() {
-
-        using ConcurrentType = Concurrent<int, FakeMutexTrack>;
-        using AlignedStorage = std::aligned_storage_t<sizeof(ConcurrentType)>;
-        AlignedStorage l1;
-        AlignedStorage l2;
-
-        if (reinterpret_cast<uintptr_t>(&l1)
-                < reinterpret_cast<uintptr_t>(&l2)) {
-            new (&l1) ConcurrentType{};
-            new (&l2) ConcurrentType{};
-            l1 = l2;
-            l2 = l1;
-        }
-        else {
-
-            // this is platform dependent so in the case where declaring two
-            // variables one after the other makes the first one get
-            // initialized to later in memory this code will declare
-            // initialize them in the reverse order.  If they were constructed
-            // with l2 going first in memory then reconstruct them to get the
-            // counter initialized right
-            current_track = 0;
-            new (&l2) ConcurrentType{};
-            new (&l1) ConcurrentType{};
-
-            current_track = 0;
-            l1 = l2;
-            l2 = l1;
+        auto mutexes = std::vector<MutexTestOrder*>{&one.mtx, &two.mtx};
+        std::sort(mutexes.begin(), mutexes.end());
+        auto expected_result = std::vector<int>{};
+        for (auto mutex : mutexes) {
+            expected_result.push_back(mutex->id);
         }
 
-        reinterpret_cast<ConcurrentType*>(&l1)->~ConcurrentType();
-        reinterpret_cast<ConcurrentType*>(&l2)->~ConcurrentType();
+        {
+            auto locks = sharp::lock(one, two);
+            static_cast<void>(locks);
+
+            EXPECT_TRUE(std::equal(
+                    MutexTestOrder::mutex_lock_order.begin(),
+                    MutexTestOrder::mutex_lock_order.end(),
+                    expected_result.begin()));
+        }
+        {
+            auto locks = sharp::lock(two, one);
+            static_cast<void>(locks);
+
+            EXPECT_TRUE(std::equal(
+                    MutexTestOrder::mutex_lock_order.begin(),
+                    MutexTestOrder::mutex_lock_order.end(),
+                    expected_result.begin()));
+        }
     }
 };
 
@@ -261,15 +265,51 @@ TEST(Concurrent, test_lock_const) {
 }
 
 TEST(Concurrent, test_copy_constructor) {
-    ConcurrentTests::test_copy_constructor();
+    Concurrent<int, FakeMutex> object{};
+    Concurrent<int, FakeMutex> copy{object};
 }
 
 TEST(Concurrent, test_in_place_construction) {
-    ConcurrentTests::test_in_place_construction();
+    // construct a lockeddata object in place
+    Concurrent<InPlace> locked_data{std::in_place, static_cast<int>(1)};
+    static_cast<void>(locked_data);
+
+    // assert that only one instance was created
+    EXPECT_EQ(InPlace::instance_counter, 1);
 }
 
 TEST(Concurrent, test_assignment_operator) {
-    ConcurrentTests::test_assignment_operator();
+    using ConcurrentType = Concurrent<int, FakeMutexTrack>;
+    using AlignedStorage = std::aligned_storage_t<sizeof(ConcurrentType)>;
+    AlignedStorage l1;
+    AlignedStorage l2;
+
+    if (reinterpret_cast<uintptr_t>(&l1)
+            < reinterpret_cast<uintptr_t>(&l2)) {
+        new (&l1) ConcurrentType{};
+        new (&l2) ConcurrentType{};
+        l1 = l2;
+        l2 = l1;
+    }
+    else {
+
+        // this is platform dependent so in the case where declaring two
+        // variables one after the other makes the first one get
+        // initialized to later in memory this code will declare
+        // initialize them in the reverse order.  If they were constructed
+        // with l2 going first in memory then reconstruct them to get the
+        // counter initialized right
+        current_track = 0;
+        new (&l2) ConcurrentType{};
+        new (&l1) ConcurrentType{};
+
+        current_track = 0;
+        l1 = l2;
+        l2 = l1;
+    }
+
+    reinterpret_cast<ConcurrentType*>(&l1)->~ConcurrentType();
+    reinterpret_cast<ConcurrentType*>(&l2)->~ConcurrentType();
 }
 
 TEST(Concurrent, WaitBasic) {
@@ -349,8 +389,5 @@ TEST(Concurrent, WaitSignal) {
 }
 
 TEST(Concurrent, TestLock) {
-    auto one = sharp::Concurrent<int>{0};
-    auto two = sharp::Concurrent<bool>{false};
-
-    auto locks = sharp::lock(one, two);
+    ConcurrentTests::test_lock_free();
 }
