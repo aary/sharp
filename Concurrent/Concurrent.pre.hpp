@@ -123,9 +123,9 @@ namespace concurrent_detail {
          * unlock has been made so that an extra mutex can be avoided when
          * notifying threads
          *
-         * TODO test which is faster, an extra mutex before broadcasting or no
-         * mutex and piggybacking on the existing mutex (as the current
-         * implementation is)
+         * TODO test which is faster, an extra mutex before collecting the
+         * conditions to broadcast on or no mutex and piggybacking on the
+         * existing mutex (as the current implementation is)
          */
         template <typename LockProxy, typename C = Cv,
                   EnableIfIsValidCv<C>* = nullptr>
@@ -204,11 +204,17 @@ namespace concurrent_detail {
             auto iter = this->conditions.begin();
             {
                 // acquire the RAII object and then supress the unused
-                // variable warning for the case when this is a no-op
+                // variable warning for the case when this is a no-op.  For
+                // example when this is called under a write lock, when this
+                // is called under a read lock the implementation should pass
+                // it a lock to lock the internal contents to prevent races
+                // from multiple reader threads
                 auto lck = lock();
                 static_cast<void>(lck);
 
-                // find or insert the cv condition pair into the map
+                // find or insert the cv condition pair into the map, not
+                // using try_emplace because this avoids an unnecesary
+                // allocation on make_shared<>
                 iter = this->conditions.find(condition);
                 if (iter == this->conditions.end()) {
                     iter = this->conditions.emplace(condition,
@@ -265,7 +271,6 @@ namespace concurrent_detail {
               typename = sharp::void_t<>>
     class Conditions : public ConditionsImpl<Condition, Cv> {
     public:
-
         using Super = ConditionsImpl<Condition, Cv>;
 
         template <typename LockProxy>
@@ -301,7 +306,6 @@ namespace concurrent_detail {
     class Conditions<Mutex, Cv, Condition, EnableIfIsSharedLockable<Mutex>>
             : public ConditionsImpl<Condition, Cv> {
     public:
-
         using Super = ConditionsImpl<Condition, Cv>;
 
         template <typename LockProxy>
