@@ -12,6 +12,57 @@
 
 namespace sharp {
 
+namespace channel_detail {
+
+    /**
+     * Concepts(ish)
+     */
+    /**
+     * Enable if the function is a read function, i.e. it will execute a read
+     * on the underlying channel
+     */
+    template <typename Channel, typename Func>
+    using EnableIfRead = sharp::void_t<decltype(
+        std::declval<Func>()(std::declval<typename Channel::value_type>()))>;
+    template <typename Channel, typename Func>
+    using EnableIfWrite = sharp::void_t<decltype(std::declval<Func>())>;
+
+    /**
+     * Specializations for the make_case function that wrap the callable
+     * around a speculative reader/writer that 1 operates under the assumption
+     * that the channel in question is already locked and 2 succeeds only when
+     * either the read or write could go through
+     */
+    template <typename Channel, typename Func,
+              EnableIfRead<Channel, Func>* = nullptr>
+    auto make_case_impl(Channel& channel, Func&& func) {
+        // returns a pair of the channel itself and a callable that accepts
+        // the state of the concurrent object as a parameter and if a read can
+        // succeed, it reads from the channel and invokes the fucntion passed
+        // with the read value as a parameter
+        return std::make_pair(std::ref(channel), [&](auto& state) {
+            if (state.can_read_succeed()) {
+                std::forward<Func>(func)(state.read());
+                return true;
+            }
+            return false;
+        });
+    }
+    template <typename Channel, typename Func,
+              EnableIfWrite<Channel, Func>* = nullptr>
+    auto make_case_impl(Channel& channel, Func&& func) {
+        // return a pair of the channel itself and a callable that writes the
+        // value into the channel if the channel is ready
+        return std::make_pair(std::ref(channel), [&](auto& state) {
+            if (state.can_write_succeed()) {
+                state.elements.emplace(std::forward<Func>(func)());
+                return true;
+            }
+            return false;
+        });
+    }
+} // namespace channel_detail
+
 template <typename Type, typename Mutex, typename Cv>
 Channel<Type, Mutex, Cv>::Channel(int b) : buffer_length{b}, state{State{b}} {}
 
@@ -72,7 +123,7 @@ sharp::Try<Type> Channel<Type, Mutex, Cv>::read_try() {
 
     // sleep af if the elements queue is empty
     state.wait([](auto& state) {
-        return !state.elements.empty();
+        return state.can_read_succeed();
     });
 
     // return the first element and pop af
@@ -94,9 +145,7 @@ template <typename Type, typename Mutex, typename Cv>
 sharp::Try<Type> Channel<Type, Mutex, Cv>::try_read_try() {
     return this->state.synchronized([](auto& state) -> sharp::Try<Type> {
         if (!state.elements.empty()) {
-            // return the first element and pop af
-            auto deferred = sharp::defer([&]() { state.elements.pop(); });
-            return std::move(state.elements.front());
+            return state.read();
         } else {
             return nullptr;
         }
@@ -126,12 +175,34 @@ void Channel<Type, Mutex, Cv>::send_impl(Func enqueue) {
 
     // wait for open slots to be non 0
     state.wait([](auto& state) {
-        return state.open_slots != 0;
+        return state.can_write_succeed();
     });
 
     // then decrement the open slots and write to the queue af
     enqueue(state->elements);
     --(state->open_slots);
+}
+
+template <typename ChannelType, typename Func>
+auto make_case(ChannelType& channel, Func&& func) {
+    return channel_detail::make_case_impl(channel, std::forward<Func>(func));
+}
+
+template <typename Type, typename Mutex, typename Cv>
+bool Channel<Type, Mutex, Cv>::State::can_read_succeed() const noexcept {
+    return !this->elements.empty();
+}
+
+template <typename Type, typename Mutex, typename Cv>
+bool Channel<Type, Mutex, Cv>::State::can_write_succeed() const noexcept {
+    return this->open_slots != 0;
+}
+
+template <typename Type, typename Mutex, typename Cv>
+auto Channel<Type, Mutex, Cv>::State::read() {
+    // return the first element and pop af
+    auto deferred = sharp::defer([&]() { this->elements.pop(); });
+    return std::move(this->elements.front());
 }
 
 } // namespace sharp

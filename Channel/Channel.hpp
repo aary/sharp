@@ -107,10 +107,10 @@ namespace sharp {
  * but for a quick example
  *
  *      sharp::select(
- *          sharp::case(channel_one, []() -> int {
+ *          sharp::make_case(channel_one, []() -> int {
  *              return 1;
  *          }),
- *          sharp::case(channel_two, [](auto value) {
+ *          sharp::make_case(channel_two, [](auto value) {
  *              cout << "Read value " << value << endl;
  *          })
  *      );
@@ -274,8 +274,8 @@ public:
      * monitor for the channel to either have a ready value or to be ready for
      * writing
      */
-    template <typename... SelectContexts>
-    friend void select(SelectContexts&&...);
+    template <typename... Cases>
+    friend void select(Cases&&...);
 
 private:
 
@@ -292,32 +292,47 @@ private:
 
     struct State {
         /**
-         * The number of open slots in the current buffer, this corresponds to
-         * the number of readers waiting + the buffer length
+         * Helper methods to execute operations on the state
          */
-        State(int buffer_length) : open_slots{buffer_length} {}
-        int open_slots;
+        bool can_read_succeed() const noexcept;
+        bool can_write_succeed() const noexcept;
+        auto read();
+
+        explicit State(int buffer_length) : open_slots{buffer_length} {}
 
         /**
+         * The number of open slots in the current buffer corresponds to the
+         * number of readers waiting + the buffer length
+         *
          * The queue of objects or exceptions, represented conveniently using
          * sharp::Try, see sharp/Try/README.md for documentation and usage
          * examples of Try
          *
          * Represented by a concurrent object so protected by a mutex
          */
+        int open_slots;
         std::queue<sharp::Try<Type>> elements;
+
+        /**
+         * A list of select statements that depend on this channel
+         */
+        std::vector<std::shared_ptr<sharp::Concurrent<bool, Mutex, Cv>>> selects;
     };
     sharp::Concurrent<State> state;
 };
 
 /**
- * The select function to allow multiplexing on I/O through a channel.
+ * The select() and the case functions to allow multiplexing on I/O through a
+ * channel.
+ *
  * Based on the type of the function passed in to the function call the
  * select method implicitly decides whether the channel is being used to
  * wait on a read or a write operation, and multiplexes I/O based on that
  */
-template <typename... SelectStatements>
-void select(SelectStatements&&... statements);
+template <typename... Cases>
+void select(Cases&&... cases);
+template <typename ChannelType, typename Func>
+auto make_case(ChannelType&, Func&& func);
 
 } // namespace sharp
 
