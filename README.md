@@ -32,6 +32,12 @@ sharp::for_each(tup, [](auto ele, auto index) {
     }
     return sharp::loop_continue;
 });
+
+// iterate through a range of lambdas
+auto functions = std::make_tuple([]() { return 1; }, []() { return 2; });
+sharp::for_each(functions, [](auto func) {
+    cout << func() << endl;
+});
 ```
 
 ### `sharp::Concurrent`
