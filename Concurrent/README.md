@@ -44,24 +44,8 @@ three data items that will possibly be accessed from different threads
 concurrently
 
 The API of this class makes it very hard for you to access a concurrently
-accessed data item without the proper locking.
-
-By default the mutex you use will be appropriately paired with the appropriate
-data item.  And with more complicated data items you can make a struct for the
-entire package
-```c++
-struct State {
-    void foo();
-    int one, two;
-};
-sharp::Concurrent<State> state;
-```
-
-Here it's obvious that the state will be protected by one and only one mutex
-and the member methods internal to the state will not be synchronized
-
-This avoids reliance on [compiler annotations](https://goo.gl/UW5eyi),
-linters, etc.
+accessed data item without the proper locking.  This avoids reliance on
+[compiler annotations](https://goo.gl/UW5eyi), linters, etc.
 
 ### The interface
 
