@@ -47,6 +47,15 @@
  * This should be constructed with the make_proxy() method which accepts two
  * callables - one which returns the thing that is to be stored in the proxy a
  * callable that will be invoked when the proxy is destroyed
+ *
+ * To wrap references, the creater function object passed to make_proxy should
+ * return an object wrapped in a reference_wrapper this class will take care
+ * of unwrapping the reference
+ *
+ *      auto proxy = sharp::make_proxy([] { return std::ref(a); }, [](auto&){});
+ *
+ * Now the object being wrapped in the proxy will be a reference, and access
+ * to it will be controlled through the same pointer like syntax
  */
 template <typename T, typename OnExit>
 class Proxy {};
