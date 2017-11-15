@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <sharp/Functional/Functional.hpp>
 #include <sharp/Concurrent/Concurrent.pre.hpp>
 
 #include <sharp/Tags/Tags.hpp>
@@ -127,7 +128,8 @@ namespace sharp {
 template <typename Type,
           typename Mutex = std::mutex,
           typename Cv = typename concurrent_detail::GetCv<Mutex>::type>
-class Concurrent {
+class Concurrent : public concurrent_detail::Conditions<
+            Mutex, Cv, sharp::Function<bool(const Type&)>> {
 public:
 
     /**
@@ -136,23 +138,6 @@ public:
     using value_type = Type;
     using mutex_type = Mutex;
     using cv_type = Cv;
-
-    /**
-     * The condition type that can be used as an argument to the lock proxy
-     * wait() function
-     *
-     * A condition should ideally only check if anything in the stored object
-     * has changed and should not interact with state other than that,
-     * therefore a condition object can only interact with the stored object,
-     * and further in a const manner, as a condition should not change state.
-     * That should be dependent on how the lock has been held (for example a
-     * lock in read more should not be able to modify the stored object)
-     *
-     * Also note that this does not stop you from passing lambdas to the
-     * wait() function, lambdas and even polymorphic lambdas with auto
-     * parameters work, just as long as they don't capture anything
-     */
-    using Condition_t = bool (*) (const Type&);
 
 private:
     /**
@@ -250,15 +235,16 @@ private:
          * recommended for readability that lambdas are passed in here for
          * short conditions
          */
-        void wait(Concurrent::Condition_t condition);
+        template <typename Condition>
+        void wait(Condition&& condition);
 
         /**
          * Friend the outer concurrent class, it is the only one that can
          * construct objects of type LockProxy
          */
         friend class Concurrent;
-        template <typename, typename, typename, typename>
-        friend class concurrent_detail::Conditions;
+        template <typename, typename, typename, bool>
+        friend class concurrent_detail::ConditionsLockWrap;
 
     private:
         /**
@@ -424,8 +410,8 @@ public:
      */
     template <typename, typename>
     friend class LockProxy;
-    template <typename, typename, typename, typename>
-    friend class concurrent_detail::Conditions;
+    template <typename, typename, typename, bool>
+    friend class concurrent_detail::ConditionsLockWrap;
     template <typename... Args>
     friend std::tuple<decltype(std::declval<Args>().lock())...> lock(Args&...);
 
@@ -464,21 +450,6 @@ private:
      */
     Type datum;
     mutable Mutex mtx;
-
-    /**
-     * The information for condition critical sections, each conditional
-     * critical section corresponds to a trivial to execute condition that the
-     * conditional critical section is dependent on and the condition variable
-     * associated with that condition.  If multiple threads are waiting on the
-     * same condition, they will share condition variables.  If however the
-     * condition is different then the condition variables will be different
-     * as well
-     *
-     * Note that since this can only be accessed from within a locked proxy,
-     * this does not need to be protected by a mutex itself, it is already
-     * protected by this->mtx
-     */
-    concurrent_detail::Conditions<Mutex, Cv, Condition_t> conditions;
 
     /**
      * Friend for testing

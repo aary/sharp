@@ -36,6 +36,15 @@ namespace concurrent_detail {
                         decltype(std::declval<Mutex>().unlock_shared())>;
 
     /**
+     * A value trait using the above SFINAE void_t<> expression
+     */
+    template <typename Mutex, typename = sharp::void_t<>>
+    class IsSharedLockable : public std::integral_constant<bool, false> {};
+    template <typename Mutex>
+    class IsSharedLockable<Mutex, EnableIfIsSharedLockable<Mutex>>
+            : public std::integral_constant<bool, true> {};
+
+    /**
      * Tags to determine which locking policy is considered.
      *
      * ReadLockTag inherits from WriteLockTag because if the implementation
@@ -86,16 +95,6 @@ namespace concurrent_detail {
     };
 
     /**
-     * Enable if the cv type is a valid condition variable type
-     */
-    template <typename Cv>
-    using EnableIfIsValidCv
-        = std::enable_if_t<!std::is_same<Cv, InvalidCv>::value>;
-    template <typename Cv>
-    using EnableIfIsInvalidCv
-        = std::enable_if_t<std::is_same<Cv, InvalidCv>::value>;
-
-    /**
      * @class ConditionsImpl
      *
      * This class offers the bookkeeping interface for the conditional
@@ -113,8 +112,7 @@ namespace concurrent_detail {
      * class does not even contain a mutex for bookkeeping, saving size bloat
      * on instances of the Concurrent class
      */
-    template <typename Condition, typename Cv,
-              typename = std::enable_if_t<true>>
+    template <typename Condition, typename Cv>
     class ConditionsImpl {
     public:
 
@@ -122,13 +120,8 @@ namespace concurrent_detail {
          * This function should always be called under a write lock before the
          * unlock has been made so that an extra mutex can be avoided when
          * notifying threads
-         *
-         * TODO test which is faster, an extra mutex before collecting the
-         * conditions to broadcast on or no mutex and piggybacking on the
-         * existing mutex (as the current implementation is)
          */
-        template <typename LockProxy, typename C = Cv,
-                  EnableIfIsValidCv<C>* = nullptr>
+        template <typename LockProxy>
         auto notify_all(LockProxy& proxy, WriteLockTag) {
 
             // implement two phase signalling, in the first phase all the
@@ -165,8 +158,7 @@ namespace concurrent_detail {
          * Do nothing when notify_all() is called when a read lock is held,
          * because a read should not change any state within the locked object
          */
-        template <typename LockProxy, typename C = Cv,
-                  EnableIfIsValidCv<C>* = nullptr>
+        template <typename LockProxy>
         int notify_all(LockProxy&, ReadLockTag) { return int{}; }
 
     protected:
@@ -187,78 +179,53 @@ namespace concurrent_detail {
          * wait() can be called on the condition variable for the condition by
          * waiting on that mutex
          */
-        template <typename LockProxy, typename Mtx, typename Lock>
-        void wait(Condition condition, LockProxy& proxy, Mtx& m, Lock lock) {
+        template <typename C, typename LockProxy, typename Mtx, typename Lock>
+        void wait(C&& condition, LockProxy& proxy, Mtx& m, Lock lock) {
 
-            // this can only be called if at least a read lock is held on the
-            // underlying data item of the concurrent data so check for the
-            // condition if the condition returns true then short circuit and
-            // return
-            if (condition(*proxy)) {
-                return;
-            }
-
-            // possibly acquire a lock on the map of conditions and add an
-            // entry to it if one doesnt exist
-            auto cv = std::shared_ptr<Cv>{};
-            auto iter = this->conditions.begin();
-            {
-                // acquire the RAII object and then supress the unused
-                // variable warning for the case when this is a no-op.  For
-                // example when this is called under a write lock, when this
-                // is called under a read lock the implementation should pass
-                // it a lock to lock the internal contents to prevent races
-                // from multiple reader threads
-                auto lck = lock();
-                static_cast<void>(lck);
-
-                // find or insert the cv condition pair into the map, not
-                // using try_emplace because this avoids an unnecesary
-                // allocation on make_shared<>
-                iter = this->conditions.find(condition);
-                if (iter == this->conditions.end()) {
-                    iter = this->conditions.emplace(condition,
-                            std::make_shared<Cv>()).first;
+            while (true) {
+                // this can only be called if at least a read lock is held on
+                // the underlying data item of the concurrent data so check
+                // for the condition if the condition returns true then short
+                // circuit and return
+                if (condition(*proxy)) {
+                    return;
                 }
 
-                // make a copy that is reference counted with respect to this
-                // thread
-                cv = iter->second;
-            }
+                // possibly acquire a lock on the map of conditions and add an
+                // entry to it if one doesnt exist
+                auto cv = std::shared_ptr<Cv>{};
+                {
+                    // acquire the RAII object and then supress the unused
+                    // variable warning for the case when this is a no-op.
+                    // For example when this is called under a write lock,
+                    // when this is called under a read lock the
+                    // implementation should pass it a lock to lock the
+                    // internal contents to prevent races from multiple reader
+                    // threads
+                    auto lck = lock();
+                    static_cast<void>(lck);
 
-            // wait in a loop monitor wait
-            iter->second->wait(m);
-            if (!condition(*proxy)) {
+                    // find or insert the cv condition pair into the map, not
+                    // using try_emplace because this avoids an unnecesary
+                    // allocation on make_shared<>
+                    auto iter = this->conditions.find(condition);
+                    if (iter == this->conditions.end()) {
+                        iter = this->conditions.emplace(condition,
+                                std::make_shared<Cv>()).first;
+                    }
 
-                // call wait recursively because this might need to do the
-                // stuff before again, like add condition variables to the map
-                this->wait(condition, proxy, m, lock);
+                    // make a copy that is reference counted with respect to
+                    // this thread
+                    cv = iter->second;
+                }
+
+                // wait in a loop monitor wait
+                cv->wait(m);
             }
         }
 
     private:
         std::unordered_map<Condition, std::shared_ptr<Cv>> conditions;
-    };
-
-    template <typename Condition, typename Cv>
-    class ConditionsImpl<Condition, Cv, EnableIfIsInvalidCv<Cv>> {
-    public:
-        template <typename... Args>
-        int notify_all(Args&&...) const { return int{}; }
-        template <typename... Args>
-        void wait(Args&&...) const {
-            // this static assert stops compilation at this point with a
-            // descriptive error message when waiting on a mutex type that
-            // does not have an associated condition variable type.
-            //
-            // The duck typed nature of templates allows the Concurrent class
-            // to be used without issue even when using a lock that does not
-            // have an associated condition variable type
-            static_assert(!std::is_same<Cv, InvalidCv>::value,
-                    "The library was not able to find a condition variable "
-                    "that works with the provided mutex type.  Please "
-                    "explicitly specify a condition variable type");
-        }
     };
 
     /**
@@ -268,13 +235,13 @@ namespace concurrent_detail {
      * serialized
      */
     template <typename Mutex, typename Cv, typename Condition,
-              typename = sharp::void_t<>>
-    class Conditions : public ConditionsImpl<Condition, Cv> {
+              bool IsSharedLockable>
+    class ConditionsLockWrap : public ConditionsImpl<Condition, Cv> {
     public:
         using Super = ConditionsImpl<Condition, Cv>;
 
-        template <typename LockProxy>
-        void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
+        template <typename C, typename LockProxy>
+        void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
             // construct a unique lock to wait on it but release it before
             // returning because the outer lock proxy used in user code should
             // be the one that handles the unlocking on destruction or manual
@@ -288,7 +255,8 @@ namespace concurrent_detail {
             this->Super::notify_all(proxy, WriteLockTag{});
 
             // then go to sleep
-            this->Super::wait(condition, proxy, lck, [&] { return int{}; });
+            this->Super::wait(std::forward<C>(condition), proxy, lck,
+                    [] { return int{}; });
         }
     };
 
@@ -303,41 +271,63 @@ namespace concurrent_detail {
      * this work is done at compile time
      */
     template <typename Mutex, typename Cv, typename Condition>
-    class Conditions<Mutex, Cv, Condition, EnableIfIsSharedLockable<Mutex>>
-            : public ConditionsImpl<Condition, Cv> {
+    class ConditionsLockWrap<Mutex, Cv, Condition, true>
+            : public ConditionsLockWrap<Mutex, Cv, Condition, false> {
     public:
         using Super = ConditionsImpl<Condition, Cv>;
 
-        template <typename LockProxy>
-        void wait(Condition condition, LockProxy& proxy, ReadLockTag) {
+        /**
+         * The implementation of wait when called under a read lock, this will
+         * have to acquire a lock on the bookkeeping struct before adding
+         * itself to the wait queue if it does add itself to the wait queue
+         */
+        template <typename C, typename LockProxy>
+        void wait(C&& condition, LockProxy& proxy, ReadLockTag) {
             // construct a shared unique lock to wait on but then release the
             // lock before returning to user code
             auto lck = sharp::UniqueLock<Mutex, sharp::SharedLock>{
                 proxy.instance_ptr->mtx, std::adopt_lock};
             auto deferred = sharp::defer([&]() { lck.release(); });
 
-            this->Super::wait(condition, proxy, lck, [&]() {
+            this->Super::wait(std::forward<C>(condition), proxy, lck, [&]() {
                 return sharp::UniqueLock<Mutex>{this->mtx};
             });
         }
-        template <typename LockProxy>
-        void wait(Condition condition, LockProxy& proxy, WriteLockTag) {
-            // construct a exclusive unique lock to wait on but then release the
-            // lock before returning to user code
-            auto lck = sharp::UniqueLock<Mutex, sharp::DefaultLock>{
-                proxy.instance_ptr->mtx, std::adopt_lock};
-            auto deferred = sharp::defer([&]() { lck.release(); });
-
-            // notify all waiting threads to wake up if their conditions have
-            // evaluated to true before going to sleep
-            this->Super::notify_all(proxy, WriteLockTag{});
-
-            // then go to sleep
-            this->Super::wait(condition, proxy, lck, [&] { return int{}; });
-        }
-
     private:
         Mutex mtx;
+    };
+
+    /**
+     * An base class that just inherits from ConditionsLockWrap to provide the
+     * wait() and notify_handoff() functions.
+     *
+     * In the case where the CV is an invalid CV, these are no-ops for notify
+     * calls but does not allow users to call wait(), i.e. fails at compile
+     * time if a user attempts a wait without a condition variable
+     */
+    template <typename Mutex, typename Cv, typename Condition>
+    class Conditions
+            : public ConditionsLockWrap<Mutex, Cv, Condition,
+                                        IsSharedLockable<Mutex>::value> {};
+    template <typename Mutex, typename Condition>
+    class Conditions<Mutex, InvalidCv, Condition> {
+    public:
+        template <typename... Args>
+        auto notify_all(Args&&...) const { return int{}; }
+        template <typename Cv = InvalidCv, typename... Args>
+        void wait(Args&&...) const {
+            // this static assert stops compilation at this point with a
+            // descriptive error message when waiting on a mutex type that
+            // does not have an associated condition variable type.
+            //
+            // The duck typed nature of templates allows the Concurrent class
+            // to be used without issue even when using a lock that does not
+            // have an associated condition variable type
+            static_assert(!std::is_same<Cv, InvalidCv>::value,
+                    "The library was not able to find a condition variable "
+                    "that works with the provided mutex type.  Please "
+                    "explicitly specify a condition variable type");
+        }
     };
 
 } // namespace concurrent_detail

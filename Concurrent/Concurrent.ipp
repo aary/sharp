@@ -75,7 +75,7 @@ void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::unlock()
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
         // wake any sleeping threads if their conditions are met
-        auto raii = this->instance_ptr->conditions.notify_all(*this, LockTag{});
+        auto raii = this->instance_ptr->notify_all(*this, LockTag{});
         static_cast<void>(raii);
 
         // unlock the mutex, the actual signalling will happen on destruction
@@ -108,9 +108,11 @@ Concurrent<Type, Mutex, Cv>::template LockProxy<C, Tag>::operator->() {
 
 template <typename Type, typename Mutex, typename Cv>
 template <typename C, typename LockTag>
+template <typename Condition>
 void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::wait(
-        Concurrent::Condition_t condition) {
-    this->instance_ptr->conditions.wait(condition, *this, LockTag{});
+        Condition&& condition) {
+    this->instance_ptr->wait(
+            std::forward<Condition>(condition), *this, LockTag{});
 }
 
 /**

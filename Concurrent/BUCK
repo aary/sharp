@@ -4,6 +4,7 @@ cxx_library(
     deps = [
         "//Defer:Defer",
         "//ForEach:ForEach",
+        "//Functional:Functional",
         "//Tags:Tags",
         "//Traits:Traits",
         "//Threads:Threads",
