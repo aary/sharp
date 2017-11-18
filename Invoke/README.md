@@ -48,7 +48,7 @@ STRONG_TYPEDEF(int, Port);
 STRONG_TYPEDEF(std::string, Host);
 
 auto make_server(std::optional<Port> port, std::optional<Host> host) {
-    return Server{port.value_or(80), host.value_or("localhost"}};
+    return Server{port.value_or(80), host.value_or("localhost")};
 }
 
 int main() {
