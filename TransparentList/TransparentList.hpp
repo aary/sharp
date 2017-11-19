@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <sharp/Tags/Tags.hpp>
+#include <sharp/Portability/cpp17.hpp>
 
 #include <utility>
 #include <cassert>
@@ -52,7 +52,7 @@ public:
      * the constructor of type Datum
      */
     template <typename... Args>
-    TransparentNode(sharp::emplace_construct::tag_t, Args&&... args)
+    TransparentNode(std::in_place_t, Args&&... args)
             : datum{std::forward<Args>(args)...} {}
 
     /**
@@ -61,8 +61,7 @@ public:
      * required because initializer lists are not deducible via templates.
      */
     template <typename U, typename... Args>
-    TransparentNode(sharp::emplace_construct::tag_t,
-                    std::initializer_list<U> ilist,
+    TransparentNode(std::in_place_t, std::initializer_list<U> ilist,
                     Args&&... args)
             : datum{std::move(ilist), std::forward<Args>(args)...} {}
 

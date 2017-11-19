@@ -12,7 +12,6 @@ using std::vector;
 using std::make_unique;
 using sharp::TransparentList;
 using sharp::TransparentNode;
-using sharp::emplace_construct;
 
 TEST(TransparentList, construct_test) {
     sharp::TransparentList<int>{};
@@ -20,15 +19,14 @@ TEST(TransparentList, construct_test) {
 
 TEST(TransparentList, simple_push_back_test) {
     auto list = sharp::TransparentList<int>{};
-    auto new_node = make_unique<TransparentNode<int>>(emplace_construct::tag,
-            1);
+    auto new_node = make_unique<TransparentNode<int>>(std::in_place, 1);
     list.push_back(new_node.get());
     EXPECT_EQ(new_node.get(), *list.begin());
 }
 
 TEST(TransparentList, simple_push_front_test) {
     auto list = sharp::TransparentList<int>{};
-    auto node = make_unique<TransparentNode<int>>(emplace_construct::tag, 1);
+    auto node = make_unique<TransparentNode<int>>(std::in_place, 1);
     list.push_front(node.get());
     EXPECT_EQ(node.get(), *list.begin());
     EXPECT_EQ(1, (*list.begin())->datum);
@@ -38,16 +36,13 @@ TEST(TransparentList, double_push_front_test) {
 
     auto list = sharp::TransparentList<int>{};
 
-    auto node_one = make_unique<TransparentNode<int>>(emplace_construct::tag,
-            1);
+    auto node_one = make_unique<TransparentNode<int>>(std::in_place, 1);
     list.push_front(node_one.get());
 
-    auto node_two = make_unique<TransparentNode<int>>(emplace_construct::tag,
-            2);
+    auto node_two = make_unique<TransparentNode<int>>(std::in_place, 2);
     list.push_front(node_two.get());
 
-    auto node_three = make_unique<TransparentNode<int>>(emplace_construct::tag,
-            3);
+    auto node_three = make_unique<TransparentNode<int>>(std::in_place, 3);
     list.push_front(node_three.get());
 
     EXPECT_EQ(node_three.get(), *list.begin());
@@ -62,14 +57,13 @@ TEST(TransparentList, double_push_back_test) {
 
     auto list = sharp::TransparentList<int>{};
 
-    auto node_one = make_unique<TransparentNode<int>>(emplace_construct::tag,1);
+    auto node_one = make_unique<TransparentNode<int>>(std::in_place ,1);
     list.push_back(node_one.get());
 
-    auto node_two = make_unique<TransparentNode<int>>(emplace_construct::tag,2);
+    auto node_two = make_unique<TransparentNode<int>>(std::in_place, 2);
     list.push_back(node_two.get());
 
-    auto node_three = make_unique<TransparentNode<int>>(emplace_construct::tag,
-            3);
+    auto node_three = make_unique<TransparentNode<int>>(std::in_place, 3);
     list.push_back(node_three.get());
 
     EXPECT_EQ(node_one.get(), *list.begin());
@@ -84,10 +78,10 @@ TEST(TransparentList, range_test) {
 
     auto list = sharp::TransparentList<int>{};
     auto vec = vector<unique_ptr<TransparentNode<int>>>{};
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 4));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 3));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 4));
 
     // insert into the list in order
     for (const auto& node : vec) {
@@ -105,10 +99,10 @@ TEST(TransparentList, range_test_and_push_back_front_test) {
 
     auto list = sharp::TransparentList<int>{};
     auto vec = vector<unique_ptr<TransparentNode<int>>>{};
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 4));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 3));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 4));
 
     // insert into the list in order
     for (const auto& node : vec) {
@@ -121,7 +115,7 @@ TEST(TransparentList, range_test_and_push_back_front_test) {
         return node_ptr_lhs->datum == node_ptr_rhs->datum;
     }));
 
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 5));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 5));
     list.push_back(vec.back().get());
 
     // assert that the ranges are equal
@@ -134,9 +128,9 @@ TEST(TransparentList, range_test_and_push_back_front_test) {
 TEST(TransparentList, test_erase) {
     auto list = sharp::TransparentList<int>{};
     auto vec = vector<unique_ptr<TransparentNode<int>>>{};
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 3));
 
     for (const auto& node : vec) {
         list.push_back(node.get());
@@ -162,7 +156,7 @@ TEST(TransparentList, test_erase) {
     }));
 
     vec.insert(vec.begin(),
-            make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
+            make_unique<TransparentNode<int>>(std::in_place, 2));
     iter = list.insert(list.begin(), vec.front().get());
     list.erase(iter);
     vec.erase(vec.begin());
@@ -175,9 +169,9 @@ TEST(TransparentList, test_erase) {
 TEST(TransparentList, test_increment_decrement_iterators) {
     auto list = sharp::TransparentList<int>{};
     auto vec = vector<unique_ptr<TransparentNode<int>>>{};
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 1));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 2));
-    vec.push_back(make_unique<TransparentNode<int>>(emplace_construct::tag, 3));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 1));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 2));
+    vec.push_back(make_unique<TransparentNode<int>>(std::in_place, 3));
 
     for (const auto& node : vec) {
         list.push_back(node.get());
@@ -199,8 +193,8 @@ TEST(TransparentList, test_increment_decrement_iterators) {
 
 TEST(TransparentList, test_insert) {
     auto list = sharp::TransparentList<int>{};
-    auto one = make_unique<TransparentNode<int>>(emplace_construct::tag, 1);
-    auto two = make_unique<TransparentNode<int>>(emplace_construct::tag, 2);
+    auto one = make_unique<TransparentNode<int>>(std::in_place, 1);
+    auto two = make_unique<TransparentNode<int>>(std::in_place, 2);
     list.insert(list.begin(), one.get());
     list.insert(list.begin(), two.get());
 
