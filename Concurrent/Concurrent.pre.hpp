@@ -241,8 +241,8 @@ namespace concurrent_detail {
                     : condition{std::forward<C>(condition_in)} {}
 
             bool signalled{false};
-            Cv cv{};
             Condition condition;
+            Cv cv{};
         };
         using WaiterNode = sharp::TransparentNode<Waiter>;
         sharp::TransparentList<Waiter> waiters;
