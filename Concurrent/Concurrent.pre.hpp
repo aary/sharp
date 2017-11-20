@@ -13,13 +13,16 @@
 #pragma once
 
 #include <sharp/Traits/Traits.hpp>
+#include <sharp/TransparentList/TransparentList.hpp>
 #include <sharp/Defer/Defer.hpp>
 #include <sharp/Threads/Threads.hpp>
 #include <sharp/Tags/Tags.hpp>
+#include <sharp/ForEach/ForEach.hpp>
 
 #include <condition_variable>
 #include <mutex>
 #include <unordered_map>
+#include <cassert>
 
 namespace sharp {
 namespace concurrent_detail {
@@ -122,34 +125,15 @@ namespace concurrent_detail {
          * notifying threads
          */
         template <typename LockProxy>
-        auto notify_all(LockProxy& proxy, WriteLockTag) {
-
-            // implement two phase signalling, in the first phase all the
-            // stale condition variables are removed from the bookkeeping and
-            // in the second phase when the Concurrent item lock has been
-            // released, loop through the cvs and call signal on them
-            auto cvs = std::vector<std::shared_ptr<Cv>>{};
-
-            for (auto i = this->conditions.begin();
-                    i != this->conditions.end();) {
-
-                // if the condition evaluates to true then broadcast and erase
-                // that entry from the bookkeeping map because it is not
-                // required anymore, the threads have their own reference
-                // counted pointer to the condition variable being erased
-                if (i->first(*proxy)) {
-                    cvs.push_back(i->second);
-                    i = this->conditions.erase(i);
-                } else {
-                    ++i;
-                }
-            }
-
-            // return a deferrable which will signal all the condition
-            // variables on destruction
-            return sharp::defer([cvs = std::move(cvs)] {
-                for (auto& cv : cvs) {
-                    cv->notify_all();
+        void notify_all(LockProxy& proxy, WriteLockTag) {
+            sharp::for_each(this->waiters, [&](auto waiter, auto, auto iter) {
+                // if the condition evaluates to true then wake up the thread
+                // set the signalled boolean and erase the thread from the
+                // list of waiters
+                if (waiter->datum.condition(*proxy)) {
+                    waiter->datum.signalled = true;
+                    waiter->datum.cv.notify_one();
+                    this->waiters.erase(iter);
                 }
             });
         }
@@ -159,7 +143,7 @@ namespace concurrent_detail {
          * because a read should not change any state within the locked object
          */
         template <typename LockProxy>
-        int notify_all(LockProxy&, ReadLockTag) { return int{}; }
+        void notify_all(LockProxy&, ReadLockTag) {}
 
     protected:
         /**
@@ -182,50 +166,86 @@ namespace concurrent_detail {
         template <typename C, typename LockProxy, typename Mtx, typename Lock>
         void wait(C&& condition, LockProxy& proxy, Mtx& m, Lock lock) {
 
-            while (true) {
-                // this can only be called if at least a read lock is held on
-                // the underlying data item of the concurrent data so check
-                // for the condition if the condition returns true then short
-                // circuit and return
-                if (condition(*proxy)) {
-                    return;
-                }
-
-                // possibly acquire a lock on the map of conditions and add an
-                // entry to it if one doesnt exist
-                auto cv = std::shared_ptr<Cv>{};
-                {
-                    // acquire the RAII object and then supress the unused
-                    // variable warning for the case when this is a no-op.
-                    // For example when this is called under a write lock,
-                    // when this is called under a read lock the
-                    // implementation should pass it a lock to lock the
-                    // internal contents to prevent races from multiple reader
-                    // threads
-                    auto lck = lock();
-                    static_cast<void>(lck);
-
-                    // find or insert the cv condition pair into the map, not
-                    // using try_emplace because this avoids an unnecesary
-                    // allocation on make_shared<>
-                    auto iter = this->conditions.find(condition);
-                    if (iter == this->conditions.end()) {
-                        iter = this->conditions.emplace(condition,
-                                std::make_shared<Cv>()).first;
-                    }
-
-                    // make a copy that is reference counted with respect to
-                    // this thread
-                    cv = iter->second;
-                }
-
-                // wait in a loop monitor wait
-                cv->wait(m);
+            // this can only be called if at least a read lock is held on
+            // the underlying data item of the concurrent data so no extra
+            // synchronization needed when accessing the data and passing to a
+            // function that accepts it by const reference
+            //
+            // Just check for the condition if the condition returns true then
+            // short circuit and return
+            //
+            // This is done outside so that constructions of expensive
+            // function objects can be avoided and done only once if this
+            // fails
+            if (condition(*proxy)) {
+                return;
             }
+
+            // make a node to be added to the waiters list with the function
+            // that should be checked when woken up, at this point cannot
+            // afford to avoid the conversion from closure to a
+            // heavyweight type erased function object but that should be fine
+            // because that overhead will be dwarfed by actually going to sleep
+            //
+            // This is also required for correctness to prevent against
+            // spurious wakeup problems.  If a spurious wakeup happens in
+            // the loop below, and this was not outside the loop, the entry in
+            // the list would be invalidated since at the next iteration
+            // another entry would be added for this and the previous one
+            // would be invalidated
+            //
+            // Note that this is on the stack here because notification for
+            // the thread to wake up is happening before the lock is unlocked.
+            // If the notifications were happening after the lock was unlocked
+            // then there would be a race condition on the signalled variable
+            // because the signaller would try and set it to true, and this
+            // would be reading it.  The second option of using the condition
+            // predicate itself as a measure of whether or not the thread was
+            // signalled when unlocking outside the protection of the mutex is
+            // incorrect because any other thread might spuriously wakeup and
+            // continue when the condition is true, leaving the pointer to the
+            // waiter in the waiter list dangling
+            auto&& waiter = WaiterNode{std::in_place,
+                std::forward<C>(condition)};
+
+            // acquire the lock around the internal bookkeeping.  Note
+            // that this is a no-op when wait() is called from an exclusive
+            // lock, in that case the bookkeeping is already protected by
+            // the exclusive lock
+            {
+                auto lck = lock();
+                static_cast<void>(lck);
+
+                // add the node to the list of waiters
+                waiters.push_back(&waiter);
+            }
+
+            // no need to check the actual condition here, the signalled boolean
+            // will only be true when the condition is satisfied
+            while (!waiter.datum.signalled) {
+                waiter.datum.cv.wait(m);
+            }
+
+            // assert that the condition is valid when returning to user code
+            assert(waiter.datum.condition(*proxy));
         }
 
     private:
-        std::unordered_map<Condition, std::shared_ptr<Cv>> conditions;
+        /**
+         * An intrusive list of waiters, which are kept on the stack for the
+         * blocked threads
+         */
+        struct Waiter {
+            template <typename C>
+            explicit Waiter(C&& condition_in)
+                    : condition{std::forward<C>(condition_in)} {}
+
+            bool signalled{false};
+            Cv cv{};
+            Condition condition;
+        };
+        using WaiterNode = sharp::TransparentNode<Waiter>;
+        sharp::TransparentList<Waiter> waiters;
     };
 
     /**
@@ -299,7 +319,7 @@ namespace concurrent_detail {
 
     /**
      * An base class that just inherits from ConditionsLockWrap to provide the
-     * wait() and notify_handoff() functions.
+     * wait() and notify_all() functions.
      *
      * In the case where the CV is an invalid CV, these are no-ops for notify
      * calls but does not allow users to call wait(), i.e. fails at compile
@@ -313,7 +333,7 @@ namespace concurrent_detail {
     class Conditions<Mutex, InvalidCv, Condition> {
     public:
         template <typename... Args>
-        auto notify_all(Args&&...) const { return int{}; }
+        void notify_all(Args&&...) const {}
         template <typename Cv = InvalidCv, typename... Args>
         void wait(Args&&...) const {
             // this static assert stops compilation at this point with a

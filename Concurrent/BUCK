@@ -8,6 +8,7 @@ cxx_library(
         "//Tags:Tags",
         "//Traits:Traits",
         "//Threads:Threads",
+        "//TransparentList:TransparentList",
         "//Portability:Portability",
     ],
     exported_headers = [
