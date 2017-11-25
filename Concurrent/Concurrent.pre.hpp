@@ -217,17 +217,17 @@ namespace concurrent_detail {
                 static_cast<void>(lck);
 
                 // add the node to the list of waiters
-                waiters.push_back(&waiter);
+                this->waiters.push_back(&waiter);
             }
 
             // no need to check the actual condition here, the signalled boolean
             // will only be true when the condition is satisfied
-            while (!waiter.datum.signalled) {
+            //
+            // set up so that a spurious wakeup will not check the condition
+            // because of short circuiting
+            while (!waiter.datum.signalled || !waiter.datum.condition(*proxy)) {
                 waiter.datum.cv.wait(m);
             }
-
-            // assert that the condition is valid when returning to user code
-            assert(waiter.datum.condition(*proxy));
         }
 
     private:
