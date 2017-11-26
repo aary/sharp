@@ -98,6 +98,32 @@ namespace concurrent_detail {
     };
 
     /**
+     * @class LockProxyWaitableBase
+     *
+     * A base class that lock proxies should inherit from when the concurrent
+     * object is waitable
+     *
+     * When threads hold a read or write lock the lock proxies hold the waiter
+     * lists that they are supposed to signal, this helps model reduce lock
+     * contention when there are a lot of threads sleeping.  Since when any
+     * one thread notifies another thread to wake up from the centralized
+     * waiter list, it also transfers the entire list to that waiter to signal
+     * when it unlocks, the waiter than does not have to hold locks on the
+     * centralized wait queue when waking up the next thread (if any)
+     *
+     * A base class for lock proxies that contains all the relevant
+     * information for signalling waiters that the current thread has taken
+     * responsibility for
+     *
+     * Read locks should never hold a lock on the centralized wait queue, they
+     * should only signal and wake up threads off the internal hand-off queue.
+     * If there were no threads to be woken up after a reader, then there can
+     * never be any threads that can be woken up after the readers are done,
+     * since the readers only read and never modify the shared state
+     */
+    class LockProxyWaitableBase {};
+
+    /**
      * @class ConditionsImpl
      *
      * This class offers the bookkeeping interface for the conditional
