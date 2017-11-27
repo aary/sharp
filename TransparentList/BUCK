@@ -3,6 +3,7 @@ cxx_library(
     header_namespace = "sharp/TransparentList",
     deps = [
         "//Portability:Portability",
+        "//Defer:Defer",
     ],
     exported_headers = [
         "TransparentList.hpp",

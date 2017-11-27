@@ -128,6 +128,13 @@ public:
     NodeIterator erase(NodeIterator iterator) noexcept;
 
     /**
+     * Moves all the nodes from the other list into the current one in O(1)
+     * time
+     */
+    template <typename OtherList>
+    void splice(NodeIterator iterator, OtherList&& other);
+
+    /**
      * Return an iterator to the beginning of the linked list
      */
     auto begin() noexcept;

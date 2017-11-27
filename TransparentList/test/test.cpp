@@ -10,8 +10,8 @@
 using std::unique_ptr;
 using std::vector;
 using std::make_unique;
-using sharp::TransparentList;
-using sharp::TransparentNode;
+
+namespace sharp {
 
 TEST(TransparentList, construct_test) {
     sharp::TransparentList<int>{};
@@ -207,3 +207,36 @@ TEST(TransparentList, test_insert) {
         return node_one->datum == node_two->datum;
     }));
 }
+
+TEST(TransparentList, test_splice) {
+    auto one = std::vector<std::shared_ptr<TransparentNode<int>>>{};
+    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 1));
+    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 2));
+    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 3));
+
+    auto two = std::vector<std::shared_ptr<TransparentNode<int>>>{};
+    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 4));
+    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 5));
+
+    [=]() mutable {
+        auto list_one = sharp::TransparentList<int>{};
+        for (auto& ptr : one) {
+            list_one.push_back(ptr.get());
+        }
+
+        auto list_two = sharp::TransparentList<int>{};
+        for (auto& ptr : two) {
+            list_two.push_back(ptr.get());
+        }
+
+        list_one.splice(list_one.begin(), list_two);
+        std::copy(two.begin(), two.end(), std::back_inserter(one));
+
+        EXPECT_TRUE(std::equal(list_one.begin(), list_one.end(), one.begin(),
+                               one.end(), [](auto ptr, auto s_ptr) {
+            return ptr == s_ptr.get();
+        }));
+    }();
+}
+
+} // namespace sharp

@@ -1,4 +1,5 @@
 #include <sharp/TransparentList/TransparentList.hpp>
+#include <sharp/Defer/Defer.hpp>
 
 #include <cassert>
 #include <iterator>
@@ -277,6 +278,57 @@ TransparentList<Type>::erase(TransparentList<Type>::NodeIterator iterator)
     }
     assert(this->tail != this->head);
     return iterator_to_return;
+}
+
+template <typename Type>
+template <typename OtherList>
+void TransparentList<Type>::splice(TransparentList<Type>::NodeIterator iterator,
+                                   OtherList&& other) {
+    // if other is empty then just return
+    if (!other.head) {
+        return;
+    }
+
+    // after this other should be empty when returning
+    auto deferred = sharp::defer([&] {
+        other.head = nullptr;
+        other.tail = nullptr;
+    });
+
+    // there are two cases to consider, the first is when inserting the node
+    // at the end, and the other is when inserting the node anywhere else in
+    // the list
+    if (iterator == this->end()) {
+        auto previous_tail = this->tail;
+        this->tail = other.tail;
+        if (previous_tail) {
+            assert(!previous_tail->next);
+            previous_tail->next = other.head;
+            assert(!other.head->prev);
+            other.head->prev = previous_tail;
+        } else {
+            assert(!this->head);
+            this->head = other.head;
+            this->tail = other.tail;
+        }
+    }
+
+    // if inserting anywhere else only the head pointer may be changed
+    else {
+        auto previous_current = *iterator;
+        if (previous_current->prev) {
+            assert(previous_current->prev->next == previous_current);
+            previous_current->prev->next = other.head;
+            assert(!other.head);
+            other.head->prev = previous_current->prev;
+        } else {
+            this->head = other.head;
+        }
+
+        assert(!other.tail->next);
+        other.tail->next = previous_current;
+        previous_current->prev = other.tail;
+    }
 }
 
 } // namespace sharp
