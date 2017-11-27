@@ -136,8 +136,7 @@ auto TransparentList<Type>::end() noexcept {
 }
 
 template <typename Type>
-TransparentList<Type>::TransparentList() noexcept
-        : head{nullptr}, tail{nullptr} {}
+TransparentList<Type>::TransparentList() noexcept = default;
 
 template <typename Type>
 void TransparentList<Type>::insert_after(

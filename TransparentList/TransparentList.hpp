@@ -156,8 +156,8 @@ private:
     /**
      * The head and tail pointers are the only bookkeeping in this list
      */
-    TransparentNode<Type>* head;
-    TransparentNode<Type>* tail;
+    TransparentNode<Type>* head{nullptr};
+    TransparentNode<Type>* tail{nullptr};
 };
 
 } // namespace sharp
