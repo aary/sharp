@@ -6,10 +6,14 @@
 #include <vector>
 #include <iostream>
 #include <utility>
+#include <list>
+#include <deque>
 
 using std::unique_ptr;
 using std::vector;
 using std::make_unique;
+using std::cout;
+using std::endl;
 
 namespace sharp {
 
@@ -209,15 +213,16 @@ TEST(TransparentList, test_insert) {
 }
 
 TEST(TransparentList, test_splice) {
-    auto one = std::vector<std::shared_ptr<TransparentNode<int>>>{};
+    auto one = std::deque<std::shared_ptr<TransparentNode<int>>>{};
     one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 1));
     one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 2));
     one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 3));
 
-    auto two = std::vector<std::shared_ptr<TransparentNode<int>>>{};
-    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 4));
-    one.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 5));
+    auto two = std::deque<std::shared_ptr<TransparentNode<int>>>{};
+    two.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 4));
+    two.push_back(std::make_shared<TransparentNode<int>>(std::in_place, 5));
 
+    // test insertion in the front
     [=]() mutable {
         auto list_one = sharp::TransparentList<int>{};
         for (auto& ptr : one) {
@@ -230,7 +235,51 @@ TEST(TransparentList, test_splice) {
         }
 
         list_one.splice(list_one.begin(), list_two);
+        std::copy(two.rbegin(), two.rend(), std::front_inserter(one));
+
+        EXPECT_TRUE(std::equal(list_one.begin(), list_one.end(), one.begin(),
+                               one.end(), [](auto ptr, auto s_ptr) {
+            return ptr == s_ptr.get();
+        }));
+    }();
+
+    // test insertion at the end
+    [=]() mutable {
+        auto list_one = sharp::TransparentList<int>{};
+        for (auto& ptr : one) {
+            list_one.push_back(ptr.get());
+        }
+
+        auto list_two = sharp::TransparentList<int>{};
+        for (auto& ptr : two) {
+            list_two.push_back(ptr.get());
+        }
+
+        list_one.splice(list_one.end(), list_two);
         std::copy(two.begin(), two.end(), std::back_inserter(one));
+
+        EXPECT_TRUE(std::equal(list_one.begin(), list_one.end(), one.begin(),
+                               one.end(), [](auto ptr, auto s_ptr) {
+            return ptr == s_ptr.get();
+        }));
+    }();
+
+    // test insertion in the middle
+    [=]() mutable {
+        auto list_one = sharp::TransparentList<int>{};
+        for (auto& ptr : one) {
+            list_one.push_back(ptr.get());
+        }
+
+        auto list_two = sharp::TransparentList<int>{};
+        for (auto& ptr : two) {
+            list_two.push_back(ptr.get());
+        }
+
+        list_one.splice(std::next(list_one.begin()), list_two);
+        for (auto i = two.rbegin(); i != two.rend(); ++i) {
+            one.insert(std::next(one.begin()), *i);
+        }
 
         EXPECT_TRUE(std::equal(list_one.begin(), list_one.end(), one.begin(),
                                one.end(), [](auto ptr, auto s_ptr) {

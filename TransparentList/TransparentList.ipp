@@ -319,7 +319,7 @@ void TransparentList<Type>::splice(TransparentList<Type>::NodeIterator iterator,
         if (previous_current->prev) {
             assert(previous_current->prev->next == previous_current);
             previous_current->prev->next = other.head;
-            assert(!other.head);
+            assert(other.head);
             other.head->prev = previous_current->prev;
         } else {
             this->head = other.head;
