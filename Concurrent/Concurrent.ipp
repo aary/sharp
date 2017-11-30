@@ -109,9 +109,8 @@ template <typename Type, typename Mutex, typename Cv>
 template <typename C, typename LockTag>
 template <typename Condition>
 void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::wait(
-        Condition&& condition) {
-    this->instance_ptr->wait(
-            std::forward<Condition>(condition), *this, LockTag{});
+        Condition condition) {
+    this->instance_ptr->wait(std::move(condition), *this, LockTag{});
 }
 
 /**

@@ -236,7 +236,7 @@ private:
          * short conditions
          */
         template <typename Condition>
-        void wait(Condition&& condition);
+        void wait(Condition condition);
 
         /**
          * Friend the outer concurrent class, it is the only one that can

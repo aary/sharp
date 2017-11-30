@@ -104,7 +104,7 @@ namespace concurrent_detail {
      * object is waitable
      *
      * When threads hold a read or write lock the lock proxies hold the waiter
-     * lists that they are supposed to signal, this helps model reduce lock
+     * lists that they are supposed to signal, this model helps reduce lock
      * contention when there are a lot of threads sleeping.  Since when any
      * one thread notifies another thread to wake up from the centralized
      * waiter list, it also transfers the entire list to that waiter to signal
@@ -190,35 +190,33 @@ namespace concurrent_detail {
          * waiting on that mutex
          */
         template <typename C, typename LockProxy, typename Mtx, typename Lock>
-        void wait(C&& condition, LockProxy& proxy, Mtx& m, Lock lock) {
-
-            // this can only be called if at least a read lock is held on
-            // the underlying data item of the concurrent data so no extra
+        void wait(C condition, LockProxy& proxy, Mtx& m, Lock lock) {
+            // this can only be called if at least a read lock is held on the
+            // underlying data item of the concurrent data so no extra
             // synchronization needed when accessing the data and passing to a
             // function that accepts it by const reference
             //
             // Just check for the condition if the condition returns true then
             // short circuit and return
             //
-            // This is done outside so that constructions of expensive
-            // function objects can be avoided and done only once if this
-            // fails
+            // This is done outside so that constructions of expensive function
+            // objects can be avoided and done only once if this fails
             if (condition(*proxy)) {
                 return;
             }
 
             // make a node to be added to the waiters list with the function
             // that should be checked when woken up, at this point cannot
-            // afford to avoid the conversion from closure to a
-            // heavyweight type erased function object but that should be fine
-            // because that overhead will be dwarfed by actually going to sleep
+            // afford to avoid the conversion from closure to a heavyweight
+            // type erased function object but that should be fine because
+            // that overhead will be dwarfed by actually going to sleep
             //
             // This is also required for correctness to prevent against
-            // spurious wakeup problems.  If a spurious wakeup happens in
-            // the loop below, and this was not outside the loop, the entry in
-            // the list would be invalidated since at the next iteration
-            // another entry would be added for this and the previous one
-            // would be invalidated
+            // spurious wakeup problems.  If a spurious wakeup happens in the
+            // loop below, and this was not outside the loop, the entry in the
+            // list would be invalidated since at the next iteration another
+            // entry would be added for this and the previous one would be
+            // invalidated
             //
             // Note that this is on the stack here because notification for
             // the thread to wake up is happening before the lock is unlocked.
@@ -231,28 +229,42 @@ namespace concurrent_detail {
             // incorrect because any other thread might spuriously wakeup and
             // continue when the condition is true, leaving the pointer to the
             // waiter in the waiter list dangling
-            auto&& waiter = WaiterNode{std::in_place,
-                std::forward<C>(condition)};
+            auto&& waiter = WaiterNode{std::in_place, condition};
 
-            // acquire the lock around the internal bookkeeping.  Note
-            // that this is a no-op when wait() is called from an exclusive
-            // lock, in that case the bookkeeping is already protected by
-            // the exclusive lock
-            {
-                auto lck = lock();
-                static_cast<void>(lck);
+            // repeat the process of adding yourself to the wait queue until
+            // the program is in a state where we can proceed with the
+            // condition being set to true
+            while (!condition(*proxy)) {
+                // acquire the lock around the internal bookkeeping.  Note
+                // that this is a no-op when wait() is called from an exclusive
+                // lock, in that case the bookkeeping is already protected by
+                // the exclusive lock
+                {
+                    auto lck = lock();
+                    static_cast<void>(lck);
 
-                // add the node to the list of waiters
-                this->waiters.push_back(&waiter);
-            }
+                    // add the node to the list of waiters
+                    this->waiters.push_back(&waiter);
+                }
 
-            // no need to check the actual condition here, the signalled boolean
-            // will only be true when the condition is satisfied
-            //
-            // set up so that a spurious wakeup will not check the condition
-            // because of short circuiting
-            while (!waiter.datum.signalled || !waiter.datum.condition(*proxy)) {
-                waiter.datum.cv.wait(m);
+                // Deal with spurious wakeups that originate from the underlying
+                // implementation, i.e. a condition variable waking up even when
+                // it is not signalled.  no need to add ourselves back to the
+                // wait queue because a waiter only comes off the wait queue
+                // when it is signalled by some other thread
+                while (!waiter.datum.signalled) {
+                    waiter.datum.cv.wait(m);
+                }
+
+                // At this point the current thread was woken up and is off
+                // the wait queue.  This means that the condition for which
+                // this thread was waiting for was true at the point of
+                // signalling.  But before this thread was able to acquire the
+                // lock, another write thread might have come in, acquired the
+                // lock and changed the shared data to such a state that the
+                // condition is now false.  So go through the loop again and
+                // add yourself to the wait queue if the condition is not
+                // satisfied
             }
         }
 
