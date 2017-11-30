@@ -102,21 +102,7 @@ namespace sharp {
  *
  * Here when the writer thread is done, the reader will be woken up.  Simple.
  * No complicated signaling, broadcasting, no forgetting to signal, no
- * nothing.  When the write is done the reader is woken up.
- *
- * Further when the data item provides an is_ready() method or ADL defined
- * free function, the reader wait looks even simpler, the waiter is woken up
- * when the data item returns true from its is_ready() function
- *
- *      // thread 1
- *      auto lock = sharp::as_const(data).lock();
- *      lock.wait();
- *      cout << lock->get() << endl;
- *
- *      // thread 2
- *      auto lock = data.lock();
- *      lock->set_value(3);
- *      lock.unlock();
+ * thundering herds, no bugs.  When the write is done the reader is woken up.
  *
  * Objects of the class are both copyable and movable, however neither of those
  * operations and their variants are noexcept in all cases.  This is because

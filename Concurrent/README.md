@@ -95,9 +95,9 @@ cout << lock->size() << endl;
 
 Conditional critical sections (inspired by [Google's
 `absl::Mutex`](https://goo.gl/JhhGFp)) are also supported.  The interface here
-tries to eliminate some of the drawbacks of condition variables (for example -
-manual signalling, broadcasting, coarse lock contention on wakeups, forgetting
-to signal, etc.)
+tries to eliminate some of the drawbacks of condition variables, for example -
+manual signalling, broadcasting, coarse lock contention on wakeups, thundering
+herds (especially with reader writer locks), forgetting to signal, etc.
 
 ```c++
 // thread 1
