@@ -121,6 +121,15 @@ if (value) {
 }
 ```
 
+### Metaprogramming
+
+`sharp/Traits` contains a complete implementation of the `<algorithm>` header
+with sequences of compile time ranges, for example
+
+```
+using Sorted = sharp::Sort_t<LessThan, Types...>;
+```
+
 And more...
 
 ## Building
