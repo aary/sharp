@@ -126,20 +126,82 @@ namespace concurrent_detail {
     /**
      * @class ConditionsImpl
      *
-     * This class offers the bookkeeping interface for the conditional
-     * critical sections feature of the Concurrent class
+     * This class contains most of the implementation of waiting, a little
+     * abstracted away from the details of the types of locks the Concurrent
+     * instance was instantiated with
      *
-     * It allocates one condition variable per condition, so that threads can
-     * now reuse conditions and work on the same condition variable
+     * It allocates one condition variable per condition, this has the benefit
+     * of using the standard C++ API to implement waiting and can be used to
+     * minimize thundering herds because this gives precise control of the
+     * lifetimes of the threads
      *
      * This class protects the condition to condition variable mapping using a
-     * mutex since the conditions can be accessed concurrently if the
-     * concurrent class is operating on a reader writer lock
+     * mutex since the conditions can be accessed concurrently if and only if
+     * the concurrent class is operating on a reader writer lock.  If however
+     * the concurrent class was initialized with an exclusive mutex then the
+     * condition maps are by default protected by the mutex, so this class
+     * does not even contain a mutex for bookkeeping, saving size bloat on
+     * instances of the Concurrent class
      *
-     * If however the concurrent class was initialized with an exclusive mutex
-     * then the condition maps are by default protected by the mutex, so this
-     * class does not even contain a mutex for bookkeeping, saving size bloat
-     * on instances of the Concurrent class
+     * Waiting is done very differently for exclusive lock only mutexes and
+     * mutexes that support shared locking.  Both cases however need to
+     * minimize thundering herds - this is especially possible if an
+     * implementation decides to wake readers on a shared mutex with priority
+     * given to writers, the issue gets compounded if readers wake up and all
+     * try and put themselves back on the wait queue, this will cause
+     * additional contention on the list.  The implementation makes an effort
+     * to solve these problems
+     *
+     * Before unlocking the mutex exclusive lock holders go through the wait
+     * list to find a waiter for which the condition is now true - after a
+     * write operation, upon finding such a waiter the lock holder transfers
+     * the wait list to the woken thread.  This transfer of ownership to the
+     * woken thread helps in two ways - it helps minimize thundering herds by
+     * avoiding broadcasting and therefore thundering herds by signalling only
+     * one thread and helps minimize lock contention when a thread is
+     * successfully woken up.  This is done by signalling before unlocking the
+     * mutex.  Sane implementations should then give priority to a thread
+     * which has been transferred into a mutexes wait queue via wait morphing
+     * to help achieve more deterministic ordering (i.e.  avoid other non
+     * waiting threads from coming in and snooping away the lock, causing
+     * unnecesary context switches).
+     *
+     * With reads the implementation gets slightly more tricky, because now
+     * the implementation has to deal with another source for possible
+     * thundering heards and lifetime issues, read threads that have not been
+     * signalled can wake up at any time when other readers are active, see
+     * that their condition is true and proceed to drop the condition variable
+     * they were waiting for, now when threads signal this waiter they might
+     * be accessing destroyed data.  To deal with this the implementation
+     * abstracts the wait state away in a shared_ptr<> so all threads with
+     * references to the wait state access valid state
+     *
+     * Read threads don't iterate through the wait queue when they wake up
+     * because they don't have the ability to change the internal state.  So
+     * any thread waiting for a state change should always still see the state
+     * remain the same as before.  When write threads wake readers they do two
+     * things - 1) they iterate through the rest of the wait queue and half
+     * signal to the any other readers that might have to wake up (except for
+     * the first read thread signalled, that one is signalled completely), by
+     * not actually signalling but only modifying the data representing the
+     * wake state to show that they can wake up, this helps reduce thundering
+     * herd situations and is required because readers can themselves wake up
+     * at any time when other readers are active spuriously and proceed to
+     * read their internal bookkeeping, this makes it impossible to modify
+     * this bookkeeping concurrently in some other read thread without more
+     * synchronization . This establishes one reader sa sort of a "leader".
+     * 2) they then transfer the rest of the wait queue to the woken reader,
+     * the reader then wakes up and if the reader is able to acquire the lock
+     * it checks to see if the condition it was waiting on is still valid and
+     * if so, it proceeds to go through the wait queue and wake up readers for
+     * which the condition is true, eliminating them from the wait queue as
+     * it goes.  If some readers are now at a state where the condition is
+     * no longer true, the lead reader puts them back in the regular wait
+     * queue under a lock in a batch, this is safe because there is only one
+     * lead reader, the rest of the readers don't have anything to do with the
+     * wait queue, and other readers don't access the wait queue when they go
+     * out of scope, neither do they access any shared state if/when they wake
+     * up spuriously, this reduces both lock contention and thundering herds
      */
     template <typename Condition, typename Cv>
     class ConditionsImpl {
@@ -176,64 +238,6 @@ namespace concurrent_detail {
          * This function waits for the given condition using the given proxy
          * lock.  This assumes that the lock is already held when the wait
          * function is called
-         *
-         * This is done very differnetly for exclusive lock only mutexes and
-         * mutexes that support shared locking.  Both cases however need to
-         * minimize thundering herds - this is especially possible if an
-         * implementation decides to wake readers on a shared mutex with
-         * priority given to writers
-         *
-         * Before unlocking the mutex exclusive lock holders go through the
-         * wait list to find a waiter for which the condition is now true,
-         * after a write operation, upon finding such a waiter the lock holder
-         * transfers the wait list to the woken thread.  This transfer of
-         * ownership to the woken thread helps in two ways - it helps minimize
-         * thundering herds by avoiding broadcasting and therefore thundering
-         * herds by signalling only one thread and helps minimize lock
-         * contention when a thread is successfully woken up.  This is done
-         * by signalling before unlocking the mutex.  Sane implementations
-         * should then give priority to a thread which has been transferred
-         * into a mutexes wait queue via wait morphing to help achieve more
-         * deterministic ordering (i.e. avoid other non waiting threads from
-         * coming in and snooping away the lock).  However the implementation
-         * does not rely on this happening and waits in a monitor wait loop
-         *
-         * With reads the implementation gets slightly more tricky, because
-         * now the implementation has to deal with another source for possible
-         * thundering heards and lifetime issues, read threads that have not
-         * been signalled can wake up at any time when other readers are
-         * active, see that their condition is true and proceed to drop the
-         * condition variable they were waiting for, now when threads signal
-         * this waiter they might be accessing destroyed data.  To deal with
-         * this the implementation abstracts the wait state away in a
-         * shared_ptr<> so all threads with references to the wait state access
-         * valid state
-         *
-         * Read threads don't iterate through the wait queue when they wake up
-         * because they don't have the ability to change the internal state.
-         * So any thread waiting for a state change should always still see
-         * the state remain the same as before.  When write threads wake a
-         * read thread up, they do two things - 1) they iterate through the
-         * rest of the wait queue and half signal to the any other readers
-         * that might have to wake up (except for the first read thread
-         * signalled, that one is signalled completely), by not actually
-         * signalling but only modifying the data representing the wake state
-         * to show that they can wake up, this helps reduce thundering herd
-         * situations.  This establishes one reader sa sort of a "leader".  2)
-         * they then transfer the rest of the wait queue to the woken reader
-         * and transfer the readers who can also wake up to the reader
-         * separately, the reader then wakes up and if the reader is able to
-         * acquire the lock it checks to see if the condition it was waiting
-         * on is still valid and if so, it proceeds to go through the wait
-         * queue and wake up readers for which the condition is true,
-         * eliminating them from the wait queue as it goes.  If some readers
-         * are now at a state where the condition is no longer true, the lead
-         * reader puts them back in the regular wait queue under a lock in a
-         * batch, this is safe because there is only one lead reader, the rest
-         * of the readers don't have anything to do with the wait queue, and
-         * other readers don't access the wait queue when they go out of
-         * scope, neither do they access any shared state if/when they wake up
-         * spuriously
          *
          * The lock function should construct a RAII lock object that locks
          * the internal condition bookkeeping if required.  This is not
@@ -380,7 +384,9 @@ namespace concurrent_detail {
      * A specialization of conditions bookkeeping that maintains a mutex since
      * the lock around the concurrent object might be held in read only mode,
      * in which case non const accesses to the internal bookkeeping must be
-     * serialized explicitly
+     * serialized explicitly.  For the write case it inherits form the other
+     * ConditionsLockWrap class that offers the wait function abstraction for
+     * write only locks
      *
      * Even in this case however if access to the bookkeeping is made when an
      * exclusive lock is held, the locking of the mutex can be eliminated, and
