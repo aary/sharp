@@ -98,30 +98,51 @@ namespace concurrent_detail {
     };
 
     /**
+     * @class Waiter
+     *
+     * An implementation detail of conditional critical sections, reference
+     * the implementation sketch of ConditionsImpl for more information
+     *
+     * This contains the state required to wake it up and put it back to sleep
+     */
+    template <typename Condition, typename Cv>
+    struct Waiter {
+        template <typename C>
+        Waiter(bool is_reader_in, C&& condition_in)
+            : is_reader{is_reader_in}, condition{std::forward<C>(condition_in)}
+        {}
+
+        bool should_wake{false};
+        bool is_reader;
+        Condition condition;
+        Cv cv{};
+    };
+
+    /**
      * @class LockProxyWaitableBase
      *
-     * A base class that lock proxies should inherit from when the concurrent
-     * object is waitable
-     *
-     * When threads hold a read or write lock the lock proxies hold the waiter
-     * lists that they are supposed to signal, this model helps reduce lock
-     * contention when there are a lot of threads sleeping.  Since when any
-     * one thread notifies another thread to wake up from the centralized
-     * waiter list, it also transfers the entire list to that waiter to signal
-     * when it unlocks, the waiter than does not have to hold locks on the
-     * centralized wait queue when waking up the next thread (if any)
-     *
-     * A base class for lock proxies that contains all the relevant
-     * information for signalling waiters that the current thread has taken
-     * responsibility for
-     *
-     * Read locks should never hold a lock on the centralized wait queue, they
-     * should only signal and wake up threads off the internal hand-off queue.
-     * If there were no threads to be woken up after a reader, then there can
-     * never be any threads that can be woken up after the readers are done,
-     * since the readers only read and never modify the shared state
+     * A CRTP base class
+     * A lock proxy class that contains a list of waiters the lock might be
+     * responsible for.  This is useful for conditional critical sections and
+     * is an optimization that helps prevent thundering herds, reference the
+     * implementation or sketch of the implementation below
      */
-    class LockProxyWaitableBase {};
+    template <typename LockProxyDerived>
+    class LockProxyWaitableBase {
+    public:
+        void notify_chain(ReadLockTag) {}
+        void notify_chain(WriteLockTag) {
+            // first try and notify a thread from the local list of waiters
+
+        }
+    private:
+        std::vector<std::shared_ptr<Waiter<Condition, Cv>>> waiters;
+    };
+    class LockProxyWaitableBase<InvalidCv> {
+    public:
+        template <typename LockTag>
+        void notify_chain(LockTag) {}
+    };
 
     /**
      * @class ConditionsImpl
@@ -213,25 +234,16 @@ namespace concurrent_detail {
          * notifying threads
          */
         template <typename LockProxy>
-        void notify_all(LockProxy& proxy, WriteLockTag) {
-            sharp::for_each(this->waiters, [&](auto waiter, auto, auto iter) {
-                // if the condition evaluates to true then wake up the thread
-                // set the signalled boolean and erase the thread from the
-                // list of waiters
-                if (waiter->datum.condition(*proxy)) {
-                    waiter->datum.signalled = true;
-                    waiter->datum.cv.notify_one();
-                    this->waiters.erase(iter);
-                }
-            });
+        void notify_chain(LockProxy& proxy, WriteLockTag) {
+            this->notify_chain_impl(proxy, this->waiters);
         }
 
         /**
-         * Do nothing when notify_all() is called when a read lock is held,
+         * Do nothing when notify_chain() is called when a read lock is held,
          * because a read should not change any state within the locked object
          */
         template <typename LockProxy>
-        void notify_all(LockProxy&, ReadLockTag) {}
+        void notify_chain(LockProxy&, ReadLockTag) {}
 
     protected:
         /**
@@ -267,85 +279,71 @@ namespace concurrent_detail {
                 return;
             }
 
-            // make a node to be added to the waiters list with the function
-            // that should be checked when woken up, at this point cannot
-            // afford to avoid the conversion from closure to a heavyweight
-            // type erased function object but that should be fine because
-            // that overhead will be dwarfed by actually going to sleep
-            //
-            // This is also required for correctness to prevent against
-            // spurious wakeup problems.  If a spurious wakeup happens in the
-            // loop below, and this was not outside the loop, the entry in the
-            // list would be invalidated since at the next iteration another
-            // entry would be added for this and the previous one would be
-            // invalidated
-            //
-            // Note that this is on the stack here because notification for
-            // the thread to wake up is happening before the lock is unlocked.
-            // If the notifications were happening after the lock was unlocked
-            // then there would be a race condition on the signalled variable
-            // because the signaller would try and set it to true, and this
-            // would be reading it.  The second option of using the condition
-            // predicate itself as a measure of whether or not the thread was
-            // signalled when unlocking outside the protection of the mutex is
-            // incorrect because any other thread might spuriously wakeup and
-            // continue when the condition is true, leaving the pointer to the
-            // waiter in the waiter list dangling
-            auto&& waiter = WaiterNode{std::in_place, condition};
+            // if the condition is not true then this thread should set itself
+            // up to go on the wait queue
+            auto waiter = std::make_shared<Waiter<Condition, Cv>>(
+                    false, condition);
 
-            // repeat the process of adding yourself to the wait queue until
-            // the program is in a state where we can proceed with the
-            // condition being set to true
-            while (!condition(*proxy)) {
-                // acquire the lock around the internal bookkeeping.  Note
-                // that this is a no-op when wait() is called from an exclusive
-                // lock, in that case the bookkeeping is already protected by
-                // the exclusive lock
-                {
-                    auto lck = lock();
-                    static_cast<void>(lck);
+            // acquire the lock around the internal bookkeeping.  Note that
+            // this is a no-op when wait() is called from an exclusive lock,
+            // in that case the bookkeeping is already protected by the
+            // exclusive lock
+            {
+                auto lck = lock();
+                static_cast<void>(lck);
 
-                    // add the node to the list of waiters
-                    this->waiters.push_back(&waiter);
+                // add the node to the list of waiters
+                this->waiters.push_back(waiter);
+            }
+
+            while (true) {
+                // wait for another thread to signal the current thread, if
+                // this thread wakes up without any other thread waking it up
+                // (through a spurious wakeup) then no further action is
+                // needed because it is already safe and sound on the wait
+                // queue waiting to be woken up
+                while (!waiter->should_wake) {
+                    waiter->cv.wait(m);
                 }
 
-                // Deal with spurious wakeups that originate from the underlying
-                // implementation, i.e. a condition variable waking up even when
-                // it is not signalled.  no need to add ourselves back to the
-                // wait queue because a waiter only comes off the wait queue
-                // when it is signalled by some other thread
-                while (!waiter.datum.signalled) {
-                    waiter.datum.cv.wait(m);
+                // when the thread if woken up check if the condition is true,
+                // if it is then return, because the write thread or leader
+                // read thread that signalled the current thread must have
+                // taken the current waiter off the wait queue
+                //
+                // if not then go through the rest of the threads that you
+                // have ownership for signal them if possible and re-add
+                // yourself to the wait queue, because those threads will not
+                // be touched by anyone else.  Those are now the current
+                // thread's responsibility and either the current thread needs
+                // to pass that responsibility on to another thread that it
+                // might wake or put all those threads back in the global wait
+                // list
+                if (condition(*proxy)) {
+                    return;
+                } else {
                 }
-
-                // At this point the current thread was woken up and is off
-                // the wait queue.  This means that the condition for which
-                // this thread was waiting for was true at the point of
-                // signalling.  But before this thread was able to acquire the
-                // lock, another write thread might have come in, acquired the
-                // lock and changed the shared data to such a state that the
-                // condition is now false.  So go through the loop again and
-                // add yourself to the wait queue if the condition is not
-                // satisfied
             }
         }
 
     private:
-        /**
-         * An intrusive list of waiters, which are kept on the stack for the
-         * blocked threads
-         */
-        struct Waiter {
-            template <typename C>
-            explicit Waiter(C&& condition_in)
-                    : condition{std::forward<C>(condition_in)} {}
+        template <typename Proxy, typename WaitList>
+        void notify_chain_impl(Proxy& proxy, WaitList& waiters) {
+            sharp::for_each(waiters, [&](auto& waiter, auto, auto iter) {
+                // if the condition evaluates to true then wake up the thread
+                // set the signalled boolean and erase the thread from the
+                // list of waiters
+                if (waiter->condition(*proxy)) {
+                    waiter->should_wake = true;
+                    waiter->cv.notify_one();
+                    waiters.erase(iter);
+                }
+            });
 
-            bool signalled{false};
-            Condition condition;
-            Cv cv{};
-        };
-        using WaiterNode = sharp::TransparentNode<Waiter>;
-        sharp::TransparentList<Waiter> waiters;
+            // transfer the wait list to the waiter that was woken up
+        }
+
+        std::vector<std::shared_ptr<Waiter>> waiters;
     };
 
     /**
@@ -372,7 +370,7 @@ namespace concurrent_detail {
 
             // notify all waiting threads to wake up if their conditions have
             // evaluated to true before going to sleep
-            this->Super::notify_all(proxy, WriteLockTag{});
+            this->Super::notify_chain(proxy, WriteLockTag{});
 
             // then go to sleep
             this->Super::wait(std::forward<C>(condition), proxy, lck,
@@ -421,7 +419,7 @@ namespace concurrent_detail {
 
     /**
      * An base class that just inherits from ConditionsLockWrap to provide the
-     * wait() and notify_all() functions.
+     * wait() and notify_chain() functions.
      *
      * In the case where the CV is an invalid CV, these are no-ops for notify
      * calls but does not allow users to call wait(), i.e. fails at compile
@@ -435,7 +433,7 @@ namespace concurrent_detail {
     class Conditions<Mutex, InvalidCv, Condition> {
     public:
         template <typename... Args>
-        void notify_all(Args&&...) const {}
+        void notify_chain(Args&&...) const {}
         template <typename Cv = InvalidCv, typename... Args>
         void wait(Args&&...) const {
             // this static assert stops compilation at this point with a

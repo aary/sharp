@@ -151,7 +151,8 @@ private:
      * to a function without going through extreme hardships
      */
     template <typename ConcurrentType, typename>
-    class LockProxy {
+    class LockProxy
+            : public concurrent_detail::LockProxyWaitableBase<LockProxy> {
     public:
 
         /**
