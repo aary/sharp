@@ -150,7 +150,7 @@ private:
      * the type of the class, so you cannot make it a member variable, pass it
      * to a function without going through extreme hardships
      */
-    template <typename ConcurrentType, typename>
+    template <typename ConcurrentType, typename Tag>
     class LockProxy
             : public concurrent_detail::LockProxyWaitableBase<LockProxy> {
     public:

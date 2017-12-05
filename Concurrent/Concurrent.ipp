@@ -75,7 +75,7 @@ void Concurrent<Type, Mutex, Cv>::template LockProxy<C, LockTag>::unlock()
     // unlock the mutex and go into a null state
     if (this->instance_ptr) {
         // Wake threads if possible
-        this->notify_chain(LockTag{});
+        this->instance_ptr->notify_chain(*this);
 
         // unlock the mutex, the actual signalling will happen on destruction
         // of the raii object
