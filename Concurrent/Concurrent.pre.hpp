@@ -142,37 +142,16 @@ namespace concurrent_detail {
     /**
      * @class LockProxyWaitableBase
      *
-     * A CRTP base class
-     * A lock proxy class that contains a list of waiters the lock might be
-     * responsible for.  This is useful for conditional critical sections and
-     * is an optimization that helps prevent thundering herds, reference the
-     * implementation or sketch of the implementation below
+     * A lock proxy class base that contains a list of waiters the lock might
+     * be responsible for.  This is useful for conditional critical sections
+     * and is an optimization that helps prevent thundering herds, reference
+     * the implementation or sketch of the implementation below
      */
     template <typename LockProxy,
               std::enable_if_t<InstantiatedWithValidCv<LockProxy>>* = nullptr>
-    class LockProxyWaitableBase
-            : public sharp::Crtp<LockProxyWaitableBase<LockProxy>> {
+    class LockProxyWaitableBase {
     public:
-        template <typename Func>
-        void with_waiters(Func&& func) {
-            std::forward<Func>(func)(waiters);
-        }
-
-        template <typename Waiters, typename Lock>
-        void if_leader_transfer_waiters_to(Waiters& waiters, Lock lock) {
-            // avoid locking when there is nothing to transfer
-            if (is_leader && !waiters.empty()) {
-                auto lck = lock();
-                static_cast<void>(lck);
-
-                std::copy(std::make_move_iterator(this->waiters.begin()),
-                        std::make_move_iterator(this->waiters.end()),
-                        std::back_inserter(waiters));
-            }
-        }
-
         std::vector<std::shared_ptr<Waiter<Condition, Cv>>> waiters;
-        bool is_leader{false};
     };
     template <typename LockProxy,
               std::enable_if_t<InstantiatedWithValidCv<LockProxy>>* = nullptr>
@@ -263,61 +242,79 @@ namespace concurrent_detail {
     public:
 
         /**
-         * This function should always be called under a write lock before the
-         * unlock has been made so that an extra mutex can be avoided when
-         * notifying threads
+         * This function is used by the top level conditions to wake up
+         * threads before unlocking their mutex
+         */
+        /**
+         * The reader specialization does not touch the central wait queue.
+         * It operates exclusively on it's own local wait queue.  This helps
+         * reduce contention with other read threads that are in the wait()
+         * call trying to access the central wait queue
+         */
+        template <typename LockProxy, typename Lock>
+        void notify_chain(LockProxy& proxy, ReadLockTag, Lock lock) {
+            // try and wake up waiters from the local list in proxy
+            auto waiter = wake_one(proxy, proxy.waiters);
+
+            // a read thread should not be waking up a reader after unlocking
+            // as it should already have been woken up if its condition was
+            // satisfied when the reader woke up
+            assert(!waiter.is_reader);
+        }
+
+        /**
+         * Notifies a thread off either the local wait queue or from the
+         * global wait queue.  Specifically this does the following
+         *
+         *  1. Goes through the local wait queue and tries to find someone to
+         *     signal, if found someone then hands off the lcoal wait queue to
+         *     that waiter and returns
+         *  2. if this is a write thread then also looks in the central wait
+         *     queue for a waiter to wake up.  And transfers the local wait
+         *     queue back to the central wait queue
+         *  3. If there are waiters in the proxy that the thread is
+         *     responsible for still, then empty those into the central wait
+         *     queue, in the case of readers only the leader should have
+         *     threads in the local wait queue
          */
         template <typename LockProxy, typename LockTag, typename Lock>
         void notify_chain(LockProxy& proxy, LockTag, Lock lock) {
 
-            auto waiter = std::shared_ptr<Waiter<Condition, Cv>>{};
-            auto proxy_waiters = decltype(this->waiters){};
+            // try and wake up waiters from the local list in proxy
+            auto waiter = wake_one(proxy, proxy.waiters);
 
-            proxy.with_waiters([this, &](auto& waiters) {
-                // first try and notify the threads that this particular
-                // thread has the responsibility of waking
-                auto woken = this->wake_one(proxy, waiters, WriteLockTag{})
+            // if the attempt was successful then append the proxy's wait list
+            // to the back of the woken waiter
+            if (waiter) {
+                assert(waiter.waiters.empty());
+                waiter.waiters = std::move(proxy.waiters);
+                return;
+            }
 
-                // if the attempt was successful then append the wait list to
-                // the back of the woken waiter, else put it in the
-                // proxy_waiters list to be either handed off to the next
-                // woken waiter or put back in the global wait queue
-                if (woken) {
-                    assert(woken.waiters.empty());
-                    woken.waiters = std::move(waiters);
-                    waiter = std::move(woken);
-                } else {
-                    proxy_waiters = std::move(waiters);
-                }
-            });
-
-            // if a waiter was woken up then do nothing more and return,
-            if (waiter) { return; }
-
-            // try and wake someone from the central list of waiters, and if
-            // that was successful, append the central list to the back of the
-            // woken waiter, if not then append the current list to the
-            // central list and return
+            // at this point try and wake someone up from the central list if
+            // this is a write thread
             if (std::is_same<LockTag, WriteLockTag>::value) {
-                waiter = this->wake_one(proxy, this->waiters, LockTag{});
+                auto waiter = wake_one(proxy, this->waiters);
+
+                // if could wake someone up then transfer the central wait
+                // list to the back of that thread
                 if (waiter) {
                     assert(waiter.waiters.empty());
                     waiter.waiters = std::move(this->waiters);
-                    this->waiters = std::move(proxy_waiters);
-                } else {
-                    if (!proxy_waiters.empty()) {
-                        std::copy(
-                                std::make_move_iterator(proxy_waiters.begin()),
-                                std::make_move_iterator(proxy_waiters.end()),
-                                std::back_inserter(this->waiters));
-                    }
+                    this->waiters = std::move(proxy.waiters);
+                    return;
                 }
             }
 
-            // else just transfer the list of waiters back to the central wait
-            // queue
-            else {
-                proxy.if_leader_transfer_waiters_to(this->waiters, lock);
+            // else transfer the list of waiters from the proxy to the central
+            // wait list under a lock if this is a reader
+            if (!proxy.waiters.empty()) {
+                auto lck = lock();
+                static_cast<void>(lck);
+
+                std::copy(std::make_move_iterator(proxy.waiters.begin()),
+                        std::make_move_iterator(proxy.waiters.end()),
+                        std::back_inserter(this->waiters));
             }
         }
 
@@ -358,7 +355,7 @@ namespace concurrent_detail {
             // if the condition is not true then this thread should set itself
             // up to go on the wait queue
             auto waiter = std::make_shared<Waiter<Condition, Cv>>(
-                    false, condition);
+                    std::is_same<LockTag, ReadLockTag>::value, condition);
 
             // acquire the lock around the internal bookkeeping.  Note that
             // this is a no-op when wait() is called from an exclusive lock,
@@ -397,7 +394,8 @@ namespace concurrent_detail {
                 // list
                 if (condition(*proxy)) {
                     // go through the list of threads that you might have
-                    // responsibility for and signal them
+                    // responsibility for and signal them also if this is a
+                    // read thread
                     return;
                 } else {
                 }
@@ -406,15 +404,9 @@ namespace concurrent_detail {
 
     private:
 
-        template <typename Proxy, typename WaitList, typename LockTag>
-        auto /* shared_ptr<Waiter<>> */ wake_one(
-                Proxy& proxy, WaitList& waiters, LockTag) {
-
-            // if a read thread called this then don't do anything, leader
-            // read threads call this with a WriteLockTag
-            if (std::is_same<LockTag, ReadLockTag>::value) {
-                return std::shared_ptr<Waiter<Condition, Cv>>{};
-            }
+        template <typename Proxy, typename Waiters>
+        static auto /* shared_ptr<Waiter<>> */ wake_one(
+                Proxy& proxy, Waiters& waiters) {
 
             // iterate throught the given list and wake one waiter if possible
             for (auto iter = waiters.begin(); iter != waiters.end(); ++iter) {
@@ -432,6 +424,53 @@ namespace concurrent_detail {
 
             // return a null pointer indicating that nobody was woken up
             return std::shared_ptr<Waiter<Condition, Cv>>{};
+        }
+
+        /**
+         * Wakes all the read threads in the wait queue passed, here the
+         * read thread doing the waking can not modify the should_wake
+         * variable, as that should only be touched by a write thread that
+         * does the waking.  If the leader read thread were doing the waking
+         * then there would be 2 problems - 1) the should_wake variable would
+         * not be thread safe to access through many read threads (if say a
+         * read thread spuriously wakes up) and 2) there might be ordering
+         * problems that lead to a read thread never waking up because it
+         * might wake up, see that the should_wake boolean is false, and then
+         * go back to sleep (in the middle the update might come in)
+         */
+        template <typename Proxy, typename Waiters>
+        static void wake_all(Proxy& proxy, Waiters& waiters) {
+            auto other_waiters = Waiters{};
+            for (auto& waiter : waiters) {
+                if (waiter->condition(*proxy)) {
+                    waiter->cv.notify_one();
+                } else {
+                    other_waiters.push_back(std::move(waiter));
+                }
+            }
+            waiters = std::move(other_waiters);
+        }
+
+        /**
+         * Fake wake readers in the wait list for which the condition is now
+         * true
+         */
+        template <typename Proxy, typename Waiters>
+        void half_wake_readers(Proxy& proxy, Waiters& waiters) {
+            auto other_waiters = Waiters{};
+            auto woken_readers = Waiters{};
+
+            for (auto& waiter : waiters) {
+                if (waiter->is_reader && waiter->condition(*proxy)) {
+                    waiter->should_wake = true;
+                    woken_readers.push_back(std::move(waiter));
+                } else {
+                    other_waiters.push_back(std::move(waiter));
+                }
+            }
+
+            waiters = std::move(other_waiters);
+            return woken_readers;
         }
 
         std::vector<std::shared_ptr<Waiter>> waiters;
