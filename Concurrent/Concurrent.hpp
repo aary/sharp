@@ -233,6 +233,11 @@ private:
         template <typename, typename, typename, bool>
         friend class concurrent_detail::ConditionsLockWrap;
 
+        /**
+         * Leaders go through the wait list and try to wake up a waiter if
+         * they can
+         */
+        bool is_leader{std::is_same<Tag, WriteLockTag>::value};
     private:
         /**
          * Constructor locks the mutex
