@@ -42,7 +42,6 @@ namespace concurrent_detail {
     void unlock_mutex(Mutex& mtx, WriteLockTag) {
         mtx.unlock();
     }
-
 } // namespace concurrent_detail
 
 /**
