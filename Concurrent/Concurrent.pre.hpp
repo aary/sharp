@@ -230,7 +230,7 @@ namespace concurrent_detail {
      * the threads later on if the condition becomes true, so it needs to
      * acquire the lock on the global wait queue and put the waiters back
      */
-    template <typename Condition, typename Cv>
+    template <typename Condition, typename Mutex, typename Cv>
     class ConditionsImpl {
     public:
 
@@ -371,8 +371,8 @@ namespace concurrent_detail {
             }
         }
 
-        using WaiterNode = TransparentNode<Waiter<Condition, Cv>>;
-        TransparentList<Waiter<Condition, Cv>> waiters;
+        using WaiterNode = TransparentNode<Waiter<Condition, Mutex, Cv>>;
+        TransparentList<Waiter<Condition, Mutex, Cv>> waiters;
     };
 
     /**
@@ -380,19 +380,18 @@ namespace concurrent_detail {
      * synchronization is needed to put the thread to sleep
      */
     template <typename Condition>
-    class ConditionsLockWrap<std::mutex, std::condition_variable, Condition>
-            : public ConditionsImpl<Condition, Cv> {
+    class ConditionsLockWrap<std::mutex, std::condition_variable, Condition,
+                             false>
+            : public ConditionsImpl<Condition, std::mutex,
+                                    std::condition_variable> {
     public:
-        using Super = ConditionsImpl<Condition, Cv>;
-
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
-            // construct a unique_lock from the already locked mutex without
-            // making it acquire ownership of the mutex
-            auto lck = std::unique_lock<Mutex>{proxy.instance_ptr->mtx,
-                std::defer_lock};
-            auto deferred = sharp::defer([&]() { lck.release(); });
-            this->Super::wait_impl(std::forward<C>(condition), proxy, lck);
+            auto& mtx = proxy->instance_ptr->mtx;
+            this->wait_impl(std::forward<C>(condition), proxy, mtx,
+                    [&] { mtx.unlock(); }, [&] { mtx.lock(); },
+                    [&] {}, [&] {},
+                    WriteLockTag{});
         }
     };
 
@@ -412,8 +411,6 @@ namespace concurrent_detail {
     class ConditionsLockWrap<Mutex, Cv, Condition, true>
             : public ConditionsLockWrap<Mutex, Cv, Condition, false> {
     public:
-        using Super = ConditionsImpl<Condition, Cv>;
-
         /**
          * The implementation of wait when called under a read lock, this will
          * have to acquire a lock on the bookkeeping struct before adding
@@ -421,18 +418,14 @@ namespace concurrent_detail {
          */
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, ReadLockTag) {
-            // construct a shared unique lock to wait on but then release the
-            // lock before returning to user code
-            auto lck = sharp::UniqueLock<Mutex, sharp::SharedLock>{
-                proxy.instance_ptr->mtx, std::adopt_lock};
-            auto deferred = sharp::defer([&]() { lck.release(); });
-
-            this->Super::wait(std::forward<C>(condition), proxy, lck, [&]() {
-                return sharp::UniqueLock<Mutex>{this->mtx};
-            });
+            auto& mtx = proxy->instance_ptr->mtx;
+            this->wait_impl(std::forward<C>(condition), proxy, mtx,
+                    [&] { mtx.lock_shared(); }, [&] { mtx.unlock_shared(); },
+                    [&] { queue_mtx.lock(); }, [&] { queue_mtx.unlock(); },
+                    ReadLockTag{});
         }
     private:
-        Mutex mtx;
+        Mutex queue_mtx;
     };
 
     /**
