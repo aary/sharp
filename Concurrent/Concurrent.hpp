@@ -113,7 +113,7 @@ namespace sharp {
  */
 template <typename Type,
           typename Mutex = std::mutex,
-          typename Cv = typename concurrent_detail::InvalidCv>
+          typename Cv = typename concurrent_detail::GetCv<Mutex>::type>
 class Concurrent : public concurrent_detail::Conditions<
             Mutex, Cv, sharp::Function<bool(const Type&)>> {
 public:
@@ -151,8 +151,7 @@ private:
      * to a function without going through extreme hardships
      */
     template <typename ConcurrentType, typename Tag>
-    class LockProxy
-            : public concurrent_detail::LockProxyWaitableBase<LockProxy> {
+    class LockProxy {
     public:
 
         /**
@@ -237,7 +236,7 @@ private:
          * Leaders go through the wait list and try to wake up a waiter if
          * they can
          */
-        bool is_leader{std::is_same<Tag, WriteLockTag>::value};
+        bool is_leader{std::is_same<Tag, concurrent_detail::WriteLockTag>{}};
     private:
         /**
          * Constructor locks the mutex

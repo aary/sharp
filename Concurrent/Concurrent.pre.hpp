@@ -89,7 +89,6 @@ namespace concurrent_detail {
      */
     template <typename LockProxy>
     constexpr const auto InstantiatedWithValidCv = false;
-    {};
     template <template <typename...> class LockProxy,
               typename Type, typename Mutex>
     constexpr const auto
@@ -119,7 +118,7 @@ namespace concurrent_detail {
         }
         template <typename F>
         void notify(F f = [](){}) {
-            mtx.lock();
+            auto lck = std::unique_lock<std::mutex>{this->mtx};
             this->should_wake = true;
             f();
             cv.notify_one();
@@ -163,7 +162,7 @@ namespace concurrent_detail {
         template <typename C>
         Waiter(bool is_reader_in, bool is_leader_in, C&& condition_in)
             : is_reader{is_reader_in}, is_leader{is_leader_in},
-              condition{std::forward<C>(condition_in)}
+              condition{std::forward<C>(condition_in)} {}
 
         const bool is_reader;
         bool is_leader;
@@ -230,14 +229,15 @@ namespace concurrent_detail {
      * the threads later on if the condition becomes true, so it needs to
      * acquire the lock on the global wait queue and put the waiters back
      */
-    template <typename Condition, typename Mutex, typename Cv>
+    template <typename Mutex, typename Cv, typename Condition>
     class ConditionsImpl {
     public:
 
         template <typename LockProxy, typename LockQueue, typename UnlockQueue,
                   typename LockTag>
-        void notify(LockProxy& proxy,
-                    LockQueue lock_queue, UnlockQueue unlock_queue, LockTag) {
+        void notify_impl(LockProxy& proxy,
+                         LockQueue lock_queue, UnlockQueue unlock_queue,
+                         LockTag) {
             // if this is a writer or lead reader then try and wake someone up
             // from the wait queue, lead readers should not be able to wake up
             // a reader from the wait list because they should have already
@@ -249,6 +249,7 @@ namespace concurrent_detail {
                 for (auto it = this->waiters.begin();
                      it != this->watiers.end();) {
                     if (it->datum.condition(*proxy)) {
+                        assert(!it->datum.is_reader);
                         it->notify();
                         this->waiters.erase(it);
                     }
@@ -286,7 +287,7 @@ namespace concurrent_detail {
                 lock_queue();
                 waiter.datum.lock();
                 waiter.datum.is_leader = std::is_same<LockTag, WriteLockTag>{};
-                this->notify(proxy, LockTag{});
+                this->notify_impl(proxy, []{}, []{}, LockTag{});
                 waiters.push_back(&waiter);
 
                 // unlock the mutex and the queue mutex and prepare to sleep,
@@ -332,6 +333,7 @@ namespace concurrent_detail {
          *          1. Chain wakeups to other readers
          *          2. If the reader is the leader and the condition is not
          *             satisfied, then wake up other readers
+         *      2. if the current thread is a writer, then it must be a leader
          */
         template <typename Proxy, typename Waiter,
                   typename LockQueue, typename UnlockQueue, typename LockTag>
@@ -358,6 +360,8 @@ namespace concurrent_detail {
                             if (!has_transferred_baton && !should_return) {
                                 i->datum.is_leader = true;
                                 has_transferred_baton = true;
+                                proxy.is_leader = false;
+                                waiter.is_leader = false;
                             } else {
                                 i->datum.is_leader = false;
                             }
@@ -379,12 +383,17 @@ namespace concurrent_detail {
      * A specialization for when std::mutex is used, no additional
      * synchronization is needed to put the thread to sleep
      */
-    template <typename Condition>
-    class ConditionsLockWrap<std::mutex, std::condition_variable, Condition,
-                             false>
-            : public ConditionsImpl<Condition, std::mutex,
-                                    std::condition_variable> {
+    template <typename, typename, typename, bool>
+    class ConditionsLockWrap;
+    template <typename Mutex, typename Cv, typename Condition>
+    class ConditionsLockWrap<Mutex, Cv, Condition, false>
+            : public ConditionsImpl<Condition, Mutex, Cv> {
     public:
+        template <typename LockProxy>
+        void notify(LockProxy& proxy, WriteLockTag) {
+            this->notify_impl(proxy, []{}, []{}, WriteLockTag{});
+        }
+
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
             auto& mtx = proxy->instance_ptr->mtx;
@@ -411,11 +420,11 @@ namespace concurrent_detail {
     class ConditionsLockWrap<Mutex, Cv, Condition, true>
             : public ConditionsLockWrap<Mutex, Cv, Condition, false> {
     public:
-        /**
-         * The implementation of wait when called under a read lock, this will
-         * have to acquire a lock on the bookkeeping struct before adding
-         * itself to the wait queue if it does add itself to the wait queue
-         */
+        template <typename LockProxy>
+        void notify(LockProxy& proxy, ReadLockTag) {
+            this->notify_impl(proxy, []{}, []{}, ReadLockTag{});
+        }
+
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, ReadLockTag) {
             auto& mtx = proxy->instance_ptr->mtx;
@@ -430,7 +439,7 @@ namespace concurrent_detail {
 
     /**
      * An base class that just inherits from ConditionsLockWrap to provide the
-     * wait() and notify_chain() functions.
+     * wait() and notify() functions.
      *
      * In the case where the CV is an invalid CV, these are no-ops for notify
      * calls but does not allow users to call wait(), i.e. fails at compile
@@ -444,7 +453,7 @@ namespace concurrent_detail {
     class Conditions<Mutex, InvalidCv, Condition> {
     public:
         template <typename... Args>
-        void notify_chain(Args&&...) const {}
+        void notify(Args&&...) const {}
         template <typename Cv = InvalidCv, typename... Args>
         void wait(Args&&...) const {
             // this static assert stops compilation at this point with a
