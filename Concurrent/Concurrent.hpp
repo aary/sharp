@@ -113,7 +113,7 @@ namespace sharp {
  */
 template <typename Type,
           typename Mutex = std::mutex,
-          typename Cv = typename concurrent_detail::GetCv<Mutex>::type>
+          typename Cv = typename concurrent_detail::InvalidCv>
 class Concurrent : public concurrent_detail::Conditions<
             Mutex, Cv, sharp::Function<bool(const Type&)>> {
 public:

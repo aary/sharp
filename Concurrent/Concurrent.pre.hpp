@@ -42,10 +42,10 @@ namespace concurrent_detail {
      * A value trait using the above SFINAE void_t<> expression
      */
     template <typename Mutex, typename = sharp::void_t<>>
-    class IsSharedLockable : public std::integral_constant<bool, false> {};
+    class IsSharedLockable : public std::false_type {};
     template <typename Mutex>
     class IsSharedLockable<Mutex, EnableIfIsSharedLockable<Mutex>>
-            : public std::integral_constant<bool, true> {};
+            : public std::true_type {};
 
     /**
      * Tags to determine which locking policy is considered.
@@ -77,25 +77,10 @@ namespace concurrent_detail {
     struct ReadLockTag : public WriteLockTag {};
 
     /**
-     * @class GetCv
-     *
-     * Contains a mapping of mutex to the cv that goes along with it, if a
-     * mapping is not found here then it needs to be manually specified in the
-     * declaration of the Concurrent object, else compilation will fail when a
-     * user tries to call wait() on a lock proxy
-     */
-    /**
-     * An invalid cv type
+     * An invalid cv type, signals that the user does not want the ability to
+     * sleep
      */
     class InvalidCv {};
-    template <typename Mutex>
-    struct GetCv {
-        using type = InvalidCv;
-    };
-    template <>
-    struct GetCv<std::mutex> {
-        using type = std::condition_variable;
-    };
 
     /**
      * A SFINAE trait for enabling a specialization when the class is
@@ -109,6 +94,21 @@ namespace concurrent_detail {
               typename Type, typename Mutex>
     constexpr const auto
     InstantiatedWithValidCv<LockProxy<Type, Mutex, InvalidCv>> = true;
+
+    /**
+     * @class LockProxyWaitableBase
+     *
+     * Lock proxies are a convenient place to store thread local information,
+     * so store the list of waiters readers are resonsible for in the lock
+     * proxies themselves.  Reference the implementation of waiting below
+     */
+    template <typename LockProxy>
+    class LockProxyWaitableBase {
+        TransparentList<
+    };
+    template <typename LockProxy,
+              std::enable_if_t<!InstantiatedWithValidCv<LockProxy>>* = nullptr>
+    class LockProxyWaitableBase<InvalidCv> {};
 
     /**
      * @class Waiter
@@ -129,32 +129,7 @@ namespace concurrent_detail {
         bool is_reader;
         Condition condition;
         Cv cv{};
-
-        // A list of waiters that the current waiter has responsiblity for,
-        // this might contain only other readsrs that the current thread has
-        // to signal when it wakes up because the current thread is the lead
-        // reader or it contains the entire list of waiters that should be
-        // transferred to the lock proxy for checking and passing on when the
-        // lock is unlocked
-        std::vector<std::shared_ptr<Waiter>> waiters;
     };
-
-    /**
-     * @class LockProxyWaitableBase
-     *
-     * Lock proxies are a convenient place to store thread local information,
-     * so store the list of waiters readers are resonsible for in the lock
-     * proxies themselves.  Reference the implementation of waiting below
-     */
-    template <typename LockProxy,
-              std::enable_if_t<InstantiatedWithValidCv<LockProxy>>* = nullptr>
-    class LockProxyWaitableBase {
-    public:
-        std::vector<std::shared_ptr<Waiter<Condition, Cv>>> waiters;
-    };
-    template <typename LockProxy,
-              std::enable_if_t<!InstantiatedWithValidCv<LockProxy>>* = nullptr>
-    class LockProxyWaitableBase<InvalidCv> {};
 
     /**
      * @class ConditionsImpl
@@ -163,89 +138,58 @@ namespace concurrent_detail {
      * abstracted away from the details of the types of locks the Concurrent
      * instance was instantiated with
      *
-     * It allocates one condition variable per condition on the stack , this
-     * has the benefit of using the standard C++ API to implement waiting and
-     * can be used to minimize thundering herds because this gives precise
-     * control of the lifetimes of the threads
+     * This class uses the standard C++ API to implement sleeping and waking
+     * up as needed.  This has the benefit of being a standard implementation
+     * and utilizes properties of standard monitor implementations to make the
+     * implementation more efficient.  Each waiter is allocated one condition
+     * variable, this allows us to pick and chose which thread to wake up
      *
-     * This class protects the waiter list using a mutex since the conditions
-     * can be accessed concurrently when the concurrent class is operating on
-     * a reader writer lock.  If however the concurrent class was initialized
-     * with an exclusive mutex then the condition maps are by default
-     * protected by the mutex, so this class does not even contain a mutex for
-     * bookkeeping, saving size bloat on instances of the Concurrent class
+     * Each waiter is stored on the stack and then in an intrusive list to
+     * prevent inefficient allocations with each wait.  When the
+     * implementation used is not an exclusive mutex only, the wait list
+     * itself is protected with a mutex to prevent data races when readers
+     * interact with the methods in this class.  If however the implementation
+     * does not allow shared locking then the implementation just uses the
+     * mutex itself to sleep
      *
-     * Waiting is done very differently for exclusive lock only mutexes and
-     * mutexes that support shared locking.  Both cases however need to
-     * minimize thundering herds - this is especially possible if an
+     * Waiting is done slightly differently for exclusive lock only mutexes
+     * and mutexes that support shared locking.  Both cases however need to
+     * minimize thundering herds - which is especially possible if an
      * implementation decides to wake readers on a shared mutex with priority
-     * given to writers, the issue gets compounded if readers wake up and all
-     * try and put themselves back on the wait queue, this will cause
-     * additional contention on the mutex protecting the waiter list.  Further
-     * the standard C++ API for waiting on arbitrary lockables does not
-     * support wait morphing with mutexes other than the standard mutex, so
-     * this can introduce additional context switches when the implementation
-     * uses std::condition_variable_any.  The implementation makes an effort
-     * to solve these problems by designating one reader as the leader, and
-     * give the leader the responsibility of waking up other readers when it
-     * wakes up
+     * given to writers.  The readers can all wake up and go back to sleep if
+     * a writer comes in and changes the underlying data so the conditions are
+     * now false.  Further most lock implementations do not go with a
+     * condition variable for sleeping, this can cause problems when used with
+     * std::condition_variable_any like spourious wakeups, lifetime
+     * problems and added context switches.  The implementation tries to solve
+     * these problems by using std::mutex coupled with std::condition_variable
      *
-     * Before unlocking the mutex exclusive lock holders go through the wait
-     * list to find a waiter for which the condition is now true (after a
-     * write operation), upon finding such a waiter the lock holder the lock
-     * holder can do one of two things before signalling the waiter, either it
-     * just wakes up the waiter if the waiter is a write thread or it goes
-     * through the rest of the list and transfers over the waiters that have
-     * their condition set to true to the waiter's thread local cache.  This
-     * transfer of ownership to the woken thread helps in two ways - it helps
-     * minimize thundering herds by avoiding broadcasting and therefore
-     * thundering herds by signalling only one thread and helps minimize lock
-     * contention when a thread is successfully woken up.  Also for simplicity
-     * signalling is done before unlocking, this relies on the fact that most
-     * modern implementations of monitors have wait morphing.  Sane
-     * implementations should then give priority to a thread which has been
-     * transferred into a mutexes wait queue via wait morphing to help achieve
-     * more deterministic ordering (i.e.  avoid other non waiting threads from
-     * coming in and snooping away the lock, causing unnecesary context
-     * switches).
+     * When a write lock unlocks the mutex it goes through the wait list to
+     * see if there are other readers it can wake up, and if it is able to
+     * find such a waiter, it signals that waiter to wake up, the waiter then
+     * pulls itself off the wait queue when it wakes up
      *
-     * With reads the implementation gets slightly more tricky, because now
-     * the implementation has to deal with another source for possible
-     * thundering heards and lifetime issues, read threads that have not been
-     * signalled can wake up at any time when other readers are active, see
-     * that their condition is true and proceed to drop the condition variable
-     * they were waiting for, now when threads signal this waiter they might
-     * be accessing destroyed data.  To deal with this the implementation
-     * abstracts the wait state away in a shared_ptr<> so all threads with
-     * references to the wait state access valid state
+     * In the case of readers, only one reader is woken up and the rest of the
+     * wait list is chained to the reader.  This helps reduce thundering herd
+     * situations with reader writer locks and minimizes contention on the
+     * additional mutex during unlock time - when a reader might have the
+     * responsibility of waking up others.  On waking up the reader will then
+     * make sure that it signals everyone it can before going to sleep or
+     * returning from the wait function, if it is going back to sleep then it
+     * will pass on the baton of being the leader to another reader.  All this
+     * assumes wait morphing for efficient signalling
      *
-     * Read threads don't iterate through the wait queue when they wake up
-     * because they don't have the ability to change the internal state.  So
-     * any thread waiting for a state change should always still see the state
-     * remain the same as before.  When write threads wake readers they do two
-     * things - 1) they iterate through the rest of the wait queue and half
-     * signal to the any other readers that might have to wake up (except for
-     * the first read thread signalled, that one is signalled completely), by
-     * not actually signalling but only modifying the data representing the
-     * wake state to show that they can wake up, this helps reduce thundering
-     * herd situations and is required because readers can themselves wake up
-     * at any time when other readers are active spuriously and proceed to
-     * read their internal bookkeeping, this makes it impossible to modify
-     * this bookkeeping concurrently in some other read thread without more
-     * synchronization. This establishes one reader as sort of a "leader".
-     * 2) they then transfer the rest of the wait queue which have it's
-     * conditions to true to the woken reader, the reader then wakes up and if
-     * the reader is able to acquire the lock it checks to see if the
-     * condition it was waiting on is still valid and if so, it proceeds to go
-     * through the wait queue and wake up readers for which the condition is
-     * true, eliminating them from the wait queue as it goes.  If some readers
-     * are now at a state where the condition is no longer true, the lead
-     * reader puts them back in the regular wait queue under a lock in a
-     * batch, this is safe because there is only one lead reader, the rest of
-     * the readers don't have anything to do with the wait queue, and other
-     * readers don't access the wait queue when they go out of scope, neither
-     * do they access any shared state if/when they wake up spuriously, this
-     * reduces both lock contention and thundering herds
+     * In the fast path read threads also do not iterate through the rest of
+     * the global wait queue when they wake up, as they do not have the
+     * ability to change any global state.  The fast path here being when
+     * either the read thread does not have the responsibility for other
+     * threads or when another thread is in the state where it can wake up, in
+     * which case the read thread transfers the rest of the wait list that it
+     * is responsible for over to the woken thread.  In the slow path - where
+     * the reader is not able to wake anyone up from the list of waiters it
+     * has the responsiblity for, it has to make sure someone else can wake up
+     * the threads later on if the condition becomes true, so it needs to
+     * acquire the lock on the global wait queue and put the waiters back
      */
     template <typename Condition, typename Cv>
     class ConditionsImpl {
@@ -255,235 +199,72 @@ namespace concurrent_detail {
          * This function is used by the top level conditions to wake up
          * threads before unlocking their mutex
          */
-        /**
-         * The reader specialization does not touch the central wait queue.
-         * It operates exclusively on it's own local wait queue.  This helps
-         * reduce contention with other read threads that are in the wait()
-         * call trying to access the central wait queue
-         */
-        template <typename LockProxy, typename Lock>
-        void notify_chain(LockProxy& proxy, ReadLockTag, Lock lock) {
-            // do nothing if the waiters list is empty, read locks should not
-            // touch the global wait queue
-            if (proxy.waiters.empty()) { return; }
-
-            // try and wake up waiters from the local list in proxy
-            auto waiter = wake_one(proxy, proxy.waiters);
-
-            // if successful then transfer the waiter list over to the woken
-            // thread, else grab a lock and put the waiters back in the global
-            // wait queue
-            if (waiter) {
-                // the woken thread cannot be a reader because all readers
-                // with valid conditions should already have been woken up
-                assert(!waiter->is_reader);
-                assert(waiter->waiters.empty());
-                waiter->waiters = std::move(proxy.waiters);
-            } else {
-                auto lck = lock();
-                static_cast<void>(lck);
-                for (auto& ptr : proxy.waiters) {
-                    this->waiters.push_back(std::move(ptr));
-                }
-            }
-        }
-        template <typename LockProxy, typename Lock>
-        void notify_chain(LockProxy& proxy, WriteLockTag, Lock) {
-            // write locks should only operate on the global wait queue for
-            // simplicitly, since access to internal stuff with write locks is
-            // synchronized
-            assert(proxy.waiters.empty());
-
-            auto waiter = wake_one(proxy, this->waiters);
-
-            // if could not wake anyone then return, this thread cannot do
-            // anything else
-            if (!waiter) {
-                return;
-            }
-
-            // if the waiter is a reader then transfer the list of things that
-            // also have their condition set to true to the waiter.  This
-            // makes the waiter responsible for those waiters.  The woken
-            // waiter is now the lead reader and will wake the others up if
-            // their conditions are satisfied by the time it is able to
-            // actually grab the lock, and will otherwise put the read threads
-            // that are invalid back in the global wait queue
-            //
-            // Along with just transferring the list of things that the reader
-            // is responsible for, this also needs to set the variable
-            // incicating that the read thread has been woken up in the
-            // transferred threads, this is needed to prevent against race
-            // conditions when other readers (not just the lead reader) wake
-            // up spuriously.  The lead reader cannot modify state in other
-            // readers because they might wake up spuriously
-            if (waiter->is_reader) {
-                auto others = half_wake_and_link(proxy, this->waiters,
-                        WriteLockTag{});
-                assert(waiter->waiters.empty());
-                waiter->waiters = std::move(others);
-            }
+        template <typename LockProxy, typename LockQueue, typename UnlockQueue,
+                  typename LockTag>
+        void notify(LockProxy& proxy
+                    LockQueue lock_queue, UnlockQueue unlock_queue, LockTag) {
+            // first look in the local wait queue and try and wake someone up
+            for (auto waiter : proxy.waiters) {}
         }
 
-    protected:
         /**
          * The wait() function puts the current thread to sleep until the
          * condition is satisfied by the writes done by another thread
          */
-        /**
-         * Write threads go to sleep if the condition is not satisfied, on
-         * waking up they first transfer the list of waiters that they might
-         * have in the thread local store back to the global list.  Then they
-         * check to see if the condition is satisfied, if so they return, if
-         * not they proceed to go through the list of waitiers to wake up a
-         * waiter if possible
-         */
-        template <typename C, typename LockProxy, typename Mtx, typename Lock>
-        void wait(C condition, LockProxy& proxy, Mtx& m, Lock, WriteLockTag) {
+        template <typename C, typename LockProxy, typename Mtx,
+                  typename Lock, typename Unlock,
+                  typename LockQueue, typename UnlockQueue,
+                  typename LockTag>
+        void wait_impl(C condition, LockProxy& proxy,
+                       Mtx& queue_mutex,
+                       Lock lock, Unlock unlock,
+                       LockQueue lock_queue, UnlockQueue unlock_queue,
+                       LockTag) {
             // if the condition is satisfied already at this point then return
             if (condition(*proxy)) {
                 return;
             }
 
-            // if not then time to wait
-            auto waiter = std::make_shared<Waiter<Condition, Cv>>(false,
-                    condition);
-
-            while (!condition(*proxy)) {
-                // notify others before going to sleep
-                this->notify_chain(proxy, WriteLockTag);
-
-                // then go to sleep
-                waiter->should_wake = false;
-                this->waiters.push_back(waiter);
-                while (!waiter->should_wake) {
-                    waiter->cv.wait(m);
-                }
-
-                // when woken up transfer the wait list back to the global
-                // wait list if one has been transferred over via a reader
-                for (auto& waiter : waiter->waiters) {
-                    this->waiters.push_back(waiter);
-                }
-
-                // then if the condition is satisfied, return, else go through
-                // the process again
-                if (condition(*proxy)) {
-                    break;
-                }
-            }
-        }
-        /**
-         * The implementation is slightly different for read threads because
-         * they are not just responsible for themselves but also for other
-         * readers when waking up
-         *
-         * The reader when waking up has to go through and wake up all the
-         * readers that it is responsible for.  Then they either put
-         * themselves back to sleep or they go on and return from wait based
-         * on whether their condition is true or not
-         *
-         * Then there are two tricky cases to consider - The first case is
-         * when the current reader is a lead reader (i.e.  it doesn't have an
-         * empty waiters list) and the condition is true.  In this case the
-         * reader carries on as normal and tries to wake up a writer from the
-         * wait queue when it releases the lock.  All the readers should have
-         * been purged from the thread local wait queue by now, see paragraph
-         * above.  The second case is when the reader is a lead reader and the
-         * current lead reader's condition is false.  This is bad, and might
-         * introduce contention on the lock because now the reader has no
-         * choice but to go through the list wake up a writer if possible and
-         * go back to sleep
-         */
-
-        /**
-         * This function waits for the given condition using the given proxy
-         * lock.  This assumes that the lock is already held when the wait
-         * function is called
-         *
-         * The lock function should construct a RAII lock object that locks
-         * the internal condition bookkeeping if required.  This is not
-         * required for example if the wait() function is called while holding
-         * a write lock on the Concurrent object, since only one thread can
-         * call wait() at a time and cannot be called concurrently from many
-         * threads.  It is required however when many reader threads can call
-         * wait() concurrently
-         *
-         * A reference to the underlying mutex should also be passed so that
-         * wait() can be called on the condition variable for the condition by
-         * waiting on that mutex
-         */
-        template <typename C, typename LockProxy, typename Mtx, typename Lock>
-        void wait(C condition, LockProxy& proxy, Mtx& m, Lock lock, LockTag) {
-            // this can only be called if at least a read lock is held on the
-            // underlying data item of the concurrent data so no extra
-            // synchronization needed when accessing the data and passing to a
-            // function that accepts it by const reference
-            //
-            // Just check for the condition if the condition returns true then
-            // short circuit and return
-            //
-            // This is done outside so that constructions of expensive function
-            // objects can be avoided and done only once if this fails
-            if (condition(*proxy)) {
-                return;
-            }
-
-            // if the condition is not true then this thread should set itself
-            // up to go on the wait queue
-            auto waiter = std::make_shared<Waiter<Condition, Cv>>(
-                    std::is_same<LockTag, ReadLockTag>::value, condition);
-
-            // acquire the lock around the internal bookkeeping.  Note that
-            // this is a no-op when wait() is called from an exclusive lock,
-            // in that case the bookkeeping is already protected by the
-            // exclusive lock
-            {
-                auto lck = lock();
-                static_cast<void>(lck);
-
-                // add the node to the list of waiters
-                this->waiters.push_back(waiter);
-            }
+            // otherwise make a wait node and prepare to sleep
+            auto&& waiter = WaiterNode{false, condition};
 
             while (true) {
-                // wait for another thread to signal the current thread, if
-                // this thread wakes up without any other thread waking it up
-                // (through a spurious wakeup) then no further action is
-                // needed because it is already safe on the wait queue waiting
-                // to be woken up
-                while (!waiter->should_wake) {
-                    waiter->cv.wait(m);
+                // acquire the lock on the queue, notify others under a lock,
+                // the lock is needed to make sure threads don't miss
+                // notifications
+                lock_queue();
+                this->notify(proxy, LockTag{});
+                waiters.push_back(&waiter);
+
+                // unlock the mutex and prepare to sleep
+                unlock();
+                while (!waiter.datum.should_wake) {
+                    waiter.datum.cv.wait(queue_mutex);
                 }
 
-                // when the thread if woken up check if the condition is true,
-                // if it is then return, because the write thread or leader
-                // read thread that signalled the current thread must have
-                // taken the current waiter off the wait queue
-                //
-                // if not then go through the rest of the threads that you
-                // have ownership for signal them if possible and re-add
-                // yourself to the wait queue, because those threads will not
-                // be touched by anyone else.  Those are now the current
-                // thread's responsibility and either the current thread needs
-                // to pass that responsibility on to another thread that it
-                // might wake or put all those threads back in the global wait
-                // list
+                // the order of unlocking the queue mutex and locking the main
+                // mutex is very important, this is needed to prevent against
+                // deadlocks, because the waking thread will be acquiring the
+                // lock in the reverse order as compared to one going to
+                // sleep, if the queue mutex is not unlocked here
+                unlock_queue();
+                lock();
+
+                // there are some things that need doing when threads wake up,
+                // like chaining reader wake calls, removing yourself from the
+                // wait queue and transferring stale waiters back to the
+                // global wait queue to prevent locking on lock release in
+                // user code
+                this->after_wake(proxy, lock_queue, unlock_queue, LockTag{});
+
+                // if the condition is true now then return
                 if (condition(*proxy)) {
-                    if (std::is_same<LockTag, WriteLockTag>::value) {
-                        for (auto& waiter : proxy.waiters) {
-                            this->waiters.push_back(std::move(waiter));
-                        }
-                        return;
-                    } else {
-                    }
-                } else {
+                    return;
                 }
             }
         }
 
     private:
-
         template <typename Proxy, typename Waiters>
         static auto /* shared_ptr<Waiter<>> */ wake_one(
                 Proxy& proxy, Waiters& waiters) {
@@ -506,95 +287,28 @@ namespace concurrent_detail {
             return std::shared_ptr<Waiter<Condition, Cv>>{};
         }
 
-        /**
-         * Half wakes other readers and returns the list of waiters that the
-         * lead reader is going to be responsible for
-         */
-        template <typename Proxy, typename Waiters, typename Tag>
-        static auto half_wake_and_link(Proxy& proxy, Waiters& waiters, Tag) {
-            static_assert(std::is_same<Tag, WriteLockTag>::value, "");
-
-            // go through the list, half wake the other readers that have
-            // their condition true, and otherwise just erase the waiters that
-            // have their condition true and put it in the list to return
-            auto removed_waiters = Waiters{};
-            auto other_waiters = Waiters{};
-            auto deferred = sharp::defer([this, &]() {
-                this->waiters = std::move(other_waiters);
-            });
-
-            for (auto& waiter : this->waiters) {
-                if (waiter->condition(*proxy)) {
-                    // if the waiter is a reader then half wake it
-                    if (waiter->is_reader) {
-                        waiter->should_wake = true;
-                    }
-                    removed_waiters.push_back(std::move(waiter));
-                } else {
-                    other_waiters.push_back(std::move(waiter));
-                }
-            }
-
-            return removed_waiters;
-        }
-
-        /**
-         * Wakes all the read threads in the wait queue passed, here the
-         * read thread doing the waking can not modify the should_wake
-         * variable, as that should only be touched by a write thread that
-         * does the waking.  If the leader read thread were doing the waking
-         * then there would be 2 problems - 1) the should_wake variable would
-         * not be thread safe to access through many read threads (if say a
-         * read thread spuriously wakes up) and 2) there might be ordering
-         * problems that lead to a read thread never waking up because it
-         * might wake up, see that the should_wake boolean is false, and then
-         * go back to sleep (in the middle the update might come in)
-         */
-        template <typename Proxy, typename Waiters>
-        static auto wake_all(Proxy& proxy, Waiters& waiters) {
-            auto other_waiters = Waiters{};
-            for (auto& waiter : waiters) {
-                if (waiter->condition(*proxy)) {
-                    waiter->cv.notify_one();
-                } else {
-                    other_waiters.push_back(std::move(waiter));
-                }
-            }
-            waiters = std::move(other_waiters);
-        }
-
-        std::vector<std::shared_ptr<Waiter>> waiters;
+        using WaiterNode = TransparentNode<Waiter<Condition, Cv>>;
+        TransparentList<Waiter<Condition, Cv>> waiters;
     };
 
     /**
-     * A specialization of the conditions bookkeeping that does not maintain a
-     * mutex since the lock around the concurrent object will always be in
-     * exclusive mode, so accesses to the bookkeeping will always be
-     * serialized
+     * A specialization for when std::mutex is used, no additional
+     * synchronization is needed to put the thread to sleep
      */
-    template <typename Mutex, typename Cv, typename Condition,
-              bool IsSharedLockable>
-    class ConditionsLockWrap : public ConditionsImpl<Condition, Cv> {
+    template <typename Condition>
+    class ConditionsLockWrap<std::mutex, std::condition_variable, Condition>
+            : public ConditionsImpl<Condition, Cv> {
     public:
         using Super = ConditionsImpl<Condition, Cv>;
 
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
-            // construct a unique lock to wait on it but release it before
-            // returning because the outer lock proxy used in user code should
-            // be the one that handles the unlocking on destruction or manual
-            // unlock
+            // construct a unique_lock from the already locked mutex without
+            // making it acquire ownership of the mutex
             auto lck = std::unique_lock<Mutex>{proxy.instance_ptr->mtx,
-                std::adopt_lock};
+                std::defer_lock};
             auto deferred = sharp::defer([&]() { lck.release(); });
-
-            // notify all waiting threads to wake up if their conditions have
-            // evaluated to true before going to sleep
-            this->Super::notify_chain(proxy, WriteLockTag{});
-
-            // then go to sleep
-            this->Super::wait(std::forward<C>(condition), proxy, lck,
-                    [] { return int{}; });
+            this->Super::wait_impl(std::forward<C>(condition), proxy, lck);
         }
     };
 
@@ -647,8 +361,8 @@ namespace concurrent_detail {
      */
     template <typename Mutex, typename Cv, typename Condition>
     class Conditions
-            : public ConditionsLockWrap<Mutex, Cv, Condition,
-                                        IsSharedLockable<Mutex>::value> {};
+        : public ConditionsLockWrap<Mutex, Cv, Condition,
+                                    IsSharedLockable<Mutex>::value> {};
     template <typename Mutex, typename Condition>
     class Conditions<Mutex, InvalidCv, Condition> {
     public:
