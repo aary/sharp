@@ -23,6 +23,10 @@
 #include <mutex>
 #include <unordered_map>
 #include <cassert>
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 namespace sharp {
 namespace concurrent_detail {
@@ -120,7 +124,7 @@ namespace concurrent_detail {
             auto lck = std::unique_lock<std::mutex>{this->mtx, std::adopt_lock};
             auto deferred = sharp::defer([&]() { lck.release(); });
             while (!this->should_wake) {
-                this->cv.wait(this->mtx);
+                this->cv.wait(lck);
             }
         }
         template <typename F>
@@ -135,27 +139,27 @@ namespace concurrent_detail {
         std::mutex mtx;
         std::condition_variable cv;
     };
-    template <>
-    struct WaiterBase<std::mutex> {
-        void lock() {}
-        void unlock() {}
-        void wait(std::mutex& mtx) {
-            auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
-            auto deferred = sharp::defer([&]() { lck.release(); });
-            while (!this->should_wake) {
-                this->cv.wait(lck);
-            }
-        }
-        template <typename F>
-        void notify(F f = [](){}) {
-            this->should_wake = true;
-            f();
-            cv.notify_one();
-        }
+    // template <>
+    // struct WaiterBase<std::mutex> {
+        // void lock() {}
+        // void unlock() {}
+        // void wait(std::mutex& mtx) {
+            // auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
+            // auto deferred = sharp::defer([&]() { lck.release(); });
+            // while (!this->should_wake) {
+                // this->cv.wait(lck);
+            // }
+        // }
+        // template <typename F>
+        // void notify(F f = [](){}) {
+            // this->should_wake = true;
+            // f();
+            // cv.notify_one();
+        // }
 
-        bool should_wake{false};
-        std::condition_variable cv;
-    };
+        // bool should_wake{false};
+        // std::condition_variable cv;
+    // };
 
     /**
      * @class Waiter
@@ -253,12 +257,14 @@ namespace concurrent_detail {
             auto is_reader = std::is_same<LockTag, ReadLockTag>::value;
             if ((is_reader && proxy.is_leader) || (!is_reader)) {
                 lock_queue();
-                for (auto it = this->waiters.begin();
-                     it != this->waiters.end();) {
+                for (auto it = this->waiters.begin(); it != this->waiters.end();
+                     ++it) {
                     if ((*it)->datum.condition(*proxy)) {
-                        assert(!(*it)->datum.is_reader);
+                        assert(!(is_reader && (*it)->datum.is_reader));
+                        cout << "!!!!! About to notify waiter" << endl;
                         (*it)->datum.notify([]{});
                         this->waiters.erase(it);
+                        break;
                     }
                 }
                 unlock_queue();
@@ -295,15 +301,21 @@ namespace concurrent_detail {
                 waiter.datum.lock();
                 waiter.datum.is_leader = std::is_same<LockTag, WriteLockTag>{};
                 this->notify_impl(proxy, []{}, []{}, LockTag{});
+                cout << "!!!!! about to push back waiter" << endl;
                 waiters.push_back(&waiter);
+                cout << "!!!!! pushed back waiter" << endl;
 
                 // unlock the mutex and the queue mutex and prepare to sleep,
                 // at this point the queue contains the waiter which has not
                 // slept yet, but wakeups will not be missed because the
                 // waiter is synchronized that way
+                cout << "!!!!!! About to unlock normal" << endl;
                 unlock();
+                cout << "!!!!!! About to unlock queue" << endl;
                 unlock_queue();
+                cout << "!!!!!! About to wait on waiter" << endl;
                 waiter.datum.wait(mutex);
+                cout << "!!!!!! Woke up" << endl;
 
                 // the order of unlocking the queue mutex and locking the main
                 // mutex is very important, this is needed to prevent against
@@ -313,7 +325,9 @@ namespace concurrent_detail {
                 proxy.is_leader = waiter.datum.is_leader;
                 waiter.datum.unlock();
                 unlock_queue();
+                cout << "!!!!!! About to acquire lock" << endl;
                 lock();
+                cout << "!!!!!! Acquired lock" << endl;
 
                 // there are some things that need doing when threads wake up,
                 // like chaining reader wake calls, transferring stale waiters
@@ -359,7 +373,8 @@ namespace concurrent_detail {
                 for (auto i = this->waiters.begin();
                      i != this->waiters.end();) {
 
-                    if ((*i)->datum.is_reader && (*i)->datum.condition(*proxy)) {
+                    if ((*i)->datum.is_reader
+                            && (*i)->datum.condition(*proxy)) {
                         // notify the thread to wake up and change the
                         // variables it is associated with while notifying
                         // under lock
@@ -406,7 +421,7 @@ namespace concurrent_detail {
         void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
             auto& mtx = proxy.instance_ptr->mtx;
             this->wait_impl(std::forward<C>(condition), proxy, mtx,
-                    [&] { mtx.unlock(); }, [&] { mtx.lock(); },
+                    [&] { mtx.lock(); }, [&] { mtx.unlock(); },
                     [&] {}, [&] {},
                     WriteLockTag{});
         }
