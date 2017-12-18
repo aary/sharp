@@ -81,6 +81,14 @@ namespace concurrent_detail {
      * sleep
      */
     class InvalidCv {};
+    template <typename Mutex>
+    struct GetCv {
+        using type = InvalidCv;
+    };
+    template <>
+    struct GetCv<std::mutex> {
+        using type = std::condition_variable;
+    };
 
     /**
      * A SFINAE trait for enabling a specialization when the class is
@@ -99,9 +107,8 @@ namespace concurrent_detail {
      * case where std::mutex and std::condition_variable are used, the waiter
      * does not have an additional mutex
      */
-    template <typename Mutex, typename Cv>
+    template <typename Mutex>
     struct WaiterBase {
-    public:
         void lock() {
             mtx.lock();
         }
@@ -129,14 +136,14 @@ namespace concurrent_detail {
         std::condition_variable cv;
     };
     template <>
-    struct WaiterBase<std::mutex, std::condition_variable> {
-    public:
+    struct WaiterBase<std::mutex> {
         void lock() {}
         void unlock() {}
-        void wait(std::unique_lock<std::mutex>& mtx) {
-            assert(mtx.owns_lock());
+        void wait(std::mutex& mtx) {
+            auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
+            auto deferred = sharp::defer([&]() { lck.release(); });
             while (!this->should_wake) {
-                this->cv.wait(mtx);
+                this->cv.wait(lck);
             }
         }
         template <typename F>
@@ -157,8 +164,8 @@ namespace concurrent_detail {
      * functionality and also stores the condition object itself and is used
      * to identify whether the thread is a reader or not
      */
-    template <typename Condition, typename Mutex, typename Cv>
-    struct Waiter : WaiterBase<Mutex, Cv> {
+    template <typename Condition, typename Mutex>
+    struct Waiter : public WaiterBase<Mutex> {
         template <typename C>
         Waiter(bool is_reader_in, bool is_leader_in, C&& condition_in)
             : is_reader{is_reader_in}, is_leader{is_leader_in},
@@ -247,10 +254,10 @@ namespace concurrent_detail {
             if ((is_reader && proxy.is_leader) || (!is_reader)) {
                 lock_queue();
                 for (auto it = this->waiters.begin();
-                     it != this->watiers.end();) {
-                    if (it->datum.condition(*proxy)) {
-                        assert(!it->datum.is_reader);
-                        it->notify();
+                     it != this->waiters.end();) {
+                    if ((*it)->datum.condition(*proxy)) {
+                        assert(!(*it)->datum.is_reader);
+                        (*it)->datum.notify([]{});
                         this->waiters.erase(it);
                     }
                 }
@@ -273,8 +280,8 @@ namespace concurrent_detail {
             }
 
             // otherwise make a wait node and prepare to sleep
-            auto&& waiter = WaiterNode{false,
-                std::is_same<LockTag, WriteLockTag>::value, condition};
+            auto&& waiter = WaiterNode{std::in_place,
+                false, std::is_same<LockTag, WriteLockTag>::value, condition};
 
             while (true) {
                 // acquire the lock on the queue and also on the waiter
@@ -352,18 +359,18 @@ namespace concurrent_detail {
                 for (auto i = this->waiters.begin();
                      i != this->waiters.end();) {
 
-                    if (i->datum.is_reader && i->datum.condition(*proxy)) {
+                    if ((*i)->datum.is_reader && (*i)->datum.condition(*proxy)) {
                         // notify the thread to wake up and change the
                         // variables it is associated with while notifying
                         // under lock
-                        i->datum.notify([&] {
+                        (*i)->datum.notify([&] {
                             if (!has_transferred_baton && !should_return) {
-                                i->datum.is_leader = true;
+                                (*i)->datum.is_leader = true;
                                 has_transferred_baton = true;
                                 proxy.is_leader = false;
-                                waiter.is_leader = false;
+                                waiter.datum.is_leader = false;
                             } else {
-                                i->datum.is_leader = false;
+                                (*i)->datum.is_leader = false;
                             }
                         });
                         i = this->waiters.erase(i);
@@ -375,19 +382,20 @@ namespace concurrent_detail {
             }
         }
 
-        using WaiterNode = TransparentNode<Waiter<Condition, Mutex, Cv>>;
-        TransparentList<Waiter<Condition, Mutex, Cv>> waiters;
+        using WaiterNode = TransparentNode<Waiter<Condition, Mutex>>;
+        TransparentList<Waiter<Condition, Mutex>> waiters;
     };
 
     /**
      * A specialization for when std::mutex is used, no additional
      * synchronization is needed to put the thread to sleep
      */
+    template <typename...> struct WhichType;
     template <typename, typename, typename, bool>
     class ConditionsLockWrap;
     template <typename Mutex, typename Cv, typename Condition>
     class ConditionsLockWrap<Mutex, Cv, Condition, false>
-            : public ConditionsImpl<Condition, Mutex, Cv> {
+            : public ConditionsImpl<Mutex, Cv, Condition> {
     public:
         template <typename LockProxy>
         void notify(LockProxy& proxy, WriteLockTag) {
@@ -396,7 +404,7 @@ namespace concurrent_detail {
 
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, WriteLockTag) {
-            auto& mtx = proxy->instance_ptr->mtx;
+            auto& mtx = proxy.instance_ptr->mtx;
             this->wait_impl(std::forward<C>(condition), proxy, mtx,
                     [&] { mtx.unlock(); }, [&] { mtx.lock(); },
                     [&] {}, [&] {},
@@ -427,7 +435,7 @@ namespace concurrent_detail {
 
         template <typename C, typename LockProxy>
         void wait(C&& condition, LockProxy& proxy, ReadLockTag) {
-            auto& mtx = proxy->instance_ptr->mtx;
+            auto& mtx = proxy.instance_ptr->mtx;
             this->wait_impl(std::forward<C>(condition), proxy, mtx,
                     [&] { mtx.lock_shared(); }, [&] { mtx.unlock_shared(); },
                     [&] { queue_mtx.lock(); }, [&] { queue_mtx.unlock(); },
