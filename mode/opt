@@ -1,4 +1,0 @@
---config
-cxx.cxxflags=-std=c++14 -Wall -Werror -Wvla -Wextra -pedantic -O3
---config
-cxx.ldflags=

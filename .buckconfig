@@ -1,7 +1,6 @@
 [cxx]
-    gtest_dep=//external/gtest:gtest
-    cxxflags=-std=c++14 -Wall -Werror -Wvla -Wextra -pedantic -g3 -DDEBUG -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
-    ldflags=-fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
+    gtest_dep = //external/gtest:gtest
+    cxxflags = -std=c++14 -Wall -Werror -Wvla -Wextra -pedantic -O3
 
 [repositories]
-    boost=./external/boost
+    boost = ./external/boost
