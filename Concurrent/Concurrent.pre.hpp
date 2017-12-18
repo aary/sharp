@@ -139,27 +139,27 @@ namespace concurrent_detail {
         std::mutex mtx;
         std::condition_variable cv;
     };
-    // template <>
-    // struct WaiterBase<std::mutex> {
-        // void lock() {}
-        // void unlock() {}
-        // void wait(std::mutex& mtx) {
-            // auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
-            // auto deferred = sharp::defer([&]() { lck.release(); });
-            // while (!this->should_wake) {
-                // this->cv.wait(lck);
-            // }
-        // }
-        // template <typename F>
-        // void notify(F f = [](){}) {
-            // this->should_wake = true;
-            // f();
-            // cv.notify_one();
-        // }
+    template <>
+    struct WaiterBase<std::mutex> {
+        void lock() {}
+        void unlock() {}
+        void wait(std::mutex& mtx) {
+            auto lck = std::unique_lock<std::mutex>{mtx, std::adopt_lock};
+            auto deferred = sharp::defer([&]() { lck.release(); });
+            while (!this->should_wake) {
+                this->cv.wait(lck);
+            }
+        }
+        template <typename F>
+        void notify(F f = [](){}) {
+            this->should_wake = true;
+            f();
+            cv.notify_one();
+        }
 
-        // bool should_wake{false};
-        // std::condition_variable cv;
-    // };
+        bool should_wake{false};
+        std::condition_variable cv;
+    };
 
     /**
      * @class Waiter
@@ -260,8 +260,8 @@ namespace concurrent_detail {
                 for (auto it = this->waiters.begin(); it != this->waiters.end();
                      ++it) {
                     if ((*it)->datum.condition(*proxy)) {
-                        assert(!(is_reader && (*it)->datum.is_reader));
-                        cout << "!!!!! About to notify waiter" << endl;
+                        // assert(!(is_reader && (*it)->datum.is_reader));
+                        // cout << "!!!!! About to notify waiter" << endl;
                         (*it)->datum.notify([]{});
                         this->waiters.erase(it);
                         break;
@@ -277,7 +277,7 @@ namespace concurrent_detail {
                   typename LockTag>
         void wait_impl(C condition, LockProxy& proxy,
                        Mtx& mutex,
-                       Lock lock, Unlock unlock,
+                       Lock /* lock */, Unlock /* unlock */,
                        LockQueue lock_queue, UnlockQueue unlock_queue,
                        LockTag) {
             // if the condition is satisfied already at this point then return
@@ -301,21 +301,21 @@ namespace concurrent_detail {
                 waiter.datum.lock();
                 waiter.datum.is_leader = std::is_same<LockTag, WriteLockTag>{};
                 this->notify_impl(proxy, []{}, []{}, LockTag{});
-                cout << "!!!!! about to push back waiter" << endl;
+                // cout << "!!!!! about to push back waiter" << endl;
                 waiters.push_back(&waiter);
-                cout << "!!!!! pushed back waiter" << endl;
+                // cout << "!!!!! pushed back waiter" << endl;
 
                 // unlock the mutex and the queue mutex and prepare to sleep,
                 // at this point the queue contains the waiter which has not
                 // slept yet, but wakeups will not be missed because the
                 // waiter is synchronized that way
-                cout << "!!!!!! About to unlock normal" << endl;
-                unlock();
-                cout << "!!!!!! About to unlock queue" << endl;
+                // cout << "!!!!!! About to unlock normal" << endl;
+                // unlock();
+                // cout << "!!!!!! About to unlock queue" << endl;
                 unlock_queue();
-                cout << "!!!!!! About to wait on waiter" << endl;
+                // cout << "!!!!!! About to wait on waiter" << endl;
                 waiter.datum.wait(mutex);
-                cout << "!!!!!! Woke up" << endl;
+                // cout << "!!!!!! Woke up" << endl;
 
                 // the order of unlocking the queue mutex and locking the main
                 // mutex is very important, this is needed to prevent against
@@ -325,9 +325,9 @@ namespace concurrent_detail {
                 proxy.is_leader = waiter.datum.is_leader;
                 waiter.datum.unlock();
                 unlock_queue();
-                cout << "!!!!!! About to acquire lock" << endl;
-                lock();
-                cout << "!!!!!! Acquired lock" << endl;
+                // cout << "!!!!!! About to acquire lock" << endl;
+                // lock();
+                // cout << "!!!!!! Acquired lock" << endl;
 
                 // there are some things that need doing when threads wake up,
                 // like chaining reader wake calls, transferring stale waiters
@@ -362,7 +362,7 @@ namespace concurrent_detail {
                         LockQueue lock_queue,  UnlockQueue unlock_queue,
                         bool should_return, LockTag) {
             if (std::is_same<LockTag, WriteLockTag>::value) {
-                assert(proxy.is_leader);
+                // assert(proxy.is_leader);
                 return;
             }
 
