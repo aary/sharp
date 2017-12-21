@@ -317,7 +317,6 @@ namespace concurrent_detail {
                 // sleep, if the queue mutex is not unlocked here
                 proxy.is_leader = waiter.datum.is_leader;
                 waiter.datum.unlock();
-                unlock_queue();
                 lock();
 
                 // there are some things that need doing when threads wake up,
