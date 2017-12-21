@@ -72,8 +72,8 @@ public:
     Mutable(Type&& instance) : MutableBase<Type>{std::move(instance)} {}
 
     /**
-     * Assignment operators from instances of type Type, implicit again for
-     * the same reason as above
+     * Assignment operators from instances of type Type, can be used
+     * for implicit construction like above
      */
     Mutable& operator=(const Type& instance) {
         this->get() = instance;
