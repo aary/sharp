@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Mutable",
+    header_namespace = "sharp/Mutable",
+    exported_headers = [
+        "Mutable.pre.hpp",
+        "Mutable.hpp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Mutable/test:test",
+    ],
+)
