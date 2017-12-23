@@ -28,6 +28,8 @@ namespace mutable_detail {
     class MutableBase : public Type {
     public:
         Type& get() const {
+            // cast away the constness of an empty base because it has no
+            // state that can be used to cause UB, method calls on it are safe
             return const_cast<Type&>(static_cast<const Type&>(*this));
         }
     };

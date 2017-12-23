@@ -85,7 +85,34 @@ public:
     }
 
     /**
-     * Returns a reference to the contained object
+     * Returns a reference to the contained object, note that this can be a
+     * problem as with all monadic wrappers when used in rvalue mode, because
+     * lifetime of a dereferenced value type is not extended when bound to an
+     * rvalue reference or a const lvalue reference.  For example
+     *
+     *      auto&& value = *sharp::Mutable<int>{};
+     *
+     * Here `value` will be a dangling reference becasue the lifetime of the
+     * Mutable object would have ended after the assignment.  This leads to
+     * issues, and is even possible with language constructs like the range
+     * based for loop
+     *
+     *      for (auto value : *sharp::Mutable<std::vector<int>>{{{1, 2, 3}}}) {
+     *          cout << value << endl;
+     *      }
+     *
+     * Here the loop will be iterating over an expired value.  This is an
+     * unfortunate consequence of the semantics of range based for loops.  The
+     * above expands to
+     *
+     *      auto&& __range = *sharp::Mutable<std::vector<int>>{{{1, 2, 3}}};
+     *      for (auto __it = __range.begin(); it != __range.end(); ++__it) {
+     *          auto value = *it;
+     *          cout << value << endl;
+     *      }
+     *
+     * And this has the same problem as the rvalue reference assignment above.
+     * The reference is dangling.  Use with care
      */
     Type& get() const & {
         return MutableBase<Type>::get(*this);
