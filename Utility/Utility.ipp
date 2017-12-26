@@ -171,38 +171,4 @@ const Type&& VariantMonad<Types...>::cast() const && {
     return std::move(*reinterpret_cast<const Type*>(&this->storage));
 }
 
-template <typename Type>
-template <typename... Args>
-Monad::Monad(std::in_place_t, Args&&... args)
-    : element{std::forward<Args>(args)...} {}
-
-template <typename Type>
-template <typename U, typename... Args>
-Monad::Monad(std::in_place_t, std::initializer_list<U> il, Args&&... args)
-    : element{il, std::forward<Args>(args)...} {}
-
-template <typename Type>
-template <typename U = Type, EnableIfNotSelfAndNotInPlace<U, Monad<Type>>*>
-Monad(U&& element_in) : element{std::forward<U>(element_in)} {}
-
-template <typename Type>
-Type& Monad<Type>::get() & {
-    return this->element;
-}
-
-template <typename Type>
-Type&& Monad<Type>::get() && {
-    return std::move(this->element);
-}
-
-template <typename Type>
-const Type& Monad<Type>::get() const & {
-    return this->element;
-}
-
-template <typename Type>
-const Type&& Monad<Type>::get() const && {
-    return std::move(this->element);
-}
-
 } // namespace sharp
