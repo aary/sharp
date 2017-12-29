@@ -10,6 +10,8 @@
 
 #include <type_traits>
 
+#include <sharp/Traits/Traits.hpp>
+
 namespace sharp {
 namespace mutable_detail {
 
@@ -17,14 +19,12 @@ namespace mutable_detail {
      * Concepts(ish)
      */
     /**
-     * Tell whether a type is a class type or not
+     * Tell whether a class is empty or not
      */
     template <typename T>
-    using EnableIfEmpty = std::enable_if_t<std::is_empty<T>>;
-    template <typename T>
-    using EnableIfNotEmpty = std::enable_if_t<!std::is_empty<T>>;
+    using EnableIfNotEmpty = std::enable_if_t<!std::is_empty<T>::value>;
 
-    template <typename Type, EnableIfEmpty<Type>* = nullptr>
+    template <typename Type, typename = sharp::void_t<>>
     class MutableBase : public Type {
     public:
         Type& get() const {
@@ -34,8 +34,8 @@ namespace mutable_detail {
         }
     };
 
-    template <typename Type, EnableIfNotClass<Type>* = nullptr>
-    class MutableBase {
+    template <typename Type>
+    class MutableBase<Type, EnableIfNotEmpty<Type>> {
     public:
         Type& get() const {
             return instance;

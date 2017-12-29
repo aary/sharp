@@ -14,6 +14,8 @@
 
 #include <sharp/Mutable/Mutable.pre.hpp>
 
+namespace sharp {
+
 /**
  * @class Mutable
  *
@@ -43,7 +45,7 @@
  * efficiently
  */
 template <typename Type>
-class Mutable : public MutableBase<Type> {
+class Mutable : public mutable_detail::MutableBase<Type> {
 public:
     static_assert(!std::is_const<Type>::value, "pls");
     static_assert(!std::is_reference<Type>::value, "no references allowed");
@@ -68,8 +70,10 @@ public:
      * This puts the initializer {1, 2, 3, 4} as if it were used to initialize
      * the contained std::vector<int>
      */
-    Mutable(const Type& instance) : MutableBase<Type>{instance} {}
-    Mutable(Type&& instance) : MutableBase<Type>{std::move(instance)} {}
+    Mutable(const Type& instance)
+        : mutable_detail::MutableBase<Type>{instance} {}
+    Mutable(Type&& instance)
+        : mutable_detail::MutableBase<Type>{std::move(instance)} {}
 
     /**
      * Assignment operators from instances of type Type, can be used
@@ -115,7 +119,7 @@ public:
      * The reference is dangling.  Use with care
      */
     Type& get() const & {
-        return MutableBase<Type>::get(*this);
+        return mutable_detail::MutableBase<Type>::get();
     }
     Type&& get() const && {
         return std::move(this->get());
@@ -134,3 +138,5 @@ public:
         return std::addressof(this->get());
     }
 };
+
+} // namespace sharp

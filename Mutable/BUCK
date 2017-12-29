@@ -5,6 +5,9 @@ cxx_library(
         "Mutable.pre.hpp",
         "Mutable.hpp",
     ],
+    deps = [
+        "//Traits:Traits",
+    ],
     visibility = [
         "PUBLIC",
     ],
