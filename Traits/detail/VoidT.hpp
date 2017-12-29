@@ -10,8 +10,9 @@
 namespace sharp {
 
 namespace detail {
-    template <typename... Types> struct MakeVoid {
-        typedef void type;
+    template <typename... Types>
+    struct MakeVoid {
+        using type = void;
     };
 } // namespace detail
 
