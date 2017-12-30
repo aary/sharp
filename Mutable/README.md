@@ -1,4 +1,4 @@
-`Mutable` A library utility to create mutable instances
+`Mutable` A library for mutability
 ---------
 
 A library utility for mutability, this has several advantages over mutability
@@ -12,7 +12,7 @@ auto mutexes = std::unordered_map<int, std::mutex>{};
 
 // read thread, cannot modify the map
 void foo(const std::unordered_map<int, std::mutex>& mutexes) {
-    auto mutex = mutexes.at(1);
+    auto& mutex = mutexes.at(1);
     mutex.lock(); // error
 }
 ```
@@ -23,6 +23,12 @@ above is simple
 
 ```c++
 auto mutexes = std::unordered_map<int, sharp::Mutable<std::mutex>>{};
+
+// read thread, cannot modify the map
+void foo(const std::unordered_map<int, std::mutex>& mutexes) {
+    auto& mutex = mutexes.at(1);
+    mutex->lock();
+}
 ```
 
 This carries through the type system and enforces mutability right at the
