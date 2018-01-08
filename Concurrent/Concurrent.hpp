@@ -3,13 +3,14 @@
  * @author Aaryaman Sagar (rmn100@gmail.com)
  *
  * This module contains an abstraction that serves better than mutexes for
- * mutual exclusion and monitors for synchronization, with a uniform easy to
- * understand API this eliminates some of the drawbacks of mutexes and
- * monitors
+ * mutual exclusion and monitors for communication, with a uniform easy to
+ * understand API this eliminates lots of the drawbacks of mutexes and
+ * monitors.  And also provides more efficiency without a lot of the mental
+ * overhead associated with common concurrency patterns
  *
  *  * Originally written for EECS 482 @ The University of Michigan *
  *
- * This was originally named ThreadSafeData, but the name concurrent works
+ * This was originally named ThreadSafeData, but the name Concurrent works
  * better and is shorter :)
  *
  * See the class description documentation for simple use case examples.
