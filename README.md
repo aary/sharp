@@ -119,6 +119,17 @@ int main() {
 }
 ```
 
+### `sharp::Invoke`
+Function calls which allow users to used named arguments but in a type safe
+manner at compile time.
+```c++
+auto value = sharp::get(args::Host{"https://some_api.com"}, args::Timeout{1s});
+cout << value << endl;
+```
+
+With more supported features like optional arguments, one in many arguments,
+etc.
+
 ### `sharp::Future`
 An implementation of futures that fixes some common issues with futures like
 unnecessary locking on ready fetching, with non-opaque threading models
