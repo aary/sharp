@@ -77,6 +77,28 @@ for (auto [a, b] : sharp::zip(range_one, range_two)) {
 }
 ```
 
+### `sharp::Settings`
+A library for providing settings and configurations to your programs, either
+as flags or as real time configs.  With an interface similar to
+[`gflags`](https://gflags.github.io/gflags/), but typed.  This serves similar
+purposes but with a strictly better, more extendible interface
+```c++
+namespace settings = sharp::settings;
+namespace {
+    auto config = settings::define<int>("config", default_value, "a config");
+} // namespace <anonymous>
+
+int main(int args, char** argv) {
+    settings::init(args, argv);
+    cout << "The value of config is " << *config << endl;
+}
+```
+
+And then pass the flag to the program like so
+```
+$ ./a.out --config <value>
+```
+
 ### `sharp::overload`
 Overload anything, anywhere with no overhead at all.  All at compile time
 (surprisingly hard to get right)
