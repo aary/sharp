@@ -172,7 +172,7 @@ if (value) {
 `sharp/Traits` contains a complete implementation of the `<algorithm>` header
 with sequences of compile time ranges, for example
 
-```
+```c++
 using Sorted = sharp::Sort_t<LessThan, Types...>;
 ```
 
