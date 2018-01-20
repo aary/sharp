@@ -143,7 +143,7 @@ return sharp::when_all(one, two).via(cpu).then([](auto [one, two]) {
 });
 ```
 
-### `sharp::Recursive`
+### `sharp::recursive`
 Write recursive closures at 0 runtime cost
 ```c++
 auto sum = sharp::recursive([](auto& self, auto start, auto end, auto sum) {
