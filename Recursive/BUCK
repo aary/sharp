@@ -1,0 +1,15 @@
+cxx_library(
+    name = "Recursive",
+    header_namespace = "sharp/Recursive",
+    exported_headers = [
+        "Recursive.hpp",
+        "Recursive.ipp",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+
+    tests = [
+        "//Recursive/test:test",
+    ],
+)
