@@ -143,6 +143,19 @@ return sharp::when_all(one, two).via(cpu).then([](auto [one, two]) {
 });
 ```
 
+### `sharp::Recursive`
+Write recursive closures at 0 runtime cost
+```c++
+auto sum = sharp::recursive([](auto& self, auto start, auto end, auto sum) {
+    if (start == end) {
+        return sum;
+    }
+
+    return self(start + 1, end, sum + start);
+});
+assert(sum(0, 5, 0), 10);
+```
+
 ### `sharp::Try`
 Represent either a value or an exception in a classy way
 ```c++
