@@ -31,8 +31,8 @@ Here the mutex takes up the two most significant bits of the storage allocated
 for it and the rest is used up by the coexistent scalar
 
 The API ensures that users only make safe writes to the embedded integer by
-following an RAII based access pattern and safely committing to the atomic
-integer on destruction.  If the user tries to change the spinlock state, the
+following an RAII based access pattern and safely committing to the underlying
+storage on destruction.  If the user tries to change the spinlock state, the
 program will try and raise an exception or crash with a helpful error message
 
 ```c++
