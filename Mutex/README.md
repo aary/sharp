@@ -1,7 +1,7 @@
 `Mutex`
 ---------
 
-Very *very* small mutexes for fine grained locking
+Very ***very*** small mutexes for fine grained locking
 
 ```c++
 auto mutex = sharp::Mutex<>{};
@@ -16,8 +16,8 @@ featured adaptive sleeping lock (`sharp::Mutex`).  Both locks take up one
 bit and two bits respectively.
 
 C++ requires that objects are at least a single byte wide, to overcome this
-limitation the mutex objects contain an embedded coexistent scalar unsigned
-integral value that can be used for any other purpose
+limitation the mutex objects contain an embedded unsigned integral value that
+can be used for any other purpose
 
 ```c++
 auto mutex = sharp::Mutex<std::uint8_t>{};
@@ -27,8 +27,8 @@ cout << *data << endl;
 data.unlock();
 ```
 
-Here the mutex takes up the two most significant bits of the storage allocated
-for it and the rest is used up by the coexistent scalar
+The mutex takes up the two most significant bits of the storage allocated for
+it and the rest is used up by the coexistent scalar
 
 The API ensures that users only make safe writes to the embedded integer by
 following an RAII based access pattern and safely committing to the underlying
