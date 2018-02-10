@@ -1,7 +1,5 @@
-`Mutex`
----------
-
-Very ***very*** small mutexes for fine grained locking
+`Mutex` Very ***very*** small transactional mutexes
+-------
 
 ```c++
 auto mutex = sharp::Mutex<>{};
